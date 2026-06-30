@@ -24,5 +24,6 @@ models/
 *.pth
 
 # Python package (separate repo)
-xnlp/
+/xnlp/
 pyproject.toml
+dependency-reduced-pom.xml
