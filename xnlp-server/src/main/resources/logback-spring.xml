@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- ================================================================
+         X-NLP Logback Configuration
+         ................................................................
+
+         Profiles:
+           dev / default  => human-readable console   (local development)
+           prod / cloud   => JSON console + JSON file  (cloud-native, ELK/Loki)
+
+         Environment variables:
+           LOG_PATH        = file log directory (default: /var/log/xnlp)
+           LOG_MAX_HISTORY = max days of archived logs (default: 30)
+           LOG_MAX_SIZE    = per-file max size before rotation (default: 100MB)
+           LOG_TOTAL_CAP   = total size cap across all archives (default: 10GB)
+         ............................................................... -->
+
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name"
+                    defaultValue="xnlp-server"/>
+    <property name="LOG_PATH"          value="${LOG_PATH:-/var/log/xnlp}"/>
+    <property name="LOG_MAX_HISTORY"   value="${LOG_MAX_HISTORY:-30}"/>
+    <property name="LOG_MAX_SIZE"      value="${LOG_MAX_SIZE:-100MB}"/>
+    <property name="LOG_TOTAL_CAP"     value="${LOG_TOTAL_CAP:-10GB}"/>
+
+    <!-- Dev / Default  —  Human-readable console output -->
+    <springProfile name="dev,default">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] [%X{traceId:-}] %cyan(%logger{36}) - %msg%n</pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+
+        <logger name="com.xnlp" level="DEBUG"/>
+        <logger name="com.xnlp.server.config" level="INFO"/>
+    </springProfile>
+
+    <!-- Prod / Cloud  —  JSON console + rotating JSON file -->
+    <springProfile name="prod,cloud">
+
+        <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp>
+                        <fieldName>@timestamp</fieldName>
+                    </timestamp>
+                    <loggerName>
+                        <fieldName>logger</fieldName>
+                    </loggerName>
+                    <logLevel>
+                        <fieldName>level</fieldName>
+                    </logLevel>
+                    <threadName>
+                        <fieldName>thread</fieldName>
+                    </threadName>
+                    <message>
+                        <fieldName>message</fieldName>
+                    </message>
+                    <stackTrace>
+                        <fieldName>stack_trace</fieldName>
+                        <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                            <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                            <maxLength>4096</maxLength>
+                            <shortenedClassNameLength>20</shortenedClassNameLength>
+                        </throwableConverter>
+                    </stackTrace>
+                    <mdc>
+                        <fieldName>trace</fieldName>
+                    </mdc>
+                    <tags>
+                        <fieldName>labels</fieldName>
+                    </tags>
+                </providers>
+            </encoder>
+        </appender>
+
+        <!-- File appender with size- and time-based rotation -->
+        <appender name="FILE_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${LOG_PATH}/${APP_NAME}.json</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>${LOG_PATH}/${APP_NAME}.%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
+                <maxFileSize>${LOG_MAX_SIZE}</maxFileSize>
+                <maxHistory>${LOG_MAX_HISTORY}</maxHistory>
+                <totalSizeCap>${LOG_TOTAL_CAP}</totalSizeCap>
+            </rollingPolicy>
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp>
+                        <fieldName>@timestamp</fieldName>
+                    </timestamp>
+                    <loggerName>
+                        <fieldName>logger</fieldName>
+                    </loggerName>
+                    <logLevel>
+                        <fieldName>level</fieldName>
+                    </logLevel>
+                    <threadName>
+                        <fieldName>thread</fieldName>
+                    </threadName>
+                    <message>
+                        <fieldName>message</fieldName>
+                    </message>
+                    <stackTrace>
+                        <fieldName>stack_trace</fieldName>
+                        <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                            <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                            <maxLength>4096</maxLength>
+                            <shortenedClassNameLength>20</shortenedClassNameLength>
+                        </throwableConverter>
+                    </stackTrace>
+                    <mdc>
+                        <fieldName>trace</fieldName>
+                    </mdc>
+                    <tags>
+                        <fieldName>labels</fieldName>
+                    </tags>
+                </providers>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_JSON"/>
+            <appender-ref ref="FILE_JSON"/>
+        </root>
+
+        <logger name="com.xnlp" level="INFO"/>
+        <logger name="com.xnlp.server.config" level="INFO"/>
+        <logger name="org.springframework" level="WARN"/>
+        <logger name="org.apache.catalina" level="WARN"/>
+    </springProfile>
+
+</configuration>

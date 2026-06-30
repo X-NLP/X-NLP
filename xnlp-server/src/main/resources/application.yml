@@ -1,0 +1,48 @@
+server:
+  port: ${XHLP_PORT:8760}
+
+spring:
+  application:
+    name: xnlp-server
+
+management:
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: ${spring.profiles.active:dev}
+    export:
+      prometheus:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://localhost:4318/v1/traces
+logging:
+  file:
+    path: ${LOG_PATH:/var/log/xnlp}
+
+xnlp:
+  server:
+    host: 0.0.0.0
+    port: 8760
+    max-workers: 4
+    request-timeout-seconds: 60
+    max-batch-size: 32
+  models:
+    - name: example-text-gen
+      version: latest
+      model-path: models/example.onnx
+      backend: auto
+      device: cpu
+      max-input-length: 512
+      max-output-length: 256
