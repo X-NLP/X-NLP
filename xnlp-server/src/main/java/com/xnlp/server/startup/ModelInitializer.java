@@ -14,11 +14,14 @@ import org.springframework.stereotype.Component;
  * Loads the models defined in {@code xnlp.models} config once the application is ready.
  *
  * <p>This runs after the {@code ModelRegistry} bean and its backends are fully wired.
+ * After startup completes, {@link #isStartupComplete()} returns {@code true},
+ * which the startup probe ({@code /startupz}) uses to signal readiness to K8s.
  */
 @Component
 public class ModelInitializer {
 
     private static final Logger log = LoggerFactory.getLogger(ModelInitializer.class);
+    private volatile boolean startupComplete = false;
 
     private final ModelRegistry registry;
     private final MetricsService metrics;
@@ -41,5 +44,11 @@ public class ModelInitializer {
                 log.error("Failed to auto-load model '{}': {}", cfg.getName(), e.getMessage());
             }
         }
+        startupComplete = true;
+        log.info("Model initialisation complete. startupComplete flag set.");
+    }
+
+    public boolean isStartupComplete() {
+        return startupComplete;
     }
 }
