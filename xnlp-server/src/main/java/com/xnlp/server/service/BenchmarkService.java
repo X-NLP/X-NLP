@@ -16,6 +16,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Benchmark service that stress-tests model inference throughput and latency.
+ *
+ * <p>Uses the ModelRegistry (which delegates to Spring AI ChatModel) to
+ * run concurrent prediction rounds and collect per-request latency data.
+ */
 @Service
 public class BenchmarkService {
 
@@ -58,7 +64,7 @@ public class BenchmarkService {
 
         executor.shutdown();
         try {
-            executor.awaitTermination(30, TimeUnit.SECONDS);
+            executor.awaitTermination(60, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

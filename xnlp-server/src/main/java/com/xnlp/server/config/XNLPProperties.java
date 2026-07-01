@@ -5,7 +5,9 @@ import com.xnlp.core.config.ServerConfig;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Binds {@code xnlp.*} from application.yml to typed config objects.

@@ -4,8 +4,8 @@
 
 ```
 X-NLP/
-├── pom.xml                   # Parent POM (Spring Boot 4.1.0, Java 21)
-├── Dockerfile                # eclipse-temurin:17-jre-alpine
+├── pom.xml                   # Parent POM (Spring Boot 4.1.0, Java 25, Spring AI 1.0)
+├── Dockerfile                # eclipse-temurin:25-jre-alpine
 ├── configs/                  # Environment-specific YAML overrides
 ├── docker/                   # Docker Compose & K8s manifests
 ├── tests/                    # Integration / E2E scripts
@@ -40,7 +40,7 @@ X-NLP/
 | Command | Purpose |
 |---|---|
 | `mvn clean verify` | Full build: compile + test + package all 4 modules |
-| `mvn test` | Run all tests (32 tests, JUnit 5 + AssertJ) |
+| `mvn test` | Run all tests (28 tests, JUnit 5 + AssertJ) |
 | `mvn test -pl xnlp-server` | Run server-layer tests only |
 | `mvn spring-boot:run -pl xnlp-server` | Start server on port 8760 |
 | `java -jar xnlp-cli/target/xnlp-cli-*.jar` | Run CLI (pass `-s` to set server URL) |
@@ -50,7 +50,7 @@ Server exposes Actuator at `/actuator` (health, metrics, prometheus) and K8s pro
 
 ## Coding Style & Naming Conventions
 
-- **Java 21**, no preview features. 4-space indentation.
+- **Java 25, Spring AI 1.0**, no preview features. 4-space indentation.
 - **Packages**: `com.xnlp.<module>.<layer>` -- e.g. `com.xnlp.server.controller`
 - **Config classes**: `@Configuration`-annotated; properties via `@ConfigurationProperties("xnlp")`
 - **Beans**: Constructor injection only (no `@Autowired` fields). Use `private final` + single-constructor convention.

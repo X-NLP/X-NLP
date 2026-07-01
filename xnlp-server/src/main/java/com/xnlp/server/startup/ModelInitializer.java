@@ -13,9 +13,9 @@ import org.springframework.stereotype.Component;
 /**
  * Loads the models defined in {@code xnlp.models} config once the application is ready.
  *
- * <p>This runs after the {@code ModelRegistry} bean and its backends are fully wired.
- * After startup completes, {@link #isStartupComplete()} returns {@code true},
- * which the startup probe ({@code /startupz}) uses to signal readiness to K8s.
+ * <p>After startup, Spring AI ChatModel beans are already auto-configured.
+ * This initializer registers each configured model name -> ChatModel mapping
+ * in the ModelRegistry based on the provider field in the model config.
  */
 @Component
 public class ModelInitializer {
@@ -39,7 +39,7 @@ public class ModelInitializer {
             try {
                 registry.loadModel(cfg);
                 metrics.incrementLoadedModels();
-                log.info("Auto-loaded model: {} via backend {}", cfg.getName(), cfg.getBackend());
+                log.info("Auto-loaded model: {} provider={}", cfg.getName(), cfg.getBackend());
             } catch (Exception e) {
                 log.error("Failed to auto-load model '{}': {}", cfg.getName(), e.getMessage());
             }

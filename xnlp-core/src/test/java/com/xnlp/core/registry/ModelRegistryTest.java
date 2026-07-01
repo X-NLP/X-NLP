@@ -1,7 +1,6 @@
 package com.xnlp.core.registry;
 
 import com.xnlp.core.config.ModelConfig;
-import com.xnlp.core.engine.InferenceEngine;
 import com.xnlp.core.errors.ModelNotFoundError;
 import com.xnlp.core.model.ModelInfo;
 import com.xnlp.core.model.PredictRequest;
@@ -9,9 +8,13 @@ import com.xnlp.core.model.PredictResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.prompt.Prompt;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -19,47 +22,47 @@ import static org.assertj.core.api.Assertions.*;
 class ModelRegistryTest {
 
     private ModelRegistry registry;
-    private TestInferenceEngine backend;
+    private ChatModel stubChatModel;
 
     @BeforeEach
     void setUp() {
         registry = new ModelRegistry();
-        backend = new TestInferenceEngine("test-backend", true);
-        registry.registerBackend(backend);
+        stubChatModel = new StubChatModel();
     }
 
     @Test
     @DisplayName("should load model and list it")
     void loadAndList() {
-        ModelConfig cfg = cfg("test-model", "models/test.onnx");
-        ModelInfo info = registry.loadModel(cfg);
+        ModelConfig cfg = cfg("test-model");
+        registry.registerChatModel("test-model", stubChatModel, ModelInfo.fromConfig(cfg));
 
-        assertThat(info.getName()).isEqualTo("test-model");
-        assertThat(info.getStatus()).isEqualTo("loaded");
-        assertThat(registry.listModels()).hasSize(1);
-        assertThat(backend.isLoaded("test-model")).isTrue();
+        List<ModelInfo> models = registry.listModels();
+        assertThat(models).hasSize(1);
+        assertThat(models.get(0).getName()).isEqualTo("test-model");
+        assertThat(models.get(0).getStatus()).isEqualTo("loaded");
     }
 
     @Test
     @DisplayName("should unload model")
     void unloadModel() {
-        registry.loadModel(cfg("test-model", "models/test.onnx"));
+        registry.registerChatModel("test-model", stubChatModel,
+                ModelInfo.fromConfig(cfg("test-model")));
         registry.unloadModel("test-model");
 
         assertThat(registry.listModels()).isEmpty();
-        assertThat(backend.isLoaded("test-model")).isFalse();
     }
 
     @Test
     @DisplayName("should predict through loaded model")
     void predict() {
-        registry.loadModel(cfg("test-model", "models/test.onnx"));
+        registry.registerChatModel("test-model", stubChatModel,
+                ModelInfo.fromConfig(cfg("test-model")));
 
         PredictRequest req = new PredictRequest();
         req.setText("hello");
         PredictResponse resp = registry.predict(req);
 
-        assertThat(resp.getText()).contains("test-model");
+        assertThat(resp.getText()).contains("echo");
         assertThat(resp.getModel()).isEqualTo("test-model");
     }
 
@@ -75,11 +78,11 @@ class ModelRegistryTest {
     @Test
     @DisplayName("should resolve model name when single model loaded")
     void autoResolveModelName() {
-        registry.loadModel(cfg("only-model", "models/only.onnx"));
+        registry.registerChatModel("only-model", stubChatModel,
+                ModelInfo.fromConfig(cfg("only-model")));
 
         PredictRequest req = new PredictRequest();
         req.setText("hello");
-        // modelName not set — should auto-resolve
         PredictResponse resp = registry.predict(req);
         assertThat(resp.getModel()).isEqualTo("only-model");
     }
@@ -87,7 +90,8 @@ class ModelRegistryTest {
     @Test
     @DisplayName("should get model info by name")
     void getModel() {
-        registry.loadModel(cfg("foo", "models/foo.onnx"));
+        registry.registerChatModel("foo", stubChatModel,
+                ModelInfo.fromConfig(cfg("foo")));
 
         ModelInfo info = registry.getModel("foo");
         assertThat(info.getName()).isEqualTo("foo");
@@ -102,34 +106,20 @@ class ModelRegistryTest {
     }
 
     @Test
-    @DisplayName("should prefer explicit backend when specified")
-    void preferBackend() {
-        InferenceEngine djl = new TestInferenceEngine("djl", true);
-        registry.registerBackend(djl);
-
-        ModelConfig cfg = cfg("b-model", "models/b.onnx");
-        cfg.setBackend("djl");
-        registry.loadModel(cfg);
-        assertThat(djl.isLoaded("b-model")).isTrue();
-        assertThat(backend.isLoaded("b-model")).isFalse();
-    }
-
-    @Test
     @DisplayName("should shutdown and release all resources")
     void shutdown() {
-        registry.loadModel(cfg("m1", "models/m1.onnx"));
-        registry.loadModel(cfg("m2", "models/m2.onnx"));
+        registry.registerChatModel("m1", stubChatModel, ModelInfo.fromConfig(cfg("m1")));
+        registry.registerChatModel("m2", stubChatModel, ModelInfo.fromConfig(cfg("m2")));
         registry.shutdown();
 
         assertThat(registry.listModels()).isEmpty();
-        assertThat(backend.isLoaded("m1")).isFalse();
-        assertThat(backend.isLoaded("m2")).isFalse();
     }
 
     @Test
     @DisplayName("should apply pre-processing pipeline")
     void pipelineApplied() {
-        registry.loadModel(cfg("pipe-model", "models/pipe.onnx"));
+        registry.registerChatModel("pipe-model", stubChatModel,
+                ModelInfo.fromConfig(cfg("pipe-model")));
 
         PredictRequest req = new PredictRequest();
         req.setText("  hello   world  ");
@@ -138,33 +128,21 @@ class ModelRegistryTest {
         assertThat(resp.getText()).contains("hello world");
     }
 
-    private static ModelConfig cfg(String name, String path) {
+    private static ModelConfig cfg(String name) {
         ModelConfig c = new ModelConfig();
         c.setName(name);
-        c.setModelPath(path);
+        c.setModelPath("models/" + name + ".onnx");
+        c.setBackend("test");
         return c;
     }
 
-    /** Stub inference engine for testing. */
-    static class TestInferenceEngine implements InferenceEngine {
-        private final String name;
-        private final boolean supportsAll;
-        private final java.util.Set<String> loaded = java.util.concurrent.ConcurrentHashMap.newKeySet();
-
-        TestInferenceEngine(String name, boolean supportsAll) {
-            this.name = name;
-            this.supportsAll = supportsAll;
-        }
-        @Override public String backendName() { return name; }
-        @Override public boolean supports(String path) { return supportsAll; }
-        @Override public void load(String modelName, String path, Map<String, Object> opts) { loaded.add(modelName); }
-        @Override public void unload(String modelName) { loaded.remove(modelName); }
-        @Override public boolean isLoaded(String modelName) { return loaded.contains(modelName); }
+    /** Stub ChatModel for testing. */
+    static class StubChatModel implements ChatModel {
         @Override
-        public PredictResponse predict(PredictRequest req) {
-            return PredictResponse.ok("[" + this.name + ":" + req.getModelName() + "] " + req.getText(),
-                    req.getModelName(), 0.001);
+        public ChatResponse call(Prompt prompt) {
+            String text = prompt.getInstructions().get(0).getText();
+            Generation gen = new Generation(new AssistantMessage("echo: " + text));
+            return new ChatResponse(List.of(gen));
         }
-        @Override public void close() { loaded.clear(); }
     }
 }

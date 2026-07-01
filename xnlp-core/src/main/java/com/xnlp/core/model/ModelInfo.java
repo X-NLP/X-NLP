@@ -16,6 +16,7 @@ public class ModelInfo {
     private String name;
     private String version;
     private String backend;
+    private String provider;
     private String device;
     private String status;
     private Instant loadedAt;
@@ -26,6 +27,7 @@ public class ModelInfo {
         info.name = cfg.getName();
         info.version = cfg.getVersion();
         info.backend = cfg.getBackend();
+        info.provider = cfg.getBackend();
         info.device = cfg.getDevice();
         return info;
     }
@@ -36,6 +38,8 @@ public class ModelInfo {
     public void setVersion(String version) { this.version = version; }
     public String getBackend() { return backend; }
     public void setBackend(String backend) { this.backend = backend; }
+    public String getProvider() { return provider; }
+    public void setProvider(String provider) { this.provider = provider; }
     public String getDevice() { return device; }
     public void setDevice(String device) { this.device = device; }
     public String getStatus() { return status; }

@@ -1,8 +1,6 @@
 package com.xnlp.core.registry;
 
 import com.xnlp.core.config.ModelConfig;
-import com.xnlp.core.engine.InferenceEngine;
-import com.xnlp.core.errors.BackendNotSupportedError;
 import com.xnlp.core.errors.ModelLoadError;
 import com.xnlp.core.errors.ModelNotFoundError;
 import com.xnlp.core.errors.PredictionError;
@@ -13,27 +11,33 @@ import com.xnlp.core.pipeline.PipelineManager;
 import com.xnlp.core.pipeline.TextNormalizerPipeline;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.Prompt;
 
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Central registry for model management.
  *
- * <p>Maintains the mapping between model names and their loaded
- * {@link InferenceEngine} instances. Backends are discovered via SPI and
- * the registry picks the first compatible one when loading. Predictions
- * flow through the configured {@link PipelineManager} for pre/post-processing.
+ * <p>Maintains a mapping between model names and their Spring AI
+ * {@link ChatModel} instances.  Predictions flow through the configured
+ * {@link PipelineManager} for pre/post-processing.
+ *
+ * <p>ChatModels are registered by the server layer via
+ * {@link #registerChatModel(String, ChatModel, ModelInfo)}.
  */
 public class ModelRegistry {
 
     private static final Logger log = LoggerFactory.getLogger(ModelRegistry.class);
 
     private final Map<String, ModelInfo> models = new ConcurrentHashMap<>();
-    private final Map<String, InferenceEngine> engines = new ConcurrentHashMap<>();
-    private final List<InferenceEngine> backends = new CopyOnWriteArrayList<>();
+    private final Map<String, ChatModel> chatModels = new ConcurrentHashMap<>();
     private final PipelineManager pipelineManager = new PipelineManager();
     private final String activeModel;
 
@@ -46,12 +50,6 @@ public class ModelRegistry {
         this.pipelineManager.register(new TextNormalizerPipeline());
     }
 
-    /** Register a backend engine. Call during initialization. */
-    public void registerBackend(InferenceEngine engine) {
-        backends.add(engine);
-        log.info("Registered backend: {}", engine.backendName());
-    }
-
     /** Register a processing pipeline. */
     public void registerPipeline(com.xnlp.core.pipeline.ProcessingPipeline pipeline) {
         pipelineManager.register(pipeline);
@@ -62,56 +60,90 @@ public class ModelRegistry {
         return pipelineManager;
     }
 
-    public List<InferenceEngine> getBackends() {
-        return Collections.unmodifiableList(backends);
-    }
-
-    /** Load a model from configuration. */
-    public ModelInfo loadModel(ModelConfig cfg) {
-        InferenceEngine engine = resolveEngine(cfg.getModelPath(), cfg.getBackend());
-        if (engine == null) {
-            throw new BackendNotSupportedError(
-                    "No backend available for model " + cfg.getName(),
-                    Map.of("model_path", cfg.getModelPath(), "backend", cfg.getBackend()));
-        }
-
-        try {
-            engine.load(cfg.getName(), cfg.getModelPath(), cfg.getOptions());
-        } catch (Exception e) {
-            throw new ModelLoadError("Failed to load model " + cfg.getName(), e);
-        }
-
-        engines.put(cfg.getName(), engine);
-        ModelInfo info = ModelInfo.fromConfig(cfg);
+    /**
+     * Register (or override) a ChatModel under the given model name.
+     * Called by the server wiring layer after Spring AI auto-config creates ChatModel beans.
+     */
+    public ModelInfo registerChatModel(String name, ChatModel chatModel, ModelInfo info) {
+        chatModels.put(name, chatModel);
         info.setStatus("loaded");
         info.setLoadedAt(Instant.now());
-        models.put(cfg.getName(), info);
-        log.info("Model loaded: {} via {}", cfg.getName(), engine.backendName());
+        models.put(name, info);
+        log.info("Registered ChatModel: name={} provider={}", name, info.getProvider());
         return info;
     }
 
-    /** Unload a model and release resources. */
-    public void unloadModel(String name) {
-        InferenceEngine engine = engines.remove(name);
-        if (engine != null) {
-            engine.unload(name);
+    /** Load a model from configuration (delegates to registerChatModel with existing ChatModel). */
+    public ModelInfo loadModel(ModelConfig cfg) {
+        // Find the matching ChatModel by provider
+        String provider = cfg.getBackend();
+        if (provider == null || provider.isBlank() || "auto".equals(provider)) {
+            // Pick the first available ChatModel
+            if (!chatModels.isEmpty()) {
+                provider = chatModels.keySet().iterator().next();
+            }
         }
-        models.remove(name);
+        ChatModel cm = chatModels.get(provider);
+        if (cm == null) {
+            // Also try matching by provider field in registered models
+            for (var entry : models.entrySet()) {
+                if (provider != null && provider.equals(entry.getValue().getProvider())) {
+                    cm = chatModels.get(entry.getKey());
+                    break;
+                }
+            }
+            if (cm == null && !chatModels.isEmpty()) {
+                // Fall back to any available ChatModel
+                cm = chatModels.values().iterator().next();
+            }
+            if (cm == null) {
+                throw new ModelLoadError("No ChatModel available for model " + cfg.getName(),
+                        (Throwable) null);
+            }
+        }
+        chatModels.put(cfg.getName(), cm);
+        ModelInfo info = ModelInfo.fromConfig(cfg);
+        info.setStatus("loaded");
+        info.setLoadedAt(Instant.now());
+        // Set provider from the ChatModel's own metadata
+        if (info.getProvider() == null) {
+            info.setProvider(detectProvider(cm));
+        }
+        models.put(cfg.getName(), info);
+        log.info("Model loaded: {} provider={}", cfg.getName(), info.getProvider());
+        return info;
     }
 
-    /** Run inference through engine with pre/post-processing pipelines. */
+    /** Unload a model. */
+    public void unloadModel(String name) {
+        chatModels.remove(name);
+        models.remove(name);
+        log.info("Model unloaded: {}", name);
+    }
+
+    /** Run inference through the registered ChatModel with pre/post-processing pipelines. */
     public PredictResponse predict(PredictRequest request) {
         String modelName = resolveModelName(request.getModelName());
-        InferenceEngine engine = engines.get(modelName);
-        if (engine == null) {
+        ChatModel cm = chatModels.get(modelName);
+        if (cm == null) {
             throw new ModelNotFoundError("Model not loaded: " + modelName);
         }
+        request.setModelName(modelName);
         PredictRequest processed = pipelineManager.applyPreProcessing(modelName, request);
         if (processed == null) {
             throw new PredictionError(
                     "Request rejected by pre-processing pipeline for model " + modelName);
         }
-        request.setModelName(modelName); processed.setModelName(modelName); PredictResponse response = engine.predict(processed);
+
+        long t0 = System.nanoTime();
+        Prompt prompt = new Prompt(new UserMessage(processed.getText()));
+        ChatResponse chatResponse = cm.call(prompt);
+        long elapsed = System.nanoTime() - t0;
+
+        String content = chatResponse.getResult().getOutput().getText();
+        PredictResponse response = PredictResponse.ok(content, modelName,
+                elapsed / 1_000_000_000.0);
+
         PredictResponse postProcessed = pipelineManager.applyPostProcessing(modelName, response);
         return postProcessed != null ? postProcessed : response;
     }
@@ -130,13 +162,10 @@ public class ModelRegistry {
         return info;
     }
 
-    /** Unload all models and close all engines. */
+    /** Unload all models. */
     public void shutdown() {
         new ArrayList<>(models.keySet()).forEach(this::unloadModel);
-        for (InferenceEngine engine : backends) {
-            try { engine.close(); } catch (Exception ignored) { }
-        }
-        backends.clear();
+        log.info("ModelRegistry shutdown complete");
     }
 
     /** Round-trip benchmark helper. */
@@ -162,19 +191,11 @@ public class ModelRegistry {
         return loaded.get(0);
     }
 
-    private InferenceEngine resolveEngine(String modelPath, String preferredBackend) {
-        if (backends.isEmpty()) {
-            return null;
-        }
-        if (!"auto".equals(preferredBackend)) {
-            return backends.stream()
-                    .filter(e -> e.backendName().equalsIgnoreCase(preferredBackend))
-                    .findFirst()
-                    .orElse(null);
-        }
-        return backends.stream()
-                .filter(e -> e.supports(modelPath))
-                .findFirst()
-                .orElse(null);
+    private static String detectProvider(ChatModel cm) {
+        String className = cm.getClass().getSimpleName();
+        if (className.toLowerCase().contains("ollama")) return "ollama";
+        if (className.toLowerCase().contains("openai")) return "openai";
+        if (className.toLowerCase().contains("vertex")) return "vertex";
+        return className;
     }
 }

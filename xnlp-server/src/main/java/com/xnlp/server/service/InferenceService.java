@@ -4,11 +4,17 @@ import com.xnlp.core.model.PredictRequest;
 import com.xnlp.core.model.PredictResponse;
 import com.xnlp.core.registry.ModelRegistry;
 import io.micrometer.observation.annotation.Observed;
-import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+/**
+ * Inference service that delegates to the ModelRegistry.
+ *
+ * <p>The registry itself calls Spring AI's {@code ChatModel} via the
+ * pipeline-managed {@code predict()} method.  This service adds
+ * Micrometer observation (tracing spans) and custom metrics recording.
+ */
 @Service
 public class InferenceService {
 

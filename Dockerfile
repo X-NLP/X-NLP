@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 LABEL maintainer="X-NLP Team"
 
 RUN addgroup -S xnlp && adduser -S xnlp -G xnlp
