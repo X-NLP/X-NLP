@@ -1,6 +1,7 @@
 package com.xnlp.core.registry;
 
 import com.xnlp.core.config.ModelConfig;
+import com.xnlp.core.config.ModelType;
 import com.xnlp.core.errors.ModelLoadError;
 import com.xnlp.core.errors.ModelNotFoundError;
 import com.xnlp.core.errors.PredictionError;
@@ -75,8 +76,12 @@ public class ModelRegistry {
 
     /** Load a model from configuration (delegates to registerChatModel with existing ChatModel). */
     public ModelInfo loadModel(ModelConfig cfg) {
+        if (cfg.getType() != ModelType.CHAT) {
+            throw new ModelLoadError("Only CHAT models can be loaded into the ChatModel runtime: "
+                    + cfg.getName(), (Throwable) null);
+        }
         // Find the matching ChatModel by provider
-        String provider = cfg.getBackend();
+        String provider = cfg.getProvider() != null ? cfg.getProvider() : cfg.getBackend();
         if (provider == null || provider.isBlank() || "auto".equals(provider)) {
             // Pick the first available ChatModel
             if (!chatModels.isEmpty()) {
