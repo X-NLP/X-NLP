@@ -22,6 +22,8 @@ public class ModelConfig {
 
     private ModelProtocol protocol = ModelProtocol.SPRING_AI_CHAT;
 
+    private ModelSource source = ModelSource.CUSTOM;
+
     /** Provider identifier, for example openai, ollama, cohere, jina, or spring-ai. */
     @NotBlank(message = "provider must not be blank")
     private String provider = "spring-ai";
@@ -83,6 +85,8 @@ public class ModelConfig {
     public void setType(ModelType type) { this.type = type; }
     public ModelProtocol getProtocol() { return protocol; }
     public void setProtocol(ModelProtocol protocol) { this.protocol = protocol; }
+    public ModelSource getSource() { return source; }
+    public void setSource(ModelSource source) { this.source = source; }
     public String getProvider() { return provider; }
     public void setProvider(String provider) { this.provider = provider; }
     public String getModelName() { return modelName; }

@@ -3,6 +3,7 @@ package com.xnlp.core.model;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.xnlp.core.config.ModelConfig;
 import com.xnlp.core.config.ModelProtocol;
+import com.xnlp.core.config.ModelSource;
 import com.xnlp.core.config.ModelType;
 import java.time.Instant;
 import java.util.Collections;
@@ -18,6 +19,7 @@ public class ModelInfo {
     private String name;
     private ModelType type;
     private ModelProtocol protocol;
+    private ModelSource source;
     private String version;
     private String backend;
     private String provider;
@@ -34,6 +36,7 @@ public class ModelInfo {
         info.name = cfg.getName();
         info.type = cfg.getType();
         info.protocol = cfg.getProtocol();
+        info.source = cfg.getSource();
         info.version = cfg.getVersion();
         info.backend = cfg.getBackend();
         info.provider = cfg.getProvider() != null ? cfg.getProvider() : cfg.getBackend();
@@ -50,6 +53,8 @@ public class ModelInfo {
     public void setType(ModelType type) { this.type = type; }
     public ModelProtocol getProtocol() { return protocol; }
     public void setProtocol(ModelProtocol protocol) { this.protocol = protocol; }
+    public ModelSource getSource() { return source; }
+    public void setSource(ModelSource source) { this.source = source; }
     public String getVersion() { return version; }
     public void setVersion(String version) { this.version = version; }
     public String getBackend() { return backend; }

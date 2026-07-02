@@ -3,6 +3,7 @@ package com.xnlp.server.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xnlp.core.config.ModelConfig;
 import com.xnlp.core.config.ModelProtocol;
+import com.xnlp.core.config.ModelSource;
 import com.xnlp.core.config.ModelType;
 import com.xnlp.core.model.ModelInfo;
 import jakarta.annotation.PostConstruct;
@@ -100,12 +101,14 @@ public class ModelCatalogService {
                 "remoteProtocol", List.of("baseUrl"),
                 "credential", List.of("apiKey optional, stored server-side and never returned")
         ));
+        result.put("providers", providerPresets());
         return result;
     }
 
     private void normalize(ModelConfig config) {
         if (config.getType() == null) config.setType(ModelType.CHAT);
         if (config.getProtocol() == null) config.setProtocol(defaultProtocol(config.getType()));
+        if (config.getSource() == null) config.setSource(ModelSource.CUSTOM);
         if (config.getProvider() == null || config.getProvider().isBlank()) {
             config.setProvider(defaultProvider(config.getProtocol()));
         }
@@ -174,9 +177,82 @@ public class ModelCatalogService {
         String name = protocol.name().toLowerCase();
         if (name.startsWith("openai")) return "openai";
         if (name.startsWith("ollama")) return "ollama";
+        if (name.startsWith("anthropic")) return "anthropic";
+        if (name.startsWith("google")) return "google";
         if (name.startsWith("cohere")) return "cohere";
         if (name.startsWith("jina")) return "jina";
         return "spring-ai";
+    }
+
+    private static List<Map<String, Object>> providerPresets() {
+        return List.of(
+                provider("openai", "OpenAI", ModelSource.OFFICIAL, "https://api.openai.com/v1", List.of(
+                        model("gpt-4o", ModelType.CHAT, ModelProtocol.OPENAI_CHAT_COMPLETIONS, 128000, 4096),
+                        model("gpt-4o-mini", ModelType.CHAT, ModelProtocol.OPENAI_CHAT_COMPLETIONS, 128000, 4096),
+                        model("gpt-4.1", ModelType.CHAT, ModelProtocol.OPENAI_CHAT_COMPLETIONS, 1047576, 32768),
+                        model("gpt-4.1-mini", ModelType.CHAT, ModelProtocol.OPENAI_CHAT_COMPLETIONS, 1047576, 32768),
+                        model("text-embedding-3-large", ModelType.EMBEDDING, ModelProtocol.OPENAI_EMBEDDINGS, 8191, 0),
+                        model("text-embedding-3-small", ModelType.EMBEDDING, ModelProtocol.OPENAI_EMBEDDINGS, 8191, 0)
+                )),
+                provider("anthropic", "Anthropic", ModelSource.OFFICIAL, "https://api.anthropic.com/v1", List.of(
+                        model("claude-3-5-sonnet-latest", ModelType.CHAT, ModelProtocol.ANTHROPIC_MESSAGES, 200000, 8192),
+                        model("claude-3-5-haiku-latest", ModelType.CHAT, ModelProtocol.ANTHROPIC_MESSAGES, 200000, 8192),
+                        model("claude-3-opus-latest", ModelType.CHAT, ModelProtocol.ANTHROPIC_MESSAGES, 200000, 4096)
+                )),
+                provider("google", "Google Gemini", ModelSource.OFFICIAL, "https://generativelanguage.googleapis.com/v1beta", List.of(
+                        model("gemini-1.5-pro", ModelType.CHAT, ModelProtocol.GOOGLE_GEMINI_GENERATE_CONTENT, 2000000, 8192),
+                        model("gemini-1.5-flash", ModelType.CHAT, ModelProtocol.GOOGLE_GEMINI_GENERATE_CONTENT, 1000000, 8192),
+                        model("gemini-embedding-001", ModelType.EMBEDDING, ModelProtocol.GOOGLE_GEMINI_EMBEDDING, 2048, 0)
+                )),
+                provider("ollama", "Ollama", ModelSource.OFFICIAL, "http://localhost:11434", List.of(
+                        model("llama3.1", ModelType.CHAT, ModelProtocol.OLLAMA_CHAT, 131072, 4096),
+                        model("qwen2.5", ModelType.CHAT, ModelProtocol.OLLAMA_CHAT, 32768, 4096),
+                        model("mistral", ModelType.CHAT, ModelProtocol.OLLAMA_CHAT, 32768, 4096),
+                        model("deepseek-r1", ModelType.CHAT, ModelProtocol.OLLAMA_CHAT, 32768, 4096),
+                        model("nomic-embed-text", ModelType.EMBEDDING, ModelProtocol.OLLAMA_EMBEDDINGS, 8192, 0),
+                        model("mxbai-embed-large", ModelType.EMBEDDING, ModelProtocol.OLLAMA_EMBEDDINGS, 512, 0)
+                )),
+                provider("deepseek", "DeepSeek", ModelSource.OFFICIAL, "https://api.deepseek.com/v1", List.of(
+                        model("deepseek-chat", ModelType.CHAT, ModelProtocol.OPENAI_CHAT_COMPLETIONS, 64000, 4096),
+                        model("deepseek-reasoner", ModelType.CHAT, ModelProtocol.OPENAI_CHAT_COMPLETIONS, 64000, 8192)
+                )),
+                provider("qwen", "Alibaba Qwen", ModelSource.OFFICIAL, "https://dashscope.aliyuncs.com/compatible-mode/v1", List.of(
+                        model("qwen-plus", ModelType.CHAT, ModelProtocol.OPENAI_CHAT_COMPLETIONS, 131072, 8192),
+                        model("qwen-max", ModelType.CHAT, ModelProtocol.OPENAI_CHAT_COMPLETIONS, 32768, 8192),
+                        model("qwen-turbo", ModelType.CHAT, ModelProtocol.OPENAI_CHAT_COMPLETIONS, 1000000, 8192),
+                        model("text-embedding-v3", ModelType.EMBEDDING, ModelProtocol.OPENAI_EMBEDDINGS, 8192, 0)
+                )),
+                provider("cohere", "Cohere", ModelSource.OFFICIAL, "https://api.cohere.com/v2", List.of(
+                        model("rerank-v3.5", ModelType.RERANKING, ModelProtocol.COHERE_RERANK, 4096, 0)
+                )),
+                provider("jina", "Jina AI", ModelSource.OFFICIAL, "https://api.jina.ai/v1", List.of(
+                        model("jina-reranker-v2-base-multilingual", ModelType.RERANKING, ModelProtocol.JINA_RERANK, 8192, 0),
+                        model("jina-embeddings-v3", ModelType.EMBEDDING, ModelProtocol.OPENAI_EMBEDDINGS, 8192, 0)
+                )),
+                provider("custom", "Custom", ModelSource.CUSTOM, "", List.of())
+        );
+    }
+
+    private static Map<String, Object> provider(String id, String name, ModelSource source,
+                                                String baseUrl, List<Map<String, Object>> models) {
+        Map<String, Object> provider = new LinkedHashMap<>();
+        provider.put("id", id);
+        provider.put("name", name);
+        provider.put("source", source.name());
+        provider.put("baseUrl", baseUrl);
+        provider.put("models", models);
+        return provider;
+    }
+
+    private static Map<String, Object> model(String name, ModelType type, ModelProtocol protocol,
+                                             int maxInputLength, int maxOutputLength) {
+        Map<String, Object> model = new LinkedHashMap<>();
+        model.put("name", name);
+        model.put("type", type.name());
+        model.put("protocol", protocol.name());
+        model.put("maxInputLength", maxInputLength);
+        model.put("maxOutputLength", maxOutputLength);
+        return model;
     }
 
     private static boolean isBlank(String value) {
