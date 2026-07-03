@@ -130,6 +130,10 @@ export default function Models() {
 
   const activate = async (model: any) => {
     setError(''); setTestResult(null)
+    if (model.type && model.type !== 'CHAT') {
+      setError('Only Large Language models can be activated for chat runtime calls. Vector and reranking models can still be tested through their standard protocol.')
+      return
+    }
     try {
       await modelsApi.activate(model.name)
       await load()
@@ -262,7 +266,14 @@ export default function Models() {
                   <td className="px-4 py-3"><Status value={m.status} /></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <button onClick={() => activate(m)} title="Activate" className="icon-btn"><CheckCircle2 className="w-4 h-4" /></button>
+                      <button
+                        onClick={() => activate(m)}
+                        disabled={m.type && m.type !== 'CHAT'}
+                        title={m.type && m.type !== 'CHAT' ? 'Only Large Language models can be activated' : 'Activate'}
+                        className="icon-btn disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-gray-400"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                      </button>
                       <button onClick={() => test(m)} title="Test" className="icon-btn"><Play className="w-4 h-4" /></button>
                       <button onClick={() => remove(m)} title="Delete" className="icon-btn danger"><Trash2 className="w-4 h-4" /></button>
                     </div>

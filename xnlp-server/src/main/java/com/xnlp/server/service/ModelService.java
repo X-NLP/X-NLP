@@ -3,6 +3,7 @@ package com.xnlp.server.service;
 import com.xnlp.core.config.ModelConfig;
 import com.xnlp.core.config.ModelProtocol;
 import com.xnlp.core.config.ModelType;
+import com.xnlp.core.errors.ConfigException;
 import com.xnlp.core.model.ModelInfo;
 import com.xnlp.core.model.PredictRequest;
 import com.xnlp.core.model.PredictResponse;
@@ -35,6 +36,10 @@ public class ModelService {
     public ModelInfo activateModel(String name) {
         ModelConfig config = catalog.getConfig(name)
                 .orElseThrow(() -> new IllegalArgumentException("Model profile not found: " + name));
+        if (config.getType() != ModelType.CHAT) {
+            throw new ConfigException("Only CHAT models can be activated in the ChatModel runtime: " + name,
+                    Map.of("model", name, "type", config.getType()));
+        }
         return registry.loadModel(config);
     }
 
