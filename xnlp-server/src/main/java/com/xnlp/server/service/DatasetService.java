@@ -1,6 +1,7 @@
 package com.xnlp.server.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xnlp.core.eval.EvaluationDataset;
 import com.xnlp.core.eval.EvaluationEntry;
@@ -29,7 +30,9 @@ public class DatasetService {
     private static final Logger log = LoggerFactory.getLogger(DatasetService.class);
     private static final Path STORE_DIR = Paths.get("data", "datasets");
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = new ObjectMapper()
+            .findAndRegisterModules()
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     private final Map<String, EvaluationDataset> cache = new ConcurrentHashMap<>();
 
     @PostConstruct

@@ -13,6 +13,18 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+async function requestText(path: string, options?: RequestInit): Promise<string> {
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...(options?.headers as Record<string, string> || {}) },
+    ...options,
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`${res.status}: ${body}`);
+  }
+  return res.text();
+}
+
 // ---- Models ----
 export const modelsApi = {
   list: () => request<any[]>('/models'),
@@ -40,7 +52,7 @@ export const datasetsApi = {
   delete: (id: string) => request<void>(`/datasets/${id}`, { method: 'DELETE' }),
   entries: (id: string, page = 0, size = 50) =>
     request<any>(`/datasets/${id}/entries?page=${page}&size=${size}`),
-  exportJson: (id: string) => request<string>(`/datasets/${id}/export`),
+  exportJson: (id: string) => requestText(`/datasets/${id}/export`),
   count: () => request<{ count: number }>('/datasets/count'),
 };
 
