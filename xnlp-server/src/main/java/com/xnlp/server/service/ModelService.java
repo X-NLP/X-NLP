@@ -1,6 +1,7 @@
 package com.xnlp.server.service;
 
 import com.xnlp.core.config.ModelConfig;
+import com.xnlp.core.config.ModelProtocol;
 import com.xnlp.core.config.ModelType;
 import com.xnlp.core.model.ModelInfo;
 import com.xnlp.core.model.PredictRequest;
@@ -18,10 +19,13 @@ public class ModelService {
 
     private final ModelRegistry registry;
     private final ModelCatalogService catalog;
+    private final ModelConnectionTestService connectionTestService;
 
-    public ModelService(ModelRegistry registry, ModelCatalogService catalog) {
+    public ModelService(ModelRegistry registry, ModelCatalogService catalog,
+                        ModelConnectionTestService connectionTestService) {
         this.registry = registry;
         this.catalog = catalog;
+        this.connectionTestService = connectionTestService;
     }
 
     public ModelInfo saveModel(ModelConfig config) throws IOException {
@@ -68,7 +72,8 @@ public class ModelService {
     public Map<String, Object> testModel(String name, ModelTestRequest request) {
         ModelConfig config = catalog.getConfig(name)
                 .orElseThrow(() -> new IllegalArgumentException("Model profile not found: " + name));
-        if (config.getType() == ModelType.CHAT) {
+        if (config.getType() == ModelType.CHAT && isRuntimeLoaded(name)
+                && config.getProtocol() == ModelProtocol.SPRING_AI_CHAT) {
             PredictRequest predictRequest = new PredictRequest();
             predictRequest.setModelName(name);
             predictRequest.setText(request.getInput());
@@ -81,13 +86,11 @@ public class ModelService {
                     "elapsedSeconds", response.getElapsedSeconds()
             );
         }
-        return Map.of(
-                "type", config.getType(),
-                "protocol", config.getProtocol(),
-                "status", "configured",
-                "message", "Runtime test for " + config.getType()
-                        + " requires a Spring AI standard runtime bean and is not enabled yet."
-        );
+        return connectionTestService.test(config, request);
+    }
+
+    private boolean isRuntimeLoaded(String name) {
+        return registry.listModels().stream().anyMatch(model -> model.getName().equals(name));
     }
 
     public ModelRegistry getRegistry() {

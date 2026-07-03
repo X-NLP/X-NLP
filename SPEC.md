@@ -300,7 +300,10 @@ POST /api/v1/models/{name}/unload
 
 POST /api/v1/models/{name}/test
     请求: { input?, query?, documents?: [string] }
-    响应: { type, protocol, model?, output?, elapsedSeconds?, status?, message? }
+    响应: { status: "succeeded"|"failed", type, protocol, provider, model,
+            elapsedSeconds, httpStatus?, result?, message? }
+    说明: 已加载的 SPRING_AI_CHAT 使用 ChatModel；远程标准协议直接发标准连通性请求，
+          供应商认证/模型错误以结构化 failed 结果返回，不再作为前端 HTTP 异常抛出。
 
 POST /api/v1/models/{name}/predict
     请求: { modelName?, text }
