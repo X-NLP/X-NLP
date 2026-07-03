@@ -59,7 +59,7 @@ export default function Evaluation() {
       <div className="bg-white border rounded-lg p-4 mb-8 sm:p-6">
         <h2 className="text-sm font-semibold text-gray-700 mb-4">Run Evaluation</h2>
         {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
-        <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2 xl:grid-cols-3">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Model</label>
             <select value={modelName} onChange={e => setModelName(e.target.value)}
