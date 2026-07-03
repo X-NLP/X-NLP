@@ -29,7 +29,7 @@ export default function Dashboard() {
   return (
     <div>
       <h1 className="text-xl font-semibold text-gray-900 mb-6">Overview</h1>
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           icon={Server} label="Loaded Models" count={models.length}
           color="blue" to="/models"
@@ -44,8 +44,8 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        <div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="min-w-0">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Models</h2>
             <Link to="/models" className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
@@ -57,12 +57,12 @@ export default function Dashboard() {
           ) : (
             <ul className="divide-y divide-gray-200 border rounded-lg bg-white">
               {models.map((m: any) => (
-                <li key={m.name} className="px-4 py-3 text-sm flex items-center justify-between">
-                  <div>
-                    <span className="font-medium text-gray-900">{m.name}</span>
-                    <span className="ml-2 text-gray-400">{m.backend || m.provider}</span>
+                <li key={m.name} className="px-4 py-3 text-sm flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <span className="font-medium text-gray-900 break-words">{m.name}</span>
+                    <span className="ml-0 block text-gray-400 break-words sm:ml-2 sm:inline">{m.backend || m.provider}</span>
                   </div>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                  <span className="w-fit shrink-0 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
                     {m.status || 'loaded'}
                   </span>
                 </li>
@@ -71,7 +71,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Recent Evaluations</h2>
             <Link to="/compare" className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
@@ -83,12 +83,12 @@ export default function Dashboard() {
           ) : (
             <ul className="divide-y divide-gray-200 border rounded-lg bg-white">
               {evaluations.slice(0, 5).map((e: any) => (
-                <li key={e.id} className="px-4 py-3 text-sm flex items-center justify-between">
-                  <div>
-                    <span className="font-medium text-gray-900">{e.modelName}</span>
-                    <span className="ml-2 text-gray-400">on {e.datasetName}</span>
+                <li key={e.id} className="px-4 py-3 text-sm flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <span className="font-medium text-gray-900 break-words">{e.modelName}</span>
+                    <span className="ml-0 block text-gray-400 break-words sm:ml-2 sm:inline">on {e.datasetName}</span>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  <span className={`w-fit shrink-0 text-xs px-2 py-0.5 rounded-full ${
                     e.status === 'completed' ? 'bg-green-100 text-green-700' :
                     e.status === 'failed' ? 'bg-red-100 text-red-700' :
                     'bg-yellow-100 text-yellow-700'

@@ -156,8 +156,8 @@ export default function Models() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
+      <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-xl font-semibold text-gray-900">Models</h1>
           <p className="text-sm text-gray-500 mt-1">Choose a provider, select an official model, or define a custom standard-compatible endpoint.</p>
         </div>
@@ -176,7 +176,7 @@ export default function Models() {
             <SourceBadge source={source} />
           </div>
 
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="Provider">
               <select value={providerId} onChange={e => setProviderId(e.target.value)} className="input">
                 {providers.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -201,7 +201,7 @@ export default function Models() {
             </Field>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="Profile Name"><input value={name} onChange={e => setName(e.target.value)} className="input" placeholder="prod-chat" /></Field>
             <Field label="Provider Id"><input value={provider} onChange={e => setProvider(e.target.value)} className="input" disabled={!isCustom} /></Field>
             <Field label="Protocol">
@@ -211,7 +211,7 @@ export default function Models() {
             </Field>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="Base URL"><input value={baseUrl} onChange={e => setBaseUrl(e.target.value)} className="input" disabled={!isCustom} placeholder="https://api.openai.com/v1" /></Field>
             <Field label="API Key"><input value={apiKey} onChange={e => setApiKey(e.target.value)} className="input" type="password" placeholder="Stored server-side" /></Field>
             <Field label="Source">
@@ -222,22 +222,22 @@ export default function Models() {
             </Field>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="Max Input"><input value={maxInputLength} onChange={e => setMaxInputLength(Number(e.target.value))} className="input" type="number" /></Field>
             <Field label="Max Output"><input value={maxOutputLength} onChange={e => setMaxOutputLength(Number(e.target.value))} className="input" type="number" /></Field>
             <div className="flex items-end text-xs text-gray-400">Official presets fill protocol, base URL, and limits automatically.</div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <button onClick={save} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">Save</button>
             <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
           </div>
         </div>
       )}
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <div className="bg-white border rounded-lg overflow-x-auto">
         {loading ? <p className="p-4 text-sm text-gray-400">Loading...</p> : (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[900px] text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
                 <th className="px-4 py-3 font-medium text-gray-500">Name</th>
@@ -253,11 +253,11 @@ export default function Models() {
             <tbody className="divide-y divide-gray-100">
               {models.map((m: any) => (
                 <tr key={m.name} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">{m.name}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900 break-words">{m.name}</td>
                   <td className="px-4 py-3"><SourceBadge source={m.source || 'CUSTOM'} /></td>
                   <td className="px-4 py-3"><TypeBadge type={m.type} /></td>
-                  <td className="px-4 py-3 text-gray-600 font-mono text-xs">{m.protocol}</td>
-                  <td className="px-4 py-3 text-gray-600">{m.provider} / {m.modelName || '-'}</td>
+                  <td className="px-4 py-3 text-gray-600 font-mono text-xs break-words">{m.protocol}</td>
+                  <td className="px-4 py-3 text-gray-600 break-words">{m.provider} / {m.modelName || '-'}</td>
                   <td className="px-4 py-3">{m.apiKeySet ? <KeyRound className="w-4 h-4 text-emerald-600" /> : <XCircle className="w-4 h-4 text-gray-300" />}</td>
                   <td className="px-4 py-3"><Status value={m.status} /></td>
                   <td className="px-4 py-3">
@@ -276,7 +276,7 @@ export default function Models() {
 
       <div className="mt-6 bg-white border rounded-lg p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><ServerCog className="w-4 h-4" /> Test Input</h2>
-        <textarea value={testInput} onChange={e => setTestInput(e.target.value)} rows={3} className="w-full border rounded-md px-3 py-2 text-sm" />
+        <textarea value={testInput} onChange={e => setTestInput(e.target.value)} rows={3} className="w-full min-w-0 border rounded-md px-3 py-2 text-sm" />
         {testResult && <pre className="mt-4 bg-gray-950 text-gray-100 rounded-lg p-4 text-xs overflow-auto">{JSON.stringify(testResult, null, 2)}</pre>}
       </div>
     </div>

@@ -56,14 +56,14 @@ export default function Evaluation() {
     <div>
       <h1 className="text-xl font-semibold text-gray-900 mb-6">Evaluation</h1>
 
-      <div className="bg-white border rounded-lg p-6 mb-8">
+      <div className="bg-white border rounded-lg p-4 mb-8 sm:p-6">
         <h2 className="text-sm font-semibold text-gray-700 mb-4">Run Evaluation</h2>
         {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-3">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Model</label>
             <select value={modelName} onChange={e => setModelName(e.target.value)}
-              className="w-full border rounded-md px-3 py-2 text-sm">
+              className="w-full min-w-0 border rounded-md px-3 py-2 text-sm">
               <option value="">Select model...</option>
               {models.map((m: any) => <option key={m.name} value={m.name}>{m.name} ({m.protocol || m.provider})</option>)}
             </select>
@@ -71,7 +71,7 @@ export default function Evaluation() {
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Dataset</label>
             <select value={datasetId} onChange={e => setDatasetId(e.target.value)}
-              className="w-full border rounded-md px-3 py-2 text-sm">
+              className="w-full min-w-0 border rounded-md px-3 py-2 text-sm">
               <option value="">Select dataset...</option>
               {datasets.map((d: any) => <option key={d.id} value={d.id}>{d.name} ({d.taskType})</option>)}
             </select>
@@ -79,7 +79,7 @@ export default function Evaluation() {
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Task Type</label>
             <select value={taskType} onChange={e => setTaskType(e.target.value)}
-              className="w-full border rounded-md px-3 py-2 text-sm">
+              className="w-full min-w-0 border rounded-md px-3 py-2 text-sm">
               {TASK_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
@@ -99,8 +99,8 @@ export default function Evaluation() {
       ) : evaluations.length === 0 ? (
         <p className="text-sm text-gray-400">No evaluations yet.</p>
       ) : (
-        <div className="bg-white border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-white border rounded-lg overflow-x-auto">
+          <table className="w-full min-w-[900px] text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
                 <th className="px-4 py-3 font-medium text-gray-500">Model</th>
@@ -116,8 +116,8 @@ export default function Evaluation() {
             <tbody className="divide-y divide-gray-100">
               {evaluations.map((r: any) => (
                 <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">{r.modelName}</td>
-                  <td className="px-4 py-3 text-gray-600">{r.datasetName}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900 break-words">{r.modelName}</td>
+                  <td className="px-4 py-3 text-gray-600 break-words">{r.datasetName}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{r.taskType}</td>
                   <td className="px-4 py-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
@@ -142,14 +142,14 @@ export default function Evaluation() {
       )}
 
       {selectedRun && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setSelectedRun(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setSelectedRun(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-4 sm:p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">{selectedRun.modelName} / {selectedRun.datasetName}</h3>
+              <h3 className="min-w-0 text-lg font-semibold break-words">{selectedRun.modelName} / {selectedRun.datasetName}</h3>
               <button onClick={() => setSelectedRun(null)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
             </div>
             {selectedRun.metrics ? (
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                 <MetricRow label="Accuracy" value={formatPct(selectedRun.metrics.accuracy)} />
                 <MetricRow label="Precision (macro)" value={formatNum(selectedRun.metrics.precisionMacro)} />
                 <MetricRow label="Recall (macro)" value={formatNum(selectedRun.metrics.recallMacro)} />

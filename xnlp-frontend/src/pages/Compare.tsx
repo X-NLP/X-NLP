@@ -78,7 +78,7 @@ export default function Compare() {
         <h1 className="text-xl font-semibold text-gray-900">Compare Evaluations</h1>
       </div>
 
-      <div className="bg-white border rounded-lg p-6 mb-8">
+      <div className="bg-white border rounded-lg p-4 mb-8 sm:p-6">
         <h2 className="text-sm font-semibold text-gray-700 mb-4">Select runs to compare</h2>
         {loading ? (
           <p className="text-sm text-gray-400">Loading...</p>
@@ -100,7 +100,7 @@ export default function Compare() {
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={handleCompare}
                 disabled={selectedIds.length < 2 || comparing}
@@ -116,16 +116,16 @@ export default function Compare() {
 
       {compareResult && (
         <div className="space-y-6">
-          <div className="bg-white border rounded-lg p-6">
+          <div className="bg-white border rounded-lg p-4 sm:p-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-4">Metric Comparison</h2>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-2 text-left font-medium text-gray-500">Metric</th>
                     {compareResult.runs.map((run: any, i: number) => (
                       <th key={i} className="px-4 py-2 text-left font-medium" style={{ color: runColors?.[i] }}>
-                        {run.modelName}
+                        <span className="break-words">{run.modelName}</span>
                       </th>
                     ))}
                   </tr>
@@ -165,8 +165,8 @@ export default function Compare() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
-            <div className="bg-white border rounded-lg p-6">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <div className="min-w-0 bg-white border rounded-lg p-4 sm:p-6">
               <h2 className="text-sm font-semibold text-gray-700 mb-4">Bar Chart</h2>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={barData()} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
@@ -182,7 +182,7 @@ export default function Compare() {
               </ResponsiveContainer>
             </div>
 
-            <div className="bg-white border rounded-lg p-6">
+            <div className="min-w-0 bg-white border rounded-lg p-4 sm:p-6">
               <h2 className="text-sm font-semibold text-gray-700 mb-4">Radar Chart</h2>
               <ResponsiveContainer width="100%" height={300}>
                 <RadarChart data={radarData()}>

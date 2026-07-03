@@ -76,7 +76,7 @@ export default function Datasets() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-semibold text-gray-900">Datasets</h1>
         <button
           onClick={() => setShowForm(!showForm)}
@@ -90,16 +90,16 @@ export default function Datasets() {
         <div className="bg-white border rounded-lg p-5 mb-6">
           <h2 className="text-sm font-semibold text-gray-700 mb-4">Create New Dataset</h2>
           {formError && <p className="text-sm text-red-600 mb-3">{formError}</p>}
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Name</label>
               <input value={name} onChange={e => setName(e.target.value)}
-                className="w-full border rounded-md px-3 py-2 text-sm" placeholder="e.g. sentiment-test-v1" />
+                className="w-full min-w-0 border rounded-md px-3 py-2 text-sm" placeholder="e.g. sentiment-test-v1" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Task Type</label>
               <select value={taskType} onChange={e => setTaskType(e.target.value)}
-                className="w-full border rounded-md px-3 py-2 text-sm">
+                className="w-full min-w-0 border rounded-md px-3 py-2 text-sm">
                 {TASK_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
@@ -107,7 +107,7 @@ export default function Datasets() {
           <div className="mb-4">
             <label className="block text-xs font-medium text-gray-500 mb-1">Description</label>
             <input value={desc} onChange={e => setDesc(e.target.value)}
-              className="w-full border rounded-md px-3 py-2 text-sm" placeholder="Optional description" />
+              className="w-full min-w-0 border rounded-md px-3 py-2 text-sm" placeholder="Optional description" />
           </div>
           <div className="mb-4">
             <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -115,13 +115,13 @@ export default function Datasets() {
             </label>
             <textarea value={jsonText} onChange={e => setJsonText(e.target.value)}
               rows={8}
-              className="w-full border rounded-md px-3 py-2 text-sm font-mono"
+              className="w-full min-w-0 border rounded-md px-3 py-2 text-sm font-mono"
               placeholder='[{"input": "...", "expectedOutput": "positive"}]' />
             <p className="text-xs text-gray-400 mt-1">
               Each entry: {'{'} "input": "text...", "expectedOutput": "label..." {'}'}
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <button onClick={handleCreate}
               className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
               <Upload className="w-4 h-4 inline mr-1" /> Create
@@ -140,8 +140,8 @@ export default function Datasets() {
           <p className="text-sm">No datasets yet. Create one to start evaluating models.</p>
         </div>
       ) : (
-        <div className="bg-white border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-white border rounded-lg overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
                 <th className="px-4 py-3 font-medium text-gray-500">Name</th>
@@ -155,10 +155,10 @@ export default function Datasets() {
               {datasets.map((ds: any) => (
                 <tr key={ds.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
-                    <button onClick={() => handleView(ds)} className="text-blue-600 hover:text-blue-800 font-medium">
+                    <button onClick={() => handleView(ds)} className="text-left text-blue-600 hover:text-blue-800 font-medium break-words">
                       {ds.name}
                     </button>
-                    {ds.description && <p className="text-xs text-gray-400 mt-0.5">{ds.description}</p>}
+                    {ds.description && <p className="text-xs text-gray-400 mt-0.5 break-words">{ds.description}</p>}
                   </td>
                   <td className="px-4 py-3 text-gray-600">{ds.taskType}</td>
                   <td className="px-4 py-3 text-gray-600">{ds.entryCount}</td>
@@ -185,11 +185,11 @@ export default function Datasets() {
       )}
 
       {viewing && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setViewing(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6"
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setViewing(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-4 sm:p-6"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">{viewing.name}</h3>
+              <h3 className="min-w-0 text-lg font-semibold break-words">{viewing.name}</h3>
               <button onClick={() => setViewing(null)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
             </div>
             <p className="text-sm text-gray-500 mb-4">Task: {viewing.taskType} &middot; {viewing.entryCount} entries</p>
@@ -197,8 +197,8 @@ export default function Datasets() {
               <div className="space-y-3">
                 {entries.entries?.map((e: any, i: number) => (
                   <div key={e.id || i} className="border rounded-lg p-3 text-sm">
-                    <p className="text-gray-900"><span className="text-gray-400 font-mono text-xs">input:</span> {e.input}</p>
-                    <p className="text-green-700 mt-1"><span className="text-gray-400 font-mono text-xs">expected:</span> {e.expectedOutput}</p>
+                    <p className="text-gray-900 break-words"><span className="text-gray-400 font-mono text-xs">input:</span> {e.input}</p>
+                    <p className="text-green-700 mt-1 break-words"><span className="text-gray-400 font-mono text-xs">expected:</span> {e.expectedOutput}</p>
                   </div>
                 ))}
               </div>
