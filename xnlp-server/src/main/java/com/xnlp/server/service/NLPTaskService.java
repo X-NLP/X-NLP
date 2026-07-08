@@ -14,10 +14,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Built-in NLP task execution using prompt-based LLM calls.
+ * Built-in NLP capability metadata and legacy prompt-based task endpoints.
  *
- * <p>Each task is implemented by constructing a task-specific prompt,
- * calling the model, and extracting a structured answer.
+ * <p>The list endpoint describes the target HanLP-style capability surface.
+ * Existing POST endpoints are kept for compatibility until pipeline runtimes
+ * are wired for dedicated NLP components.
  */
 @Service
 public class NLPTaskService {
@@ -32,18 +33,22 @@ public class NLPTaskService {
 
     public List<Map<String, Object>> listTasks() {
         return List.of(
-                taskEntry("TEXT_CLASSIFICATION", "Classify text into predefined categories",
-                        Map.of("categories", "array of category names")),
-                taskEntry("SENTIMENT_ANALYSIS", "Detect positive/negative/neutral sentiment",
-                        Map.of()),
-                taskEntry("SUMMARIZATION", "Generate a concise summary of input text",
-                        Map.of("max_length", "maximum output length")),
-                taskEntry("NAMED_ENTITY_RECOGNITION", "Extract named entities (persons, orgs, locations, etc.)",
-                        Map.of()),
-                taskEntry("QUESTION_ANSWERING", "Answer a question given a context passage",
-                        Map.of("context", "context passage", "question", "the question")),
-                taskEntry("TRANSLATION", "Translate text to English",
-                        Map.of("source_language", "source language code"))
+                taskEntry("TOKENIZATION", "Segment text into coarse or fine-grained tokens",
+                        Map.of("granularity", "coarse or fine")),
+                taskEntry("PART_OF_SPEECH", "Assign part-of-speech tags to tokens",
+                        Map.of("tokenizer", "upstream tokenizer profile")),
+                taskEntry("NAMED_ENTITY_RECOGNITION", "Extract entities such as persons, organizations, locations, and dates",
+                        Map.of("schema", "entity label set")),
+                taskEntry("DEPENDENCY_PARSING", "Analyze syntactic dependency arcs between tokens",
+                        Map.of("tokenizer", "upstream tokenizer profile")),
+                taskEntry("SEMANTIC_ROLE_LABELING", "Identify predicates and argument roles in a sentence",
+                        Map.of("parser", "upstream parser profile")),
+                taskEntry("TEXT_CLASSIFICATION", "Classify text using configured categories or labels",
+                        Map.of("labels", "array of category names")),
+                taskEntry("TEXT_SIMILARITY", "Compare text similarity using embedding models",
+                        Map.of("embeddingModel", "embedding model profile")),
+                taskEntry("RERANKING", "Rerank candidate documents for a query",
+                        Map.of("rerankingModel", "reranking model profile"))
         );
     }
 

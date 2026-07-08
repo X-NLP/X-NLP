@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { modelsApi, datasetsApi, evaluationsApi } from '../api/client'
-import { Server, Database, FlaskConical, ArrowRight } from 'lucide-react'
+import { modelsApi, datasetsApi, evaluationsApi, nlpApi } from '../api/client'
+import { Server, Database, FlaskConical, ArrowRight, Workflow } from 'lucide-react'
 
 export default function Dashboard() {
   const [models, setModels] = useState<any[]>([])
   const [datasets, setDatasets] = useState<any[]>([])
   const [evaluations, setEvaluations] = useState<any[]>([])
+  const [tasks, setTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -14,10 +15,12 @@ export default function Dashboard() {
       modelsApi.list(),
       datasetsApi.list(),
       evaluationsApi.list(),
-    ]).then(([m, d, e]) => {
+      nlpApi.tasks(),
+    ]).then(([m, d, e, t]) => {
       if (m.status === 'fulfilled') setModels(m.value)
       if (d.status === 'fulfilled') setDatasets(d.value)
       if (e.status === 'fulfilled') setEvaluations(e.value)
+      if (t.status === 'fulfilled') setTasks(t.value)
       setLoading(false)
     })
   }, [])
@@ -28,11 +31,15 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-gray-900 mb-6">Overview</h1>
-      <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2 lg:grid-cols-3">
+      <h1 className="text-xl font-semibold text-gray-900 mb-6">Dashboard</h1>
+      <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          icon={Server} label="Loaded Models" count={models.length}
+          icon={Server} label="Model Assets" count={models.length}
           color="blue" to="/models"
+        />
+        <StatCard
+          icon={Workflow} label="NLP Capabilities" count={tasks.length}
+          color="cyan" to="/canvas"
         />
         <StatCard
           icon={Database} label="Datasets" count={datasets.length}
@@ -47,13 +54,13 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="min-w-0">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Models</h2>
+            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Model Assets</h2>
             <Link to="/models" className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
               View all <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
           {models.length === 0 ? (
-            <p className="text-sm text-gray-400">No models loaded. Start the server with a model configured.</p>
+            <p className="text-sm text-gray-400">No model assets configured.</p>
           ) : (
             <ul className="divide-y divide-gray-200 border rounded-lg bg-white">
               {models.map((m: any) => (
@@ -65,6 +72,27 @@ export default function Dashboard() {
                   <span className="w-fit shrink-0 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
                     {m.status || 'loaded'}
                   </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">NLP Capabilities</h2>
+            <Link to="/canvas" className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
+              Canvas <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          {tasks.length === 0 ? (
+            <p className="text-sm text-gray-400">No NLP capabilities reported by the server.</p>
+          ) : (
+            <ul className="divide-y divide-gray-200 border rounded-lg bg-white">
+              {tasks.slice(0, 6).map((task: any) => (
+                <li key={task.task} className="px-4 py-3 text-sm">
+                  <span className="font-medium text-gray-900 break-words">{task.task}</span>
+                  <span className="mt-1 block text-xs text-gray-400 break-words">{task.description}</span>
                 </li>
               ))}
             </ul>
@@ -111,6 +139,7 @@ function StatCard({ icon: Icon, label, count, color, to }: {
 }) {
   const colorMap: Record<string, string> = {
     blue: 'bg-blue-50 text-blue-600',
+    cyan: 'bg-cyan-50 text-cyan-600',
     emerald: 'bg-emerald-50 text-emerald-600',
     amber: 'bg-amber-50 text-amber-600',
   }

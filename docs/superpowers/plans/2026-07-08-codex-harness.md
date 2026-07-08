@@ -119,7 +119,7 @@ Create `.codex/harness/WORKFLOW.md` with exactly this content:
 
 - 前端遵循现有 React、Vite、Tailwind 风格。
 - 后端遵循 Spring Boot、构造器注入、集中配置和现有 controller/service 分层。
-- 模型能力必须按 `CHAT`、`EMBEDDING`、`RERANKING` 区分。
+- 模型能力必须按模型资产类型区分：`CHAT`、`EMBEDDING`、`RERANKING` 以及 HanLP 风格 NLP 组件类型。
 - 不新增非标准模型协议适配，除非用户明确批准。
 - 不做和当前任务无关的重构。
 
@@ -188,11 +188,12 @@ Create `.codex/harness/XNLP_RULES.md` with exactly this content:
 
 ## 模型类型
 
-X-NLP 的模型类型固定为三类：
+X-NLP 的模型类型用于描述系统可用的模型资产：
 
-- `CHAT`：大语言模型，用于对话、生成、分类、抽取、摘要等文本生成任务。
-- `EMBEDDING`：向量模型，用于文本向量化、相似度、检索召回。
+- `CHAT`：大语言模型。当前只作为可配置资产；除非规格明确，不作为 NLP 主流程默认实现。
+- `EMBEDDING`：嵌入模型，用于文本向量化、相似度、检索召回。
 - `RERANKING`：排序模型，用于候选结果重排。
+- HanLP 风格 NLP 组件类型：分词、词性标注、NER、句法分析、语义角色、文本分类等。
 
 前端表单、后端校验、active 行为、连接测试和评测选择都必须按模型类型区分。
 
@@ -298,7 +299,7 @@ Create `.codex/harness/CHECKLISTS.md` with exactly this content:
 
 ## 模型接入
 
-- [ ] 确认模型类型是 `CHAT`、`EMBEDDING` 或 `RERANKING`。
+- [ ] 确认模型类型属于 X-NLP 支持的模型资产类型。
 - [ ] 确认协议属于 `.codex/harness/XNLP_RULES.md` 认可的标准协议。
 - [ ] 检查供应商、模型名称、Base URL、API key 引用、官方/自定义标记。
 - [ ] 检查连接测试不会把非 CHAT 模型加载进 ChatModel runtime。
@@ -500,7 +501,7 @@ Create `.codex/templates/model-integration-task.md` with exactly this content:
 ## 模型
 
 - 模型名称：
-- 模型类型：`CHAT` / `EMBEDDING` / `RERANKING`
+- 模型类型：`CHAT` / `EMBEDDING` / `RERANKING` / HanLP 风格 NLP 组件类型
 - 默认参数：
 - 不支持能力：
 

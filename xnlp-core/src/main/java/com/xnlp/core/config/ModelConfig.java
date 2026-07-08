@@ -70,10 +70,13 @@ public class ModelConfig {
         return type != null && protocol != null && protocol.getModelType() == type;
     }
 
-    @AssertTrue(message = "base_url is required unless protocol is SPRING_AI_CHAT or SPRING_AI_EMBEDDING")
+    @AssertTrue(message = "base_url is required unless protocol is backed by Spring AI or local runtime")
     @JsonIgnore
     public boolean isBaseUrlPresentWhenRequired() {
-        if (protocol == ModelProtocol.SPRING_AI_CHAT || protocol == ModelProtocol.SPRING_AI_EMBEDDING) {
+        if (protocol == ModelProtocol.SPRING_AI_CHAT
+                || protocol == ModelProtocol.SPRING_AI_EMBEDDING
+                || protocol == ModelProtocol.LOCAL_JAVA_SPI
+                || protocol == ModelProtocol.LOCAL_CLASSIFIER) {
             return true;
         }
         return baseUrl != null && !baseUrl.isBlank();

@@ -162,7 +162,10 @@ public class ModelCatalogService {
     }
 
     private static boolean requiresBaseUrl(ModelProtocol protocol) {
-        return protocol != ModelProtocol.SPRING_AI_CHAT && protocol != ModelProtocol.SPRING_AI_EMBEDDING;
+        return protocol != ModelProtocol.SPRING_AI_CHAT
+                && protocol != ModelProtocol.SPRING_AI_EMBEDDING
+                && protocol != ModelProtocol.LOCAL_JAVA_SPI
+                && protocol != ModelProtocol.LOCAL_CLASSIFIER;
     }
 
     private static ModelProtocol defaultProtocol(ModelType type) {
@@ -170,6 +173,12 @@ public class ModelCatalogService {
             case CHAT -> ModelProtocol.SPRING_AI_CHAT;
             case EMBEDDING -> ModelProtocol.SPRING_AI_EMBEDDING;
             case RERANKING -> ModelProtocol.COHERE_RERANK;
+            case TOKENIZATION -> ModelProtocol.HANLP_TOKENIZATION;
+            case PART_OF_SPEECH -> ModelProtocol.HANLP_POS;
+            case NAMED_ENTITY_RECOGNITION -> ModelProtocol.HANLP_NER;
+            case DEPENDENCY_PARSING -> ModelProtocol.HANLP_DEPENDENCY;
+            case SEMANTIC_ROLE_LABELING -> ModelProtocol.HANLP_SRL;
+            case TEXT_CLASSIFICATION -> ModelProtocol.HANLP_CLASSIFICATION;
         };
     }
 
@@ -181,6 +190,8 @@ public class ModelCatalogService {
         if (name.startsWith("google")) return "google";
         if (name.startsWith("cohere")) return "cohere";
         if (name.startsWith("jina")) return "jina";
+        if (name.startsWith("hanlp")) return "hanlp";
+        if (name.startsWith("local")) return "local";
         return "spring-ai";
     }
 
@@ -228,6 +239,19 @@ public class ModelCatalogService {
                 provider("jina", "Jina AI", ModelSource.OFFICIAL, "https://api.jina.ai/v1", List.of(
                         model("jina-reranker-v2-base-multilingual", ModelType.RERANKING, ModelProtocol.JINA_RERANK, 8192, 0),
                         model("jina-embeddings-v3", ModelType.EMBEDDING, ModelProtocol.OPENAI_EMBEDDINGS, 8192, 0)
+                )),
+                provider("hanlp", "HanLP", ModelSource.OFFICIAL, "https://hanlp.hankcs.com/api", List.of(
+                        model("coarse-tok", ModelType.TOKENIZATION, ModelProtocol.HANLP_TOKENIZATION, 4096, 0),
+                        model("fine-tok", ModelType.TOKENIZATION, ModelProtocol.HANLP_TOKENIZATION, 4096, 0),
+                        model("pos", ModelType.PART_OF_SPEECH, ModelProtocol.HANLP_POS, 4096, 0),
+                        model("ner-msra", ModelType.NAMED_ENTITY_RECOGNITION, ModelProtocol.HANLP_NER, 4096, 0),
+                        model("dep", ModelType.DEPENDENCY_PARSING, ModelProtocol.HANLP_DEPENDENCY, 4096, 0),
+                        model("srl", ModelType.SEMANTIC_ROLE_LABELING, ModelProtocol.HANLP_SRL, 4096, 0),
+                        model("classifier", ModelType.TEXT_CLASSIFICATION, ModelProtocol.HANLP_CLASSIFICATION, 4096, 0)
+                )),
+                provider("local", "Local Java SPI", ModelSource.CUSTOM, "", List.of(
+                        model("local-tokenizer", ModelType.TOKENIZATION, ModelProtocol.LOCAL_JAVA_SPI, 4096, 0),
+                        model("local-classifier", ModelType.TEXT_CLASSIFICATION, ModelProtocol.LOCAL_CLASSIFIER, 4096, 0)
                 )),
                 provider("custom", "Custom", ModelSource.CUSTOM, "", List.of())
         );

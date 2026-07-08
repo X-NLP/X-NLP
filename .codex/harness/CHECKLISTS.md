@@ -40,7 +40,7 @@
 
 ## 模型接入
 
-- [ ] 确认模型类型是 `CHAT`、`EMBEDDING` 或 `RERANKING`。
+- [ ] 确认模型类型属于 X-NLP 支持的模型资产类型。
 - [ ] 确认协议属于 `.codex/harness/XNLP_RULES.md` 认可的标准协议。
 - [ ] 检查供应商、模型名称、Base URL、API key 引用、官方/自定义标记。
 - [ ] 检查连接测试不会把非 CHAT 模型加载进 ChatModel runtime。

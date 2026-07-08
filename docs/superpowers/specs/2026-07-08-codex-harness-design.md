@@ -95,8 +95,8 @@ X-NLP/
 
 记录 X-NLP 专项规则：
 
-- 模型类型分为 `CHAT`、`EMBEDDING`、`RERANKING`；前端和后端行为都必须按类型区分。
-- 模型供应商必须使用标准协议接口，例如 OpenAI-compatible chat、OpenAI embeddings、Ollama、Anthropic Messages、Gemini、Cohere rerank、Jina rerank。
+- 模型类型按模型资产区分：`CHAT`、`EMBEDDING`、`RERANKING`，以及分词、词性标注、NER、句法分析、语义角色、文本分类等 HanLP 风格 NLP 组件类型；前端和后端行为都必须按类型区分。
+- 模型供应商必须使用标准协议接口，例如 OpenAI-compatible chat、OpenAI embeddings、Ollama、Anthropic Messages、Gemini、Cohere rerank、Jina rerank、HanLP 风格 NLP 组件协议或 X-NLP 本地 Java SPI。
 - 除非用户明确批准，否则不接受非标准模型适配。
 - 评测数据必须回归创建、列表、查看 entries、导出和删除。
 - 前端页面必须保持响应式，不允许页面级横向溢出。

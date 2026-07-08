@@ -18,7 +18,7 @@
 
 - 前端遵循现有 React、Vite、Tailwind 风格。
 - 后端遵循 Spring Boot、构造器注入、集中配置和现有 controller/service 分层。
-- 模型能力必须按 `CHAT`、`EMBEDDING`、`RERANKING` 区分。
+- 模型能力必须按模型资产类型区分：`CHAT`、`EMBEDDING`、`RERANKING` 以及 HanLP 风格 NLP 组件类型。
 - 不新增非标准模型协议适配，除非用户明确批准。
 - 不做和当前任务无关的重构。
 

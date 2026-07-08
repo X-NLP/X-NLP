@@ -2,11 +2,17 @@
 
 ## 模型类型
 
-X-NLP 的模型类型固定为三类：
+X-NLP 的模型类型用于描述系统可用的模型资产。当前类型包括：
 
-- `CHAT`：大语言模型，用于对话、生成、分类、抽取、摘要等文本生成任务。
-- `EMBEDDING`：向量模型，用于文本向量化、相似度、检索召回。
+- `CHAT`：大语言模型。当前只作为可配置资产；除非规格明确，不作为 NLP 主流程默认实现。
+- `EMBEDDING`：嵌入模型，用于文本向量化、相似度、检索召回。
 - `RERANKING`：排序模型，用于候选结果重排。
+- `TOKENIZATION`：分词模型或分词组件。
+- `PART_OF_SPEECH`：词性标注模型或组件。
+- `NAMED_ENTITY_RECOGNITION`：命名实体识别模型或组件。
+- `DEPENDENCY_PARSING`：依存句法分析模型或组件。
+- `SEMANTIC_ROLE_LABELING`：语义角色标注模型或组件。
+- `TEXT_CLASSIFICATION`：文本分类模型或组件。
 
 前端表单、后端校验、active 行为、连接测试和评测选择都必须按模型类型区分。
 
@@ -21,6 +27,8 @@ X-NLP 的模型类型固定为三类：
 - Gemini 标准生成 API。
 - Cohere Rerank API。
 - Jina Rerank API。
+- HanLP 风格 NLP 组件协议预留。
+- X-NLP Local Java SPI。
 
 除非用户明确批准，不接受只为单个私有模型硬编码的非标准适配。
 

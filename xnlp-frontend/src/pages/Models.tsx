@@ -4,15 +4,38 @@ import { CheckCircle2, KeyRound, Play, Plus, ServerCog, Trash2, XCircle } from '
 
 const TYPE_LABELS: Record<string, string> = {
   CHAT: 'Large Language',
-  EMBEDDING: 'Vector',
+  EMBEDDING: 'Embedding',
   RERANKING: 'Reranking',
+  TOKENIZATION: 'Tokenization',
+  PART_OF_SPEECH: 'Part of Speech',
+  NAMED_ENTITY_RECOGNITION: 'Named Entity',
+  DEPENDENCY_PARSING: 'Dependency Parsing',
+  SEMANTIC_ROLE_LABELING: 'Semantic Role',
+  TEXT_CLASSIFICATION: 'Classification',
 }
 
 const DEFAULT_PROTOCOLS: Record<string, string[]> = {
   CHAT: ['SPRING_AI_CHAT', 'OPENAI_CHAT_COMPLETIONS', 'OLLAMA_CHAT', 'ANTHROPIC_MESSAGES', 'GOOGLE_GEMINI_GENERATE_CONTENT'],
   EMBEDDING: ['SPRING_AI_EMBEDDING', 'OPENAI_EMBEDDINGS', 'OLLAMA_EMBEDDINGS', 'GOOGLE_GEMINI_EMBEDDING'],
   RERANKING: ['COHERE_RERANK', 'JINA_RERANK'],
+  TOKENIZATION: ['HANLP_TOKENIZATION', 'LOCAL_JAVA_SPI'],
+  PART_OF_SPEECH: ['HANLP_POS'],
+  NAMED_ENTITY_RECOGNITION: ['HANLP_NER'],
+  DEPENDENCY_PARSING: ['HANLP_DEPENDENCY'],
+  SEMANTIC_ROLE_LABELING: ['HANLP_SRL'],
+  TEXT_CLASSIFICATION: ['HANLP_CLASSIFICATION', 'LOCAL_CLASSIFIER'],
 }
+
+const ZERO_OUTPUT_TYPES = new Set([
+  'EMBEDDING',
+  'RERANKING',
+  'TOKENIZATION',
+  'PART_OF_SPEECH',
+  'NAMED_ENTITY_RECOGNITION',
+  'DEPENDENCY_PARSING',
+  'SEMANTIC_ROLE_LABELING',
+  'TEXT_CLASSIFICATION',
+])
 
 const CUSTOM_PROVIDER = { id: 'custom', name: 'Custom', source: 'CUSTOM', baseUrl: '', models: [] as any[] }
 
@@ -89,13 +112,13 @@ export default function Models() {
       if (nextProtocol) setProtocol(nextProtocol)
       setModelName('')
       setMaxInputLength(4096)
-      setMaxOutputLength(targetType === 'EMBEDDING' || targetType === 'RERANKING' ? 0 : 2048)
+      setMaxOutputLength(ZERO_OUTPUT_TYPES.has(targetType) ? 0 : 2048)
     } else {
       const nextProtocol = protocols[0] || DEFAULT_PROTOCOLS[targetType]?.[0]
       if (nextProtocol) setProtocol(nextProtocol)
       setModelName('')
       setMaxInputLength(4096)
-      setMaxOutputLength(targetType === 'EMBEDDING' || targetType === 'RERANKING' ? 0 : 2048)
+      setMaxOutputLength(ZERO_OUTPUT_TYPES.has(targetType) ? 0 : 2048)
     }
   }
 
@@ -131,7 +154,7 @@ export default function Models() {
   const activate = async (model: any) => {
     setError(''); setTestResult(null)
     if (model.type && model.type !== 'CHAT') {
-      setError('Only Large Language models can be activated for chat runtime calls. Vector and reranking models can still be tested through their standard protocol.')
+      setError('Only Large Language models can be activated into the chat runtime. Other model assets are configured for NLP pipeline use and protocol tests.')
       return
     }
     try {
@@ -163,7 +186,7 @@ export default function Models() {
       <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold text-gray-900">Models</h1>
-          <p className="text-sm text-gray-500 mt-1">Choose a provider, select an official model, or define a custom standard-compatible endpoint.</p>
+          <p className="text-sm text-gray-500 mt-1">Configure model assets for LLM, embedding, reranking, and NLP pipeline components.</p>
         </div>
         <button onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
@@ -269,7 +292,7 @@ export default function Models() {
                       <button
                         onClick={() => activate(m)}
                         disabled={m.type && m.type !== 'CHAT'}
-                        title={m.type && m.type !== 'CHAT' ? 'Only Large Language models can be activated' : 'Activate'}
+                        title={m.type && m.type !== 'CHAT' ? 'Only Large Language models can be activated into chat runtime' : 'Activate'}
                         className="icon-btn disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-gray-400"
                       >
                         <CheckCircle2 className="w-4 h-4" />
@@ -286,7 +309,7 @@ export default function Models() {
       </div>
 
       <div className="mt-6 bg-white border rounded-lg p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><ServerCog className="w-4 h-4" /> Test Input</h2>
+        <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><ServerCog className="w-4 h-4" /> Protocol Test Input</h2>
         <textarea value={testInput} onChange={e => setTestInput(e.target.value)} rows={3} className="w-full min-w-0 border rounded-md px-3 py-2 text-sm" />
         {testResult && <pre className="mt-4 bg-gray-950 text-gray-100 rounded-lg p-4 text-xs overflow-auto">{JSON.stringify(testResult, null, 2)}</pre>}
       </div>
@@ -303,6 +326,12 @@ function TypeBadge({ type }: { type: string }) {
     CHAT: 'bg-blue-50 text-blue-700',
     EMBEDDING: 'bg-emerald-50 text-emerald-700',
     RERANKING: 'bg-amber-50 text-amber-700',
+    TOKENIZATION: 'bg-cyan-50 text-cyan-700',
+    PART_OF_SPEECH: 'bg-violet-50 text-violet-700',
+    NAMED_ENTITY_RECOGNITION: 'bg-rose-50 text-rose-700',
+    DEPENDENCY_PARSING: 'bg-slate-100 text-slate-700',
+    SEMANTIC_ROLE_LABELING: 'bg-teal-50 text-teal-700',
+    TEXT_CLASSIFICATION: 'bg-orange-50 text-orange-700',
   }
   return <span className={`text-xs px-2 py-0.5 rounded-full ${styles[type] || 'bg-gray-100 text-gray-600'}`}>{TYPE_LABELS[type] || type}</span>
 }

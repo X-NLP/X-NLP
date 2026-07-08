@@ -6,5 +6,11 @@ package com.xnlp.core.config;
 public enum ModelType {
     CHAT,
     EMBEDDING,
-    RERANKING
+    RERANKING,
+    TOKENIZATION,
+    PART_OF_SPEECH,
+    NAMED_ENTITY_RECOGNITION,
+    DEPENDENCY_PARSING,
+    SEMANTIC_ROLE_LABELING,
+    TEXT_CLASSIFICATION
 }

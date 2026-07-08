@@ -33,6 +33,9 @@ public class ModelConnectionTestService {
     public Map<String, Object> test(ModelConfig config, ModelTestRequest request) {
         long t0 = System.nanoTime();
         try {
+            if (isNlpComponent(config.getType())) {
+                return configuredOnly(config, t0);
+            }
             if (requiresApiKey(config) && isBlank(config.getApiKey())) {
                 return failed(config, "API key is required for " + config.getProtocol(), null, t0);
             }
@@ -93,6 +96,9 @@ public class ModelConnectionTestService {
                             "top_n", Math.min(3, documents(request).size())));
             case SPRING_AI_CHAT, SPRING_AI_EMBEDDING -> throw new IllegalStateException(
                     config.getProtocol() + " requires an activated Spring AI runtime bean.");
+            case HANLP_TOKENIZATION, HANLP_POS, HANLP_NER, HANLP_DEPENDENCY, HANLP_SRL,
+                    HANLP_CLASSIFICATION, LOCAL_JAVA_SPI, LOCAL_CLASSIFIER -> throw new IllegalStateException(
+                    config.getProtocol() + " is a configured NLP component; runtime execution is not wired yet.");
         };
     }
 
@@ -119,6 +125,13 @@ public class ModelConnectionTestService {
         Map<String, Object> response = base(config, "failed", startedAt);
         if (httpStatus != null) response.put("httpStatus", httpStatus);
         response.put("message", message != null ? message : "Connection test failed");
+        return response;
+    }
+
+    private Map<String, Object> configuredOnly(ModelConfig config, long startedAt) {
+        Map<String, Object> response = base(config, "configured", startedAt);
+        response.put("runtimeReady", false);
+        response.put("message", "NLP component profile is valid. Runtime execution will be wired in the NLP pipeline phase.");
         return response;
     }
 
@@ -155,7 +168,9 @@ public class ModelConnectionTestService {
             case OLLAMA_EMBEDDINGS -> result.put("embeddingCount", listSize(body.get("embeddings")));
             case GOOGLE_GEMINI_EMBEDDING -> result.put("embedding", body.get("embedding"));
             case COHERE_RERANK, JINA_RERANK -> result.put("resultCount", listSize(body.get("results")));
-            case SPRING_AI_CHAT, SPRING_AI_EMBEDDING -> result.put("output", body);
+            case SPRING_AI_CHAT, SPRING_AI_EMBEDDING, HANLP_TOKENIZATION, HANLP_POS, HANLP_NER,
+                    HANLP_DEPENDENCY, HANLP_SRL, HANLP_CLASSIFICATION, LOCAL_JAVA_SPI,
+                    LOCAL_CLASSIFIER -> result.put("output", body);
         }
         if (result.isEmpty()) result.put("raw", body);
         return result;
@@ -231,7 +246,18 @@ public class ModelConnectionTestService {
         return config.getProtocol() != ModelProtocol.OLLAMA_CHAT
                 && config.getProtocol() != ModelProtocol.OLLAMA_EMBEDDINGS
                 && config.getProtocol() != ModelProtocol.SPRING_AI_CHAT
-                && config.getProtocol() != ModelProtocol.SPRING_AI_EMBEDDING;
+                && config.getProtocol() != ModelProtocol.SPRING_AI_EMBEDDING
+                && config.getProtocol() != ModelProtocol.LOCAL_JAVA_SPI
+                && config.getProtocol() != ModelProtocol.LOCAL_CLASSIFIER;
+    }
+
+    private boolean isNlpComponent(ModelType type) {
+        return type == ModelType.TOKENIZATION
+                || type == ModelType.PART_OF_SPEECH
+                || type == ModelType.NAMED_ENTITY_RECOGNITION
+                || type == ModelType.DEPENDENCY_PARSING
+                || type == ModelType.SEMANTIC_ROLE_LABELING
+                || type == ModelType.TEXT_CLASSIFICATION;
     }
 
     private boolean isBlank(String value) {
