@@ -1,17 +1,21 @@
 import { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { LayoutDashboard, Database, FlaskConical, GitCompare, Activity, ServerCog, Workflow } from 'lucide-react'
+import LanguageSwitcher from './LanguageSwitcher'
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/models', label: 'Models', icon: ServerCog },
-  { to: '/datasets', label: 'Datasets', icon: Database },
-  { to: '/evaluation', label: 'Evaluation', icon: FlaskConical },
-  { to: '/canvas', label: 'Canvas', icon: Workflow },
-  { to: '/compare', label: 'Compare', icon: GitCompare },
+  { to: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+  { to: '/models', labelKey: 'nav.models', icon: ServerCog },
+  { to: '/datasets', labelKey: 'nav.datasets', icon: Database },
+  { to: '/evaluation', labelKey: 'nav.evaluation', icon: FlaskConical },
+  { to: '/canvas', labelKey: 'nav.canvas', icon: Workflow },
+  { to: '/compare', labelKey: 'nav.compare', icon: GitCompare },
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
       <aside className="w-full bg-gray-900 text-gray-300 flex flex-col shrink-0 lg:w-56">
@@ -34,10 +38,13 @@ export default function Layout({ children }: { children: ReactNode }) {
               }
             >
               <item.icon className="w-4 h-4" />
-              {item.label}
+              {t(item.labelKey)}
             </NavLink>
           ))}
         </nav>
+        <div className="border-t border-gray-800 lg:mt-auto">
+          <LanguageSwitcher />
+        </div>
       </aside>
       <main className="flex-1 min-w-0">
         <div className="px-4 py-5 max-w-7xl mx-auto sm:px-6 md:py-8">

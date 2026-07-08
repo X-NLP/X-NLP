@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { evaluationsApi } from '../api/client'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar }
   from 'recharts'
@@ -13,6 +14,7 @@ const METRIC_LABELS: Record<string, string> = {
 const METRIC_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
 export default function Compare() {
+  const { t } = useTranslation()
   const [evaluations, setEvaluations] = useState<any[]>([])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [compareResult, setCompareResult] = useState<any>(null)
@@ -75,15 +77,15 @@ export default function Compare() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold text-gray-900">Compare Evaluations</h1>
+        <h1 className="text-xl font-semibold text-gray-900">{t('compare.title')}</h1>
       </div>
 
       <div className="bg-white border rounded-lg p-4 mb-8 sm:p-6">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">Select runs to compare</h2>
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">{t('compare.selectRuns')}</h2>
         {loading ? (
-          <p className="text-sm text-gray-400">Loading...</p>
+          <p className="text-sm text-gray-400">{t('common.loading')}</p>
         ) : evaluations.length === 0 ? (
-          <p className="text-sm text-gray-400">No evaluation runs yet. Create one from the Evaluation page.</p>
+          <p className="text-sm text-gray-400">{t('compare.noRuns')}</p>
         ) : (
           <>
             <div className="flex flex-wrap gap-2 mb-4">
@@ -106,9 +108,9 @@ export default function Compare() {
                 disabled={selectedIds.length < 2 || comparing}
                 className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
-                <GitCompare className="w-4 h-4" /> {comparing ? 'Comparing...' : `Compare (${selectedIds.length} runs)`}
+                <GitCompare className="w-4 h-4" /> {comparing ? t('compare.comparing') : t('compare.compareRuns', { count: selectedIds.length })}
               </button>
-              <button onClick={() => setSelectedIds([])} className="text-sm text-gray-500 hover:text-gray-700">Clear selection</button>
+              <button onClick={() => setSelectedIds([])} className="text-sm text-gray-500 hover:text-gray-700">{t('compare.clear')}</button>
             </div>
           </>
         )}
@@ -117,12 +119,12 @@ export default function Compare() {
       {compareResult && (
         <div className="space-y-6">
           <div className="bg-white border rounded-lg p-4 sm:p-6">
-            <h2 className="text-sm font-semibold text-gray-700 mb-4">Metric Comparison</h2>
+            <h2 className="text-sm font-semibold text-gray-700 mb-4">{t('compare.metricComparison')}</h2>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-2 text-left font-medium text-gray-500">Metric</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-500">{t('compare.metric')}</th>
                     {compareResult.runs.map((run: any, i: number) => (
                       <th key={i} className="px-4 py-2 text-left font-medium" style={{ color: runColors?.[i] }}>
                         <span className="break-words">{run.modelName}</span>
@@ -167,7 +169,7 @@ export default function Compare() {
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <div className="min-w-0 bg-white border rounded-lg p-4 sm:p-6">
-              <h2 className="text-sm font-semibold text-gray-700 mb-4">Bar Chart</h2>
+              <h2 className="text-sm font-semibold text-gray-700 mb-4">{t('compare.barChart')}</h2>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={barData()} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -183,7 +185,7 @@ export default function Compare() {
             </div>
 
             <div className="min-w-0 bg-white border rounded-lg p-4 sm:p-6">
-              <h2 className="text-sm font-semibold text-gray-700 mb-4">Radar Chart</h2>
+              <h2 className="text-sm font-semibold text-gray-700 mb-4">{t('compare.radarChart')}</h2>
               <ResponsiveContainer width="100%" height={300}>
                 <RadarChart data={radarData()}>
                   <PolarGrid />

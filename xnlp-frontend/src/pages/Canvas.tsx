@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { datasetsApi, evaluationsApi } from '../api/client'
 import {
   ArrowRight,
@@ -56,6 +57,7 @@ const metricNames = [
 ]
 
 export default function Canvas() {
+  const { t } = useTranslation()
   const [datasets, setDatasets] = useState<any[]>([])
   const [evaluations, setEvaluations] = useState<any[]>([])
   const [entries, setEntries] = useState<any[]>([])
@@ -124,53 +126,53 @@ export default function Canvas() {
     <div>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Canvas</h1>
-          <p className="mt-1 text-sm text-gray-500">Trace dataset entries through processing nodes and evaluation signals.</p>
+          <h1 className="text-xl font-semibold text-gray-900">{t('canvas.title')}</h1>
+          <p className="mt-1 text-sm text-gray-500">{t('canvas.subtitle')}</p>
         </div>
         <button
           onClick={load}
           className="flex w-fit items-center gap-2 rounded-lg border px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
         >
-          <RefreshCw className="h-4 w-4" /> Refresh
+          <RefreshCw className="h-4 w-4" /> {t('canvas.refresh')}
         </button>
       </div>
 
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
       <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <SelectField label="Dataset" value={datasetId} onChange={setDatasetId} disabled={loading || datasets.length === 0}>
-          <option value="">No dataset</option>
+        <SelectField label={t('canvas.dataset')} value={datasetId} onChange={setDatasetId} disabled={loading || datasets.length === 0}>
+          <option value="">{t('canvas.noDataset')}</option>
           {datasets.map((item: any) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </SelectField>
-        <SelectField label="Evaluation run" value={runId} onChange={setRunId} disabled={filteredRuns.length === 0}>
-          <option value="">No run</option>
+        <SelectField label={t('canvas.evaluationRun')} value={runId} onChange={setRunId} disabled={filteredRuns.length === 0}>
+          <option value="">{t('canvas.noRun')}</option>
           {filteredRuns.map((item: any) => (
             <option key={item.id} value={item.id}>{item.modelName} / {item.status}</option>
           ))}
         </SelectField>
         <SelectField
-          label="Entry sample"
+          label={t('canvas.entrySample')}
           value={String(selectedEntry)}
           onChange={value => setSelectedEntry(Number(value))}
           disabled={entries.length === 0}
         >
-          {entries.length === 0 ? <option value="0">No entry</option> : entries.map((item: any, index: number) => (
+          {entries.length === 0 ? <option value="0">{t('canvas.noEntry')}</option> : entries.map((item: any, index: number) => (
             <option key={item.id || index} value={index}>#{index + 1} {truncate(item.input, 48)}</option>
           ))}
         </SelectField>
       </div>
 
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryTile label="Task" value={dataset?.taskType || run?.taskType || '-'} icon={GitBranch} />
-        <SummaryTile label="Entries" value={String(dataset?.entryCount ?? entries.length ?? 0)} icon={Database} />
-        <SummaryTile label="Run status" value={run?.status || '-'} icon={PlayCircle} />
-        <SummaryTile label="Best signal" value={metricSummary.primary} icon={Gauge} />
+        <SummaryTile label={t('canvas.task')} value={dataset?.taskType || run?.taskType || '-'} icon={GitBranch} />
+        <SummaryTile label={t('canvas.entries')} value={String(dataset?.entryCount ?? entries.length ?? 0)} icon={Database} />
+        <SummaryTile label={t('canvas.runStatus')} value={run?.status || '-'} icon={PlayCircle} />
+        <SummaryTile label={t('canvas.bestSignal')} value={metricSummary.primary} icon={Gauge} />
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className="min-w-0 rounded-lg border bg-white">
           <div className="border-b px-4 py-3">
-            <h2 className="text-sm font-semibold text-gray-700">Processing canvas</h2>
+            <h2 className="text-sm font-semibold text-gray-700">{t('canvas.processingCanvas')}</h2>
           </div>
           <div className="overflow-x-auto p-4">
             <div className="grid min-w-[920px] grid-cols-[repeat(6,142px)] items-stretch gap-3">
@@ -221,8 +223,8 @@ export default function Canvas() {
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <TextPanel title="Entry input" icon={FileText} text={entry?.input || 'Select a dataset entry to inspect input text.'} />
-        <TextPanel title="Reference output" icon={Braces} text={entry?.expectedOutput || 'No reference output available.'} />
+        <TextPanel title={t('canvas.entryInput')} icon={FileText} text={entry?.input || t('canvas.selectEntry')} />
+        <TextPanel title={t('canvas.referenceOutput')} icon={Braces} text={entry?.expectedOutput || t('canvas.noReference')} />
       </div>
     </div>
   )

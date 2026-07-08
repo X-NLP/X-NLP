@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { modelsApi, datasetsApi, evaluationsApi } from '../api/client'
 import { Play, BarChart3 } from 'lucide-react'
 
@@ -6,6 +7,7 @@ const TASK_TYPES = ['TEXT_CLASSIFICATION', 'SENTIMENT_ANALYSIS', 'SUMMARIZATION'
   'NAMED_ENTITY_RECOGNITION', 'QUESTION_ANSWERING', 'TRANSLATION']
 
 export default function Evaluation() {
+  const { t } = useTranslation()
   const [models, setModels] = useState<any[]>([])
   const [datasets, setDatasets] = useState<any[]>([])
   const [evaluations, setEvaluations] = useState<any[]>([])
@@ -36,7 +38,7 @@ export default function Evaluation() {
   }, [datasetId, datasets])
 
   const handleRun = async () => {
-    if (!modelName || !datasetId) { setError('Select a model and dataset.'); return }
+    if (!modelName || !datasetId) { setError(t('evaluation.selectModelDataset')); return }
     setError(''); setRunning(true)
     try {
       await evaluationsApi.run(modelName, datasetId, taskType || undefined)
@@ -54,30 +56,30 @@ export default function Evaluation() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-gray-900 mb-6">Evaluation</h1>
+      <h1 className="text-xl font-semibold text-gray-900 mb-6">{t('evaluation.title')}</h1>
 
       <div className="bg-white border rounded-lg p-4 mb-8 sm:p-6">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">Run Evaluation</h2>
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">{t('evaluation.runTitle')}</h2>
         {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
         <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2 xl:grid-cols-3">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Model</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">{t('evaluation.model')}</label>
             <select value={modelName} onChange={e => setModelName(e.target.value)}
               className="w-full min-w-0 border rounded-md px-3 py-2 text-sm">
-              <option value="">Select model...</option>
+              <option value="">{t('evaluation.selectModel')}</option>
               {models.map((m: any) => <option key={m.name} value={m.name}>{m.name} ({m.protocol || m.provider})</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Dataset</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">{t('evaluation.dataset')}</label>
             <select value={datasetId} onChange={e => setDatasetId(e.target.value)}
               className="w-full min-w-0 border rounded-md px-3 py-2 text-sm">
-              <option value="">Select dataset...</option>
+              <option value="">{t('evaluation.selectDataset')}</option>
               {datasets.map((d: any) => <option key={d.id} value={d.id}>{d.name} ({d.taskType})</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Task Type</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">{t('evaluation.taskType')}</label>
             <select value={taskType} onChange={e => setTaskType(e.target.value)}
               className="w-full min-w-0 border rounded-md px-3 py-2 text-sm">
               {TASK_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -89,28 +91,28 @@ export default function Evaluation() {
           disabled={running || !modelName || !datasetId}
           className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          <Play className="w-4 h-4" /> {running ? 'Running...' : 'Run Evaluation'}
+          <Play className="w-4 h-4" /> {running ? t('evaluation.running') : t('evaluation.run')}
         </button>
       </div>
 
-      <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Run History</h2>
+      <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">{t('evaluation.history')}</h2>
       {loading ? (
-        <p className="text-sm text-gray-400">Loading...</p>
+        <p className="text-sm text-gray-400">{t('common.loading')}</p>
       ) : evaluations.length === 0 ? (
-        <p className="text-sm text-gray-400">No evaluations yet.</p>
+        <p className="text-sm text-gray-400">{t('evaluation.noEvaluations')}</p>
       ) : (
         <div className="bg-white border rounded-lg overflow-x-auto">
           <table className="w-full min-w-[900px] text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
-                <th className="px-4 py-3 font-medium text-gray-500">Model</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Dataset</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Task</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Status</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Accuracy</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('evaluation.model')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('evaluation.dataset')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('evaluation.task')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('common.status')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('evaluation.accuracy')}</th>
                 <th className="px-4 py-3 font-medium text-gray-500">F1</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Time</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Details</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('evaluation.time')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('evaluation.details')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -150,7 +152,7 @@ export default function Evaluation() {
             </div>
             {selectedRun.metrics ? (
               <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                <MetricRow label="Accuracy" value={formatPct(selectedRun.metrics.accuracy)} />
+                <MetricRow label={t('evaluation.accuracy')} value={formatPct(selectedRun.metrics.accuracy)} />
                 <MetricRow label="Precision (macro)" value={formatNum(selectedRun.metrics.precisionMacro)} />
                 <MetricRow label="Recall (macro)" value={formatNum(selectedRun.metrics.recallMacro)} />
                 <MetricRow label="F1 (macro)" value={formatNum(selectedRun.metrics.f1Macro)} />
@@ -160,11 +162,11 @@ export default function Evaluation() {
                 {selectedRun.metrics.bleu != null && <MetricRow label="BLEU" value={formatNum(selectedRun.metrics.bleu)} />}
                 {selectedRun.metrics.exactMatch != null && <MetricRow label="Exact Match" value={formatPct(selectedRun.metrics.exactMatch)} />}
                 {selectedRun.metrics.entityF1 != null && <MetricRow label="Entity F1" value={formatNum(selectedRun.metrics.entityF1)} />}
-                <MetricRow label="Total Entries" value={String(selectedRun.metrics.totalEntries)} />
-                <MetricRow label="Correct" value={String(selectedRun.metrics.correctEntries)} />
+                <MetricRow label={t('evaluation.totalEntries')} value={String(selectedRun.metrics.totalEntries)} />
+                <MetricRow label={t('evaluation.correct')} value={String(selectedRun.metrics.correctEntries)} />
               </div>
             ) : (
-              <p className="text-sm text-gray-400">No metrics available.</p>
+              <p className="text-sm text-gray-400">{t('evaluation.noMetrics')}</p>
             )}
             {selectedRun.errorMessage && (
               <div className="mt-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{selectedRun.errorMessage}</div>

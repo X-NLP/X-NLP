@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { modelsApi } from '../api/client'
 import { CheckCircle2, KeyRound, Play, Plus, ServerCog, Trash2, XCircle } from 'lucide-react'
 
-const TYPE_LABELS: Record<string, string> = {
-  CHAT: 'Large Language',
-  EMBEDDING: 'Embedding',
-  RERANKING: 'Reranking',
-  TOKENIZATION: 'Tokenization',
-  PART_OF_SPEECH: 'Part of Speech',
-  NAMED_ENTITY_RECOGNITION: 'Named Entity',
-  DEPENDENCY_PARSING: 'Dependency Parsing',
-  SEMANTIC_ROLE_LABELING: 'Semantic Role',
-  TEXT_CLASSIFICATION: 'Classification',
-}
+const MODEL_TYPES = [
+  'CHAT',
+  'EMBEDDING',
+  'RERANKING',
+  'TOKENIZATION',
+  'PART_OF_SPEECH',
+  'NAMED_ENTITY_RECOGNITION',
+  'DEPENDENCY_PARSING',
+  'SEMANTIC_ROLE_LABELING',
+  'TEXT_CLASSIFICATION',
+]
 
 const DEFAULT_PROTOCOLS: Record<string, string[]> = {
   CHAT: ['SPRING_AI_CHAT', 'OPENAI_CHAT_COMPLETIONS', 'OLLAMA_CHAT', 'ANTHROPIC_MESSAGES', 'GOOGLE_GEMINI_GENERATE_CONTENT'],
@@ -40,6 +41,7 @@ const ZERO_OUTPUT_TYPES = new Set([
 const CUSTOM_PROVIDER = { id: 'custom', name: 'Custom', source: 'CUSTOM', baseUrl: '', models: [] as any[] }
 
 export default function Models() {
+  const { t } = useTranslation()
   const [models, setModels] = useState<any[]>([])
   const [capabilities, setCapabilities] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -154,7 +156,7 @@ export default function Models() {
   const activate = async (model: any) => {
     setError(''); setTestResult(null)
     if (model.type && model.type !== 'CHAT') {
-      setError('Only Large Language models can be activated into the chat runtime. Other model assets are configured for NLP pipeline use and protocol tests.')
+      setError(t('models.activateChatOnlyMessage'))
       return
     }
     try {
@@ -176,7 +178,7 @@ export default function Models() {
   }
 
   const remove = async (model: any) => {
-    if (!confirm(`Delete model profile ${model.name}?`)) return
+    if (!confirm(t('models.deleteConfirm', { name: model.name }))) return
     await modelsApi.delete(model.name)
     await load()
   }
@@ -185,12 +187,12 @@ export default function Models() {
     <div>
       <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold text-gray-900">Models</h1>
-          <p className="text-sm text-gray-500 mt-1">Configure model assets for LLM, embedding, reranking, and NLP pipeline components.</p>
+          <h1 className="text-xl font-semibold text-gray-900">{t('models.title')}</h1>
+          <p className="text-sm text-gray-500 mt-1">{t('models.subtitle')}</p>
         </div>
         <button onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
-          <Plus className="w-4 h-4" /> New Model
+          <Plus className="w-4 h-4" /> {t('models.newModel')}
         </button>
       </div>
 
@@ -199,22 +201,22 @@ export default function Models() {
       {showForm && (
         <div className="bg-white border rounded-lg p-5 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-700">Model Profile</h2>
+            <h2 className="text-sm font-semibold text-gray-700">{t('models.profile')}</h2>
             <SourceBadge source={source} />
           </div>
 
           <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2 xl:grid-cols-3">
-            <Field label="Provider">
+            <Field label={t('models.provider')}>
               <select value={providerId} onChange={e => setProviderId(e.target.value)} className="input">
                 {providers.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </Field>
-            <Field label="Type">
+            <Field label={t('models.type')}>
               <select value={type} onChange={e => setType(e.target.value)} className="input">
-                {Object.keys(TYPE_LABELS).map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+                {MODEL_TYPES.map(modelType => <option key={modelType} value={modelType}>{t(`models.types.${modelType}`)}</option>)}
               </select>
             </Field>
-            <Field label="Model">
+            <Field label={t('models.model')}>
               {isCustom ? (
                 <input value={modelName} onChange={e => setModelName(e.target.value)} className="input" placeholder="custom-model-name" />
               ) : (
@@ -229,9 +231,9 @@ export default function Models() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2 xl:grid-cols-3">
-            <Field label="Profile Name"><input value={name} onChange={e => setName(e.target.value)} className="input" placeholder="prod-chat" /></Field>
-            <Field label="Provider Id"><input value={provider} onChange={e => setProvider(e.target.value)} className="input" disabled={!isCustom} /></Field>
-            <Field label="Protocol">
+            <Field label={t('models.profileName')}><input value={name} onChange={e => setName(e.target.value)} className="input" placeholder="prod-chat" /></Field>
+            <Field label={t('models.providerId')}><input value={provider} onChange={e => setProvider(e.target.value)} className="input" disabled={!isCustom} /></Field>
+            <Field label={t('models.protocol')}>
               <select value={protocol} onChange={e => setProtocol(e.target.value)} className="input" disabled={!isCustom}>
                 {protocols.map((p: string) => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -239,9 +241,9 @@ export default function Models() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2 xl:grid-cols-3">
-            <Field label="Base URL"><input value={baseUrl} onChange={e => setBaseUrl(e.target.value)} className="input" disabled={!isCustom} placeholder="https://api.openai.com/v1" /></Field>
-            <Field label="API Key"><input value={apiKey} onChange={e => setApiKey(e.target.value)} className="input" type="password" placeholder="Stored server-side" /></Field>
-            <Field label="Source">
+            <Field label={t('models.baseUrl')}><input value={baseUrl} onChange={e => setBaseUrl(e.target.value)} className="input" disabled={!isCustom} placeholder="https://api.openai.com/v1" /></Field>
+            <Field label={t('models.apiKey')}><input value={apiKey} onChange={e => setApiKey(e.target.value)} className="input" type="password" placeholder={t('models.apiKeyPlaceholder')} /></Field>
+            <Field label={t('models.source')}>
               <select value={source} onChange={e => setSource(e.target.value)} className="input" disabled={!isCustom}>
                 <option value="OFFICIAL">OFFICIAL</option>
                 <option value="CUSTOM">CUSTOM</option>
@@ -250,31 +252,31 @@ export default function Models() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2 xl:grid-cols-3">
-            <Field label="Max Input"><input value={maxInputLength} onChange={e => setMaxInputLength(Number(e.target.value))} className="input" type="number" /></Field>
-            <Field label="Max Output"><input value={maxOutputLength} onChange={e => setMaxOutputLength(Number(e.target.value))} className="input" type="number" /></Field>
-            <div className="flex items-end text-xs text-gray-400">Official presets fill protocol, base URL, and limits automatically.</div>
+            <Field label={t('models.maxInput')}><input value={maxInputLength} onChange={e => setMaxInputLength(Number(e.target.value))} className="input" type="number" /></Field>
+            <Field label={t('models.maxOutput')}><input value={maxOutputLength} onChange={e => setMaxOutputLength(Number(e.target.value))} className="input" type="number" /></Field>
+            <div className="flex items-end text-xs text-gray-400">{t('models.presetHint')}</div>
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <button onClick={save} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">Save</button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+            <button onClick={save} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">{t('common.save')}</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">{t('common.cancel')}</button>
           </div>
         </div>
       )}
 
       <div className="bg-white border rounded-lg overflow-x-auto">
-        {loading ? <p className="p-4 text-sm text-gray-400">Loading...</p> : (
+        {loading ? <p className="p-4 text-sm text-gray-400">{t('common.loading')}</p> : (
           <table className="w-full min-w-[900px] text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
-                <th className="px-4 py-3 font-medium text-gray-500">Name</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Source</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Type</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Protocol</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Provider Model</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Auth</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Status</th>
-                <th className="px-4 py-3 font-medium text-gray-500 w-40">Actions</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('models.name')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('models.source')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('models.type')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('models.protocol')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('models.providerModel')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('common.auth')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('common.status')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500 w-40">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -292,13 +294,13 @@ export default function Models() {
                       <button
                         onClick={() => activate(m)}
                         disabled={m.type && m.type !== 'CHAT'}
-                        title={m.type && m.type !== 'CHAT' ? 'Only Large Language models can be activated into chat runtime' : 'Activate'}
+                        title={m.type && m.type !== 'CHAT' ? t('models.activateChatOnly') : t('models.activate')}
                         className="icon-btn disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-gray-400"
                       >
                         <CheckCircle2 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => test(m)} title="Test" className="icon-btn"><Play className="w-4 h-4" /></button>
-                      <button onClick={() => remove(m)} title="Delete" className="icon-btn danger"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => test(m)} title={t('models.test')} className="icon-btn"><Play className="w-4 h-4" /></button>
+                      <button onClick={() => remove(m)} title={t('models.delete')} className="icon-btn danger"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>
@@ -309,7 +311,7 @@ export default function Models() {
       </div>
 
       <div className="mt-6 bg-white border rounded-lg p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><ServerCog className="w-4 h-4" /> Protocol Test Input</h2>
+        <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><ServerCog className="w-4 h-4" /> {t('models.protocolTestInput')}</h2>
         <textarea value={testInput} onChange={e => setTestInput(e.target.value)} rows={3} className="w-full min-w-0 border rounded-md px-3 py-2 text-sm" />
         {testResult && <pre className="mt-4 bg-gray-950 text-gray-100 rounded-lg p-4 text-xs overflow-auto">{JSON.stringify(testResult, null, 2)}</pre>}
       </div>
@@ -322,6 +324,7 @@ function Field({ label, children }: { label: string; children: any }) {
 }
 
 function TypeBadge({ type }: { type: string }) {
+  const { t } = useTranslation()
   const styles: Record<string, string> = {
     CHAT: 'bg-blue-50 text-blue-700',
     EMBEDDING: 'bg-emerald-50 text-emerald-700',
@@ -333,7 +336,7 @@ function TypeBadge({ type }: { type: string }) {
     SEMANTIC_ROLE_LABELING: 'bg-teal-50 text-teal-700',
     TEXT_CLASSIFICATION: 'bg-orange-50 text-orange-700',
   }
-  return <span className={`text-xs px-2 py-0.5 rounded-full ${styles[type] || 'bg-gray-100 text-gray-600'}`}>{TYPE_LABELS[type] || type}</span>
+  return <span className={`text-xs px-2 py-0.5 rounded-full ${styles[type] || 'bg-gray-100 text-gray-600'}`}>{t(`models.types.${type}`, { defaultValue: type })}</span>
 }
 
 function SourceBadge({ source }: { source: string }) {
@@ -342,6 +345,7 @@ function SourceBadge({ source }: { source: string }) {
 }
 
 function Status({ value }: { value: string }) {
+  const { t } = useTranslation()
   const loaded = value === 'loaded'
-  return <span className={`text-xs px-2 py-0.5 rounded-full ${loaded ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{value || 'configured'}</span>
+  return <span className={`text-xs px-2 py-0.5 rounded-full ${loaded ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{value ? t(`common.${value}`, { defaultValue: value }) : t('common.configured')}</span>
 }

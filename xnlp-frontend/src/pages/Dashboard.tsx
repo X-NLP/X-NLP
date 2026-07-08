@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { modelsApi, datasetsApi, evaluationsApi, nlpApi } from '../api/client'
 import { Server, Database, FlaskConical, ArrowRight, Workflow } from 'lucide-react'
 
 export default function Dashboard() {
+  const { t } = useTranslation()
   const [models, setModels] = useState<any[]>([])
   const [datasets, setDatasets] = useState<any[]>([])
   const [evaluations, setEvaluations] = useState<any[]>([])
@@ -26,27 +28,27 @@ export default function Dashboard() {
   }, [])
 
   if (loading) {
-    return <div className="text-gray-500">Loading...</div>
+    return <div className="text-gray-500">{t('common.loading')}</div>
   }
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-gray-900 mb-6">Dashboard</h1>
+      <h1 className="text-xl font-semibold text-gray-900 mb-6">{t('dashboard.title')}</h1>
       <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          icon={Server} label="Model Assets" count={models.length}
+          icon={Server} label={t('dashboard.modelAssets')} count={models.length}
           color="blue" to="/models"
         />
         <StatCard
-          icon={Workflow} label="NLP Capabilities" count={tasks.length}
+          icon={Workflow} label={t('dashboard.nlpCapabilities')} count={tasks.length}
           color="cyan" to="/canvas"
         />
         <StatCard
-          icon={Database} label="Datasets" count={datasets.length}
+          icon={Database} label={t('dashboard.datasets')} count={datasets.length}
           color="emerald" to="/datasets"
         />
         <StatCard
-          icon={FlaskConical} label="Evaluations" count={evaluations.length}
+          icon={FlaskConical} label={t('dashboard.evaluations')} count={evaluations.length}
           color="amber" to="/evaluation"
         />
       </div>
@@ -54,13 +56,13 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="min-w-0">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Model Assets</h2>
+            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">{t('dashboard.modelAssets')}</h2>
             <Link to="/models" className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
-              View all <ArrowRight className="w-3 h-3" />
+              {t('common.viewAll')} <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
           {models.length === 0 ? (
-            <p className="text-sm text-gray-400">No model assets configured.</p>
+            <p className="text-sm text-gray-400">{t('dashboard.noModels')}</p>
           ) : (
             <ul className="divide-y divide-gray-200 border rounded-lg bg-white">
               {models.map((m: any) => (
@@ -70,7 +72,7 @@ export default function Dashboard() {
                     <span className="ml-0 block text-gray-400 break-words sm:ml-2 sm:inline">{m.backend || m.provider}</span>
                   </div>
                   <span className="w-fit shrink-0 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                    {m.status || 'loaded'}
+                    {m.status || t('common.loaded')}
                   </span>
                 </li>
               ))}
@@ -80,13 +82,13 @@ export default function Dashboard() {
 
         <div className="min-w-0">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">NLP Capabilities</h2>
+            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">{t('dashboard.nlpCapabilities')}</h2>
             <Link to="/canvas" className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
-              Canvas <ArrowRight className="w-3 h-3" />
+              {t('dashboard.canvas')} <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
           {tasks.length === 0 ? (
-            <p className="text-sm text-gray-400">No NLP capabilities reported by the server.</p>
+            <p className="text-sm text-gray-400">{t('dashboard.noCapabilities')}</p>
           ) : (
             <ul className="divide-y divide-gray-200 border rounded-lg bg-white">
               {tasks.slice(0, 6).map((task: any) => (
@@ -101,20 +103,20 @@ export default function Dashboard() {
 
         <div className="min-w-0">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Recent Evaluations</h2>
+            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">{t('dashboard.recentEvaluations')}</h2>
             <Link to="/compare" className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
-              Compare <ArrowRight className="w-3 h-3" />
+              {t('dashboard.compare')} <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
           {evaluations.length === 0 ? (
-            <p className="text-sm text-gray-400">No evaluations yet. Run one from the Evaluation page.</p>
+            <p className="text-sm text-gray-400">{t('dashboard.noEvaluations')}</p>
           ) : (
             <ul className="divide-y divide-gray-200 border rounded-lg bg-white">
               {evaluations.slice(0, 5).map((e: any) => (
                 <li key={e.id} className="px-4 py-3 text-sm flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <span className="font-medium text-gray-900 break-words">{e.modelName}</span>
-                    <span className="ml-0 block text-gray-400 break-words sm:ml-2 sm:inline">on {e.datasetName}</span>
+                    <span className="ml-0 block text-gray-400 break-words sm:ml-2 sm:inline">{t('dashboard.onDataset', { name: e.datasetName })}</span>
                   </div>
                   <span className={`w-fit shrink-0 text-xs px-2 py-0.5 rounded-full ${
                     e.status === 'completed' ? 'bg-green-100 text-green-700' :

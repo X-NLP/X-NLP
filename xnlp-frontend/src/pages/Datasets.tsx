@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { datasetsApi } from '../api/client'
 import { Plus, Trash2, Download, ChevronLeft, ChevronRight, Upload, Database } from 'lucide-react'
 
@@ -6,6 +7,7 @@ const TASK_TYPES = ['TEXT_CLASSIFICATION', 'SENTIMENT_ANALYSIS', 'SUMMARIZATION'
   'NAMED_ENTITY_RECOGNITION', 'QUESTION_ANSWERING', 'TRANSLATION']
 
 export default function Datasets() {
+  const { t } = useTranslation()
   const [datasets, setDatasets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -31,13 +33,13 @@ export default function Datasets() {
 
   const handleCreate = async () => {
     setFormError('')
-    if (!name.trim()) { setFormError('Name is required.'); return }
+    if (!name.trim()) { setFormError(t('datasets.nameRequired')); return }
     let entries: any[]
     try {
       entries = JSON.parse(jsonText)
-      if (!Array.isArray(entries)) throw new Error('JSON must be an array of {input, expectedOutput} objects.')
+      if (!Array.isArray(entries)) throw new Error(t('datasets.jsonArrayRequired'))
     } catch {
-      setFormError('Invalid JSON. Provide an array of objects with "input" and "expectedOutput".')
+      setFormError(t('datasets.invalidJson'))
       return
     }
     try {
@@ -50,7 +52,7 @@ export default function Datasets() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this dataset?')) return
+    if (!confirm(t('datasets.deleteConfirm'))) return
     await datasetsApi.delete(id)
     await load()
   }
@@ -77,27 +79,27 @@ export default function Datasets() {
   return (
     <div>
       <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Datasets</h1>
+        <h1 className="text-xl font-semibold text-gray-900">{t('datasets.title')}</h1>
         <button
           onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
         >
-          <Plus className="w-4 h-4" /> New Dataset
+          <Plus className="w-4 h-4" /> {t('datasets.newDataset')}
         </button>
       </div>
 
       {showForm && (
         <div className="bg-white border rounded-lg p-5 mb-6">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4">Create New Dataset</h2>
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">{t('datasets.createTitle')}</h2>
           {formError && <p className="text-sm text-red-600 mb-3">{formError}</p>}
           <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Name</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t('datasets.name')}</label>
               <input value={name} onChange={e => setName(e.target.value)}
                 className="w-full min-w-0 border rounded-md px-3 py-2 text-sm" placeholder="e.g. sentiment-test-v1" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Task Type</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t('datasets.taskType')}</label>
               <select value={taskType} onChange={e => setTaskType(e.target.value)}
                 className="w-full min-w-0 border rounded-md px-3 py-2 text-sm">
                 {TASK_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -105,50 +107,50 @@ export default function Datasets() {
             </div>
           </div>
           <div className="mb-4">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Description</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">{t('datasets.description')}</label>
             <input value={desc} onChange={e => setDesc(e.target.value)}
-              className="w-full min-w-0 border rounded-md px-3 py-2 text-sm" placeholder="Optional description" />
+              className="w-full min-w-0 border rounded-md px-3 py-2 text-sm" placeholder={t('datasets.optionalDescription')} />
           </div>
           <div className="mb-4">
             <label className="block text-xs font-medium text-gray-500 mb-1">
-              Entries (JSON array)
+              {t('datasets.entriesJson')}
             </label>
             <textarea value={jsonText} onChange={e => setJsonText(e.target.value)}
               rows={8}
               className="w-full min-w-0 border rounded-md px-3 py-2 text-sm font-mono"
               placeholder='[{"input": "...", "expectedOutput": "positive"}]' />
             <p className="text-xs text-gray-400 mt-1">
-              Each entry: {'{'} "input": "text...", "expectedOutput": "label..." {'}'}
+              {t('datasets.entryHint')}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <button onClick={handleCreate}
               className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
-              <Upload className="w-4 h-4 inline mr-1" /> Create
+              <Upload className="w-4 h-4 inline mr-1" /> {t('datasets.create')}
             </button>
             <button onClick={() => setShowForm(false)}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">{t('common.cancel')}</button>
           </div>
         </div>
       )}
 
       {loading ? (
-        <p className="text-gray-500 text-sm">Loading...</p>
+        <p className="text-gray-500 text-sm">{t('common.loading')}</p>
       ) : datasets.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <Database className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-          <p className="text-sm">No datasets yet. Create one to start evaluating models.</p>
+          <p className="text-sm">{t('datasets.noDatasets')}</p>
         </div>
       ) : (
         <div className="bg-white border rounded-lg overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
-                <th className="px-4 py-3 font-medium text-gray-500">Name</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Task</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Entries</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Created</th>
-                <th className="px-4 py-3 font-medium text-gray-500 w-32">Actions</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('datasets.name')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('datasets.task')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('datasets.entries')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500">{t('datasets.created')}</th>
+                <th className="px-4 py-3 font-medium text-gray-500 w-32">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -168,11 +170,11 @@ export default function Datasets() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button onClick={() => handleExport(ds)}
-                        className="p-1.5 text-gray-400 hover:text-gray-600 rounded" title="Export JSON">
+                        className="p-1.5 text-gray-400 hover:text-gray-600 rounded" title={t('datasets.exportJson')}>
                         <Download className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleDelete(ds.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 rounded" title="Delete">
+                        className="p-1.5 text-gray-400 hover:text-red-600 rounded" title={t('models.delete')}>
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -192,7 +194,7 @@ export default function Datasets() {
               <h3 className="min-w-0 text-lg font-semibold break-words">{viewing.name}</h3>
               <button onClick={() => setViewing(null)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
             </div>
-            <p className="text-sm text-gray-500 mb-4">Task: {viewing.taskType} &middot; {viewing.entryCount} entries</p>
+            <p className="text-sm text-gray-500 mb-4">{t('datasets.task')}: {viewing.taskType} &middot; {viewing.entryCount} {t('datasets.entries')}</p>
             {entries ? (
               <div className="space-y-3">
                 {entries.entries?.map((e: any, i: number) => (
@@ -203,7 +205,7 @@ export default function Datasets() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-400">Loading entries...</p>
+              <p className="text-sm text-gray-400">{t('datasets.loadingEntries')}</p>
             )}
           </div>
         </div>
