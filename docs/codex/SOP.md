@@ -13,12 +13,12 @@
 5. 阅读 `.codex/harness/CHECKLISTS.md` 中对应清单。
 6. 实现前明确验证命令。
 7. 实现后运行验证并清理测试数据。
-8. 测试通过后 commit 并 push。
+8. 测试通过后 commit 并 push，除非用户明确要求不 commit 或不 push。
 9. 最终回复说明改动、验证、commit、push 和风险。
 
 ## 本地启动
 
-后端默认使用 8080 端口：
+harness 本地联调约定使用 8080 端口；这会通过启动参数覆盖仓库默认的 8760 端口：
 
 ```bash
 cd xnlp-server
@@ -33,10 +33,13 @@ npm run dev --prefix xnlp-frontend
 
 ## GitHub 推送
 
-用户要求任务测试通过后推送到当前 GitHub 仓库。推送时使用临时 credential helper，不把 token 写入磁盘：
+用户要求任务测试通过后推送到当前 GitHub 仓库。推送前先确认当前分支和工作区状态，推送时使用临时 credential helper，不把 token 写入磁盘，也不把 token 写入远端 URL：
 
 ```bash
-git -c credential.helper='!f() { echo username=x-access-token; echo password=$GITHUB_TOKEN; }; f' push origin main
+test -n "${GITHUB_TOKEN:-}"
+branch="$(git branch --show-current)"
+git status --short
+git -c credential.helper='!f() { echo username=x-access-token; echo password=$GITHUB_TOKEN; }; f' push origin "$branch"
 ```
 
 ## 安全规则
