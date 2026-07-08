@@ -18,11 +18,11 @@
 
 ## 本地启动
 
-harness 本地联调约定使用 8080 端口；这会通过启动参数覆盖仓库默认的 8760 端口：
+harness 本地联调约定使用 8080 端口；从仓库根目录先打包 reactor 依赖，再用 jar 启动后端：
 
 ```bash
-cd xnlp-server
-mvn spring-boot:run -Dmaven.repo.local=/tmp/m2 -DskipTests -Dspring-boot.run.arguments=--server.port=8080
+mvn -pl xnlp-server -am package -DskipTests -Dmaven.repo.local=/tmp/m2
+java -jar xnlp-server/target/xnlp-server-0.1.0.jar --server.port=8080
 ```
 
 前端默认使用 5173 端口：

@@ -133,7 +133,7 @@ X-NLP/
 ```bash
 npm run build --prefix xnlp-frontend
 mvn test -pl xnlp-core -Dmaven.repo.local=/tmp/m2
-mvn test -pl xnlp-server -Dmaven.repo.local=/tmp/m2
+mvn test -pl xnlp-server -am -Dmaven.repo.local=/tmp/m2
 ```
 
 脚本应该 fail fast，并在运行每条命令前先打印命令。
@@ -177,7 +177,7 @@ mvn test -pl xnlp-server -Dmaven.repo.local=/tmp/m2
 | 改动范围 | 必须验证 |
 |---|---|
 | 前端代码 | `npm run build --prefix xnlp-frontend`，并检查受影响页面 |
-| 后端代码 | `mvn test -pl xnlp-server -Dmaven.repo.local=/tmp/m2`；接口行为变化时跑 API smoke |
+| 后端代码 | `mvn test -pl xnlp-server -am -Dmaven.repo.local=/tmp/m2`；接口行为变化时跑 API smoke |
 | Core 代码 | `mvn test -pl xnlp-core -Dmaven.repo.local=/tmp/m2` |
 | 模型管理 | API smoke、模型列表 UI、按模型类型检查行为 |
 | 数据集/评测 | 数据集 create/list/view/export/delete smoke，评测列表 UI |

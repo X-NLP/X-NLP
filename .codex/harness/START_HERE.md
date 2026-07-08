@@ -29,7 +29,7 @@
 ## 验证原则
 
 - 前端改动至少运行 `npm run build --prefix xnlp-frontend`。
-- 后端改动至少运行 `mvn test -pl xnlp-server -Dmaven.repo.local=/tmp/m2`。
+- 后端改动至少运行 `mvn test -pl xnlp-server -am -Dmaven.repo.local=/tmp/m2`。
 - Core 改动至少运行 `mvn test -pl xnlp-core -Dmaven.repo.local=/tmp/m2`。
 - 跨模块改动运行 `scripts/codex/check.sh`。
 - API 行为变化时，在后端启动后运行 `scripts/codex/smoke-api.sh`。

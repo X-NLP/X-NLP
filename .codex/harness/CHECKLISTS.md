@@ -33,7 +33,7 @@
 
 ## 后端 API
 
-- [ ] 运行 `mvn test -pl xnlp-server -Dmaven.repo.local=/tmp/m2`。
+- [ ] 运行 `mvn test -pl xnlp-server -am -Dmaven.repo.local=/tmp/m2`。
 - [ ] 后端启动后运行 `scripts/codex/smoke-api.sh`。
 - [ ] 检查成功响应和错误响应结构。
 - [ ] 确认接口不依赖真实外部模型凭证才能完成基础 smoke。

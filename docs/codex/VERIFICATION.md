@@ -15,7 +15,7 @@ scripts/codex/check.sh
 ```bash
 npm run build --prefix xnlp-frontend
 mvn test -pl xnlp-core -Dmaven.repo.local=/tmp/m2
-mvn test -pl xnlp-server -Dmaven.repo.local=/tmp/m2
+mvn test -pl xnlp-server -am -Dmaven.repo.local=/tmp/m2
 ```
 
 ## 按改动范围验证
@@ -23,7 +23,7 @@ mvn test -pl xnlp-server -Dmaven.repo.local=/tmp/m2
 | 改动范围 | 必须验证 |
 |---|---|
 | 前端代码 | `npm run build --prefix xnlp-frontend`，浏览器检查受影响页面 |
-| 后端代码 | `mvn test -pl xnlp-server -Dmaven.repo.local=/tmp/m2` |
+| 后端代码 | `mvn test -pl xnlp-server -am -Dmaven.repo.local=/tmp/m2` |
 | Core 代码 | `mvn test -pl xnlp-core -Dmaven.repo.local=/tmp/m2` |
 | 模型管理 | 后端测试、API smoke、模型列表 UI、模型 active 行为 |
 | 数据集/评测 | API smoke、数据集 create/list/view/export/delete、评测列表和对比页 |
