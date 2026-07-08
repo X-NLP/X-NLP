@@ -125,13 +125,13 @@ export default function Datasets() {
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">{t('datasets.name')}</label>
               <input value={name} onChange={e => setName(e.target.value)}
-                className="w-full min-w-0 border rounded-md px-3 py-2 text-sm" placeholder="e.g. sentiment-test-v1" />
+                className="w-full min-w-0 border rounded-md px-3 py-2 text-sm" placeholder={t('datasets.namePlaceholder')} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">{t('datasets.taskType')}</label>
               <select value={taskType} onChange={e => setTaskType(e.target.value)}
                 className="w-full min-w-0 border rounded-md px-3 py-2 text-sm">
-                {TASK_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                {TASK_TYPES.map(task => <option key={task} value={task}>{t(`tasks.${task}`, { defaultValue: task })}</option>)}
               </select>
             </div>
           </div>
@@ -250,7 +250,7 @@ export default function Datasets() {
                     </button>
                     {ds.description && <p className="text-xs text-gray-400 mt-0.5 break-words">{ds.description}</p>}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{ds.taskType}</td>
+                  <td className="px-4 py-3 text-gray-600">{t(`tasks.${ds.taskType}`, { defaultValue: ds.taskType })}</td>
                   <td className="px-4 py-3 text-gray-600">{ds.entryCount}</td>
                   <td className="px-4 py-3 text-gray-400 text-xs">
                     {ds.createdAt ? new Date(ds.createdAt).toLocaleDateString() : '-'}
@@ -282,13 +282,13 @@ export default function Datasets() {
               <h3 className="min-w-0 text-lg font-semibold break-words">{viewing.name}</h3>
               <button onClick={() => setViewing(null)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
             </div>
-            <p className="text-sm text-gray-500 mb-4">{t('datasets.task')}: {viewing.taskType} &middot; {viewing.entryCount} {t('datasets.entries')}</p>
+            <p className="text-sm text-gray-500 mb-4">{t('datasets.task')}: {t(`tasks.${viewing.taskType}`, { defaultValue: viewing.taskType })} &middot; {viewing.entryCount} {t('datasets.entries')}</p>
             {entries ? (
               <div className="space-y-3">
                 {entries.entries?.map((e: any, i: number) => (
                   <div key={e.id || i} className="border rounded-lg p-3 text-sm">
-                    <p className="text-gray-900 break-words"><span className="text-gray-400 font-mono text-xs">input:</span> {e.input}</p>
-                    <p className="text-green-700 mt-1 break-words"><span className="text-gray-400 font-mono text-xs">expected:</span> {e.expectedOutput}</p>
+                    <p className="text-gray-900 break-words"><span className="text-gray-400 font-mono text-xs">{t('common.input')}:</span> {e.input}</p>
+                    <p className="text-green-700 mt-1 break-words"><span className="text-gray-400 font-mono text-xs">{t('common.expected')}:</span> {e.expectedOutput}</p>
                   </div>
                 ))}
               </div>

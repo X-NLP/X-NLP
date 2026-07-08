@@ -72,7 +72,7 @@ export default function Dashboard() {
                     <span className="ml-0 block text-gray-400 break-words sm:ml-2 sm:inline">{m.backend || m.provider}</span>
                   </div>
                   <span className="w-fit shrink-0 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                    {m.status || t('common.loaded')}
+                    {m.status ? t(`statuses.${m.status}`, { defaultValue: m.status }) : t('statuses.loaded')}
                   </span>
                 </li>
               ))}
@@ -93,8 +93,10 @@ export default function Dashboard() {
             <ul className="divide-y divide-gray-200 border rounded-lg bg-white">
               {tasks.slice(0, 6).map((task: any) => (
                 <li key={task.task} className="px-4 py-3 text-sm">
-                  <span className="font-medium text-gray-900 break-words">{task.task}</span>
-                  <span className="mt-1 block text-xs text-gray-400 break-words">{task.description}</span>
+                  <span className="font-medium text-gray-900 break-words">{t(`tasks.${task.task}`, { defaultValue: task.task })}</span>
+                  <span className="mt-1 block text-xs text-gray-400 break-words">
+                    {t(`taskDescriptions.${task.task}`, { defaultValue: task.description })}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -123,7 +125,7 @@ export default function Dashboard() {
                     e.status === 'failed' ? 'bg-red-100 text-red-700' :
                     'bg-yellow-100 text-yellow-700'
                   }`}>
-                    {e.status}
+                    {t(`statuses.${e.status}`, { defaultValue: e.status })}
                     {e.metrics?.accuracy != null && ` · ${(e.metrics.accuracy * 100).toFixed(1)}%`}
                   </span>
                 </li>

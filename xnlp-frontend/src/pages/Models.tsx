@@ -208,7 +208,7 @@ export default function Models() {
           <div className="grid grid-cols-1 gap-4 mb-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label={t('models.provider')}>
               <select value={providerId} onChange={e => setProviderId(e.target.value)} className="input">
-                {providers.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                {providers.map((p: any) => <option key={p.id} value={p.id}>{p.id === 'custom' ? t('source.CUSTOM') : p.name}</option>)}
               </select>
             </Field>
             <Field label={t('models.type')}>
@@ -245,8 +245,8 @@ export default function Models() {
             <Field label={t('models.apiKey')}><input value={apiKey} onChange={e => setApiKey(e.target.value)} className="input" type="password" placeholder={t('models.apiKeyPlaceholder')} /></Field>
             <Field label={t('models.source')}>
               <select value={source} onChange={e => setSource(e.target.value)} className="input" disabled={!isCustom}>
-                <option value="OFFICIAL">OFFICIAL</option>
-                <option value="CUSTOM">CUSTOM</option>
+                <option value="OFFICIAL">{t('source.OFFICIAL')}</option>
+                <option value="CUSTOM">{t('source.CUSTOM')}</option>
               </select>
             </Field>
           </div>
@@ -340,12 +340,14 @@ function TypeBadge({ type }: { type: string }) {
 }
 
 function SourceBadge({ source }: { source: string }) {
+  const { t } = useTranslation()
   const official = source === 'OFFICIAL'
-  return <span className={`text-xs px-2 py-0.5 rounded-full ${official ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-600'}`}>{source || 'CUSTOM'}</span>
+  const value = source || 'CUSTOM'
+  return <span className={`text-xs px-2 py-0.5 rounded-full ${official ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-600'}`}>{t(`source.${value}`, { defaultValue: value })}</span>
 }
 
 function Status({ value }: { value: string }) {
   const { t } = useTranslation()
   const loaded = value === 'loaded'
-  return <span className={`text-xs px-2 py-0.5 rounded-full ${loaded ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{value ? t(`common.${value}`, { defaultValue: value }) : t('common.configured')}</span>
+  return <span className={`text-xs px-2 py-0.5 rounded-full ${loaded ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{value ? t(`statuses.${value}`, { defaultValue: value }) : t('statuses.configured')}</span>
 }

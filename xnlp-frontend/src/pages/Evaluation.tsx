@@ -75,14 +75,14 @@ export default function Evaluation() {
             <select value={datasetId} onChange={e => setDatasetId(e.target.value)}
               className="w-full min-w-0 border rounded-md px-3 py-2 text-sm">
               <option value="">{t('evaluation.selectDataset')}</option>
-              {datasets.map((d: any) => <option key={d.id} value={d.id}>{d.name} ({d.taskType})</option>)}
+              {datasets.map((d: any) => <option key={d.id} value={d.id}>{d.name} ({t(`tasks.${d.taskType}`, { defaultValue: d.taskType })})</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">{t('evaluation.taskType')}</label>
             <select value={taskType} onChange={e => setTaskType(e.target.value)}
               className="w-full min-w-0 border rounded-md px-3 py-2 text-sm">
-              {TASK_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              {TASK_TYPES.map(task => <option key={task} value={task}>{t(`tasks.${task}`, { defaultValue: task })}</option>)}
             </select>
           </div>
         </div>
@@ -120,12 +120,12 @@ export default function Evaluation() {
                 <tr key={r.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900 break-words">{r.modelName}</td>
                   <td className="px-4 py-3 text-gray-600 break-words">{r.datasetName}</td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">{r.taskType}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">{t(`tasks.${r.taskType}`, { defaultValue: r.taskType })}</td>
                   <td className="px-4 py-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
                       r.status === 'completed' ? 'bg-green-100 text-green-700' :
                       r.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
-                    }`}>{r.status}</span>
+                    }`}>{t(`statuses.${r.status}`, { defaultValue: r.status })}</span>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{formatPct(r.metrics?.accuracy)}</td>
                   <td className="px-4 py-3 text-gray-600">{formatNum(r.metrics?.f1Macro)}</td>
@@ -152,16 +152,16 @@ export default function Evaluation() {
             </div>
             {selectedRun.metrics ? (
               <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                <MetricRow label={t('evaluation.accuracy')} value={formatPct(selectedRun.metrics.accuracy)} />
-                <MetricRow label="Precision (macro)" value={formatNum(selectedRun.metrics.precisionMacro)} />
-                <MetricRow label="Recall (macro)" value={formatNum(selectedRun.metrics.recallMacro)} />
-                <MetricRow label="F1 (macro)" value={formatNum(selectedRun.metrics.f1Macro)} />
-                {selectedRun.metrics.rouge1 != null && <MetricRow label="ROUGE-1" value={formatNum(selectedRun.metrics.rouge1)} />}
-                {selectedRun.metrics.rouge2 != null && <MetricRow label="ROUGE-2" value={formatNum(selectedRun.metrics.rouge2)} />}
-                {selectedRun.metrics.rougeL != null && <MetricRow label="ROUGE-L" value={formatNum(selectedRun.metrics.rougeL)} />}
-                {selectedRun.metrics.bleu != null && <MetricRow label="BLEU" value={formatNum(selectedRun.metrics.bleu)} />}
-                {selectedRun.metrics.exactMatch != null && <MetricRow label="Exact Match" value={formatPct(selectedRun.metrics.exactMatch)} />}
-                {selectedRun.metrics.entityF1 != null && <MetricRow label="Entity F1" value={formatNum(selectedRun.metrics.entityF1)} />}
+                <MetricRow label={t('metrics.accuracy')} value={formatPct(selectedRun.metrics.accuracy)} />
+                <MetricRow label={t('metrics.precisionMacro')} value={formatNum(selectedRun.metrics.precisionMacro)} />
+                <MetricRow label={t('metrics.recallMacro')} value={formatNum(selectedRun.metrics.recallMacro)} />
+                <MetricRow label={t('metrics.f1Macro')} value={formatNum(selectedRun.metrics.f1Macro)} />
+                {selectedRun.metrics.rouge1 != null && <MetricRow label={t('metrics.rouge1')} value={formatNum(selectedRun.metrics.rouge1)} />}
+                {selectedRun.metrics.rouge2 != null && <MetricRow label={t('metrics.rouge2')} value={formatNum(selectedRun.metrics.rouge2)} />}
+                {selectedRun.metrics.rougeL != null && <MetricRow label={t('metrics.rougeL')} value={formatNum(selectedRun.metrics.rougeL)} />}
+                {selectedRun.metrics.bleu != null && <MetricRow label={t('metrics.bleu')} value={formatNum(selectedRun.metrics.bleu)} />}
+                {selectedRun.metrics.exactMatch != null && <MetricRow label={t('metrics.exactMatch')} value={formatPct(selectedRun.metrics.exactMatch)} />}
+                {selectedRun.metrics.entityF1 != null && <MetricRow label={t('metrics.entityF1')} value={formatNum(selectedRun.metrics.entityF1)} />}
                 <MetricRow label={t('evaluation.totalEntries')} value={String(selectedRun.metrics.totalEntries)} />
                 <MetricRow label={t('evaluation.correct')} value={String(selectedRun.metrics.correctEntries)} />
               </div>

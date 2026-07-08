@@ -28,15 +28,6 @@ type CanvasNode = {
   changes: string[]
 }
 
-const TASK_PROMPTS: Record<string, string> = {
-  TEXT_CLASSIFICATION: 'Classify the text into exactly one category.',
-  SENTIMENT_ANALYSIS: 'Analyze sentiment and return positive, negative, or neutral.',
-  SUMMARIZATION: 'Summarize the text in one short sentence.',
-  NAMED_ENTITY_RECOGNITION: 'Extract entities as TYPE: value pairs.',
-  QUESTION_ANSWERING: 'Answer the question from the supplied context.',
-  TRANSLATION: 'Translate the text to English.',
-}
-
 const statusClasses: Record<NodeStatus, string> = {
   ready: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   active: 'border-blue-200 bg-blue-50 text-blue-700',
@@ -45,15 +36,15 @@ const statusClasses: Record<NodeStatus, string> = {
 }
 
 const metricNames = [
-  ['accuracy', 'Accuracy'],
-  ['f1Macro', 'F1'],
-  ['precisionMacro', 'Precision'],
-  ['recallMacro', 'Recall'],
-  ['rouge1', 'ROUGE-1'],
-  ['rougeL', 'ROUGE-L'],
-  ['bleu', 'BLEU'],
-  ['exactMatch', 'Exact Match'],
-  ['entityF1', 'Entity F1'],
+  'accuracy',
+  'f1Macro',
+  'precisionMacro',
+  'recallMacro',
+  'rouge1',
+  'rougeL',
+  'bleu',
+  'exactMatch',
+  'entityF1',
 ]
 
 export default function Canvas() {
@@ -86,7 +77,7 @@ export default function Canvas() {
         setEntries([])
       }
     } catch (e: any) {
-      setError(e.message || 'Failed to load canvas data.')
+      setError(e.message || t('canvas.loadDataError'))
     }
     setLoading(false)
   }
@@ -97,18 +88,18 @@ export default function Canvas() {
     if (!datasetId) { setEntries([]); return }
     datasetsApi.entries(datasetId, 0, 20)
       .then(data => { setEntries(data.entries || []); setSelectedEntry(0) })
-      .catch((e: any) => setError(e.message || 'Failed to load entries.'))
+      .catch((e: any) => setError(e.message || t('canvas.loadEntriesError')))
   }, [datasetId])
 
   const dataset = datasets.find(item => item.id === datasetId)
   const run = evaluations.find(item => item.id === runId)
   const entry = entries[selectedEntry]
   const normalized = normalizeText(entry?.input || '')
-  const prompt = buildPrompt(dataset?.taskType || run?.taskType, normalized)
-  const metricSummary = summarizeMetrics(run?.metrics)
+  const prompt = buildPrompt(t, dataset?.taskType || run?.taskType, normalized)
+  const metricSummary = summarizeMetrics(t, run?.metrics)
   const nodes = useMemo(
-    () => buildNodes(dataset, run, entry, normalized, prompt, metricSummary),
-    [dataset, run, entry, normalized, prompt, metricSummary]
+    () => buildNodes(t, dataset, run, entry, normalized, prompt, metricSummary),
+    [t, dataset, run, entry, normalized, prompt, metricSummary]
   )
   const activeNode = nodes.find(node => node.id === selectedNode) || nodes[0]
 
@@ -147,7 +138,7 @@ export default function Canvas() {
         <SelectField label={t('canvas.evaluationRun')} value={runId} onChange={setRunId} disabled={filteredRuns.length === 0}>
           <option value="">{t('canvas.noRun')}</option>
           {filteredRuns.map((item: any) => (
-            <option key={item.id} value={item.id}>{item.modelName} / {item.status}</option>
+            <option key={item.id} value={item.id}>{item.modelName} / {t(`statuses.${item.status}`, { defaultValue: item.status })}</option>
           ))}
         </SelectField>
         <SelectField
@@ -163,9 +154,9 @@ export default function Canvas() {
       </div>
 
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryTile label={t('canvas.task')} value={dataset?.taskType || run?.taskType || '-'} icon={GitBranch} />
+        <SummaryTile label={t('canvas.task')} value={t(`tasks.${dataset?.taskType || run?.taskType}`, { defaultValue: dataset?.taskType || run?.taskType || '-' })} icon={GitBranch} />
         <SummaryTile label={t('canvas.entries')} value={String(dataset?.entryCount ?? entries.length ?? 0)} icon={Database} />
-        <SummaryTile label={t('canvas.runStatus')} value={run?.status || '-'} icon={PlayCircle} />
+        <SummaryTile label={t('canvas.runStatus')} value={run?.status ? t(`statuses.${run.status}`, { defaultValue: run.status }) : '-'} icon={PlayCircle} />
         <SummaryTile label={t('canvas.bestSignal')} value={metricSummary.primary} icon={Gauge} />
       </div>
 
@@ -230,89 +221,90 @@ export default function Canvas() {
   )
 }
 
-function buildNodes(dataset: any, run: any, entry: any, normalized: string, prompt: string, metricSummary: { primary: string; details: string[] }): CanvasNode[] {
+function buildNodes(t: any, dataset: any, run: any, entry: any, normalized: string, prompt: string, metricSummary: { primary: string; details: string[] }): CanvasNode[] {
   const input = entry?.input || ''
   const expected = entry?.expectedOutput || ''
   const whitespaceDelta = input.length - normalized.length
+  const taskType = dataset?.taskType || run?.taskType || ''
   return [
     {
       id: 'raw',
-      title: 'Raw input',
-      subtitle: 'Dataset entry',
+      title: t('canvas.nodeTitles.raw'),
+      subtitle: t('canvas.nodeSubtitles.raw'),
       icon: FileText,
       status: input ? 'ready' : 'empty',
-      metric: input ? `${input.length} chars` : 'No input',
-      detail: input || 'No entry selected.',
+      metric: input ? t('canvas.chars', { count: input.length }) : t('canvas.noInput'),
+      detail: input || t('canvas.noEntrySelected'),
       changes: [
-        `Dataset: ${dataset?.name || '-'}`,
-        `Entry id: ${entry?.id || '-'}`,
-        `Metadata keys: ${Object.keys(entry?.metadata || {}).length}`,
+        t('canvas.changes.dataset', { value: dataset?.name || '-' }),
+        t('canvas.changes.entryId', { value: entry?.id || '-' }),
+        t('canvas.changes.metadataKeys', { count: Object.keys(entry?.metadata || {}).length }),
       ],
     },
     {
       id: 'normalize',
-      title: 'Normalize',
-      subtitle: 'Whitespace cleanup',
+      title: t('canvas.nodeTitles.normalize'),
+      subtitle: t('canvas.nodeSubtitles.normalize'),
       icon: Sparkles,
       status: input ? 'active' : 'empty',
-      metric: whitespaceDelta === 0 ? 'No trim delta' : `-${whitespaceDelta} chars`,
-      detail: normalized || 'No normalized text available.',
+      metric: whitespaceDelta === 0 ? t('canvas.noTrimDelta') : `-${t('canvas.chars', { count: whitespaceDelta })}`,
+      detail: normalized || t('canvas.noNormalizedText'),
       changes: [
-        'Trim leading and trailing whitespace.',
-        'Collapse repeated whitespace into single spaces.',
-        `Output length: ${normalized.length}`,
+        t('canvas.changes.trim'),
+        t('canvas.changes.collapseWhitespace'),
+        t('canvas.changes.outputLength', { count: normalized.length }),
       ],
     },
     {
       id: 'labels',
-      title: 'Reference',
-      subtitle: 'Expected output',
+      title: t('canvas.nodeTitles.labels'),
+      subtitle: t('canvas.nodeSubtitles.labels'),
       icon: Braces,
       status: expected ? 'ready' : 'warning',
-      metric: expected ? `${expected.length} chars` : 'Missing',
-      detail: expected || 'This entry has no expected output, so metric calculation may be limited.',
+      metric: expected ? t('canvas.chars', { count: expected.length }) : t('canvas.missing'),
+      detail: expected || t('canvas.noExpectedOutput'),
       changes: [
-        `Task type: ${dataset?.taskType || run?.taskType || '-'}`,
-        `Label keys: ${Object.keys(entry?.labels || {}).length}`,
-        'Used as the reference side for evaluation metrics.',
+        t('canvas.changes.taskType', { value: taskType ? t(`tasks.${taskType}`, { defaultValue: taskType }) : '-' }),
+        t('canvas.changes.labelKeys', { count: Object.keys(entry?.labels || {}).length }),
+        t('canvas.changes.referenceSide'),
       ],
     },
     {
       id: 'prompt',
-      title: 'Prompt',
-      subtitle: 'Task framing',
+      title: t('canvas.nodeTitles.prompt'),
+      subtitle: t('canvas.nodeSubtitles.prompt'),
       icon: GitBranch,
       status: prompt ? 'active' : 'empty',
-      metric: prompt ? `${prompt.length} chars` : 'No prompt',
-      detail: prompt || 'Select a task to inspect prompt framing.',
+      metric: prompt ? t('canvas.chars', { count: prompt.length }) : t('canvas.noPrompt'),
+      detail: prompt || t('canvas.selectTaskForPrompt'),
       changes: [
-        TASK_PROMPTS[dataset?.taskType || run?.taskType] || 'Generic task framing is applied.',
-        'Input is embedded after the task instruction.',
-        'Reference output is not included in the model prompt.',
+        taskType ? t(`canvas.prompts.${taskType}`, { defaultValue: t('canvas.genericTaskFraming') }) : t('canvas.genericTaskFraming'),
+        t('canvas.changes.inputAfterInstruction'),
+        t('canvas.changes.referenceNotIncluded'),
       ],
     },
     {
       id: 'run',
-      title: 'Model run',
-      subtitle: 'Evaluation state',
+      title: t('canvas.nodeTitles.run'),
+      subtitle: t('canvas.nodeSubtitles.run'),
       icon: PlayCircle,
       status: run?.status === 'completed' ? 'ready' : run ? 'warning' : 'empty',
-      metric: run?.elapsedSeconds != null ? `${run.elapsedSeconds.toFixed(1)}s` : 'No run',
-      detail: run ? `${run.modelName} on ${run.datasetName}` : 'No evaluation run selected for this dataset.',
+      metric: run?.elapsedSeconds != null ? `${run.elapsedSeconds.toFixed(1)}s` : t('canvas.noRun'),
+      detail: run ? t('canvas.runDetail', { model: run.modelName, dataset: run.datasetName }) : t('canvas.noRunSelected'),
       changes: [
-        `Model: ${run?.modelName || '-'}`,
-        `Status: ${run?.status || '-'}`,
-        run?.errorMessage ? `Error: ${run.errorMessage}` : 'No run error recorded.',
+        t('canvas.changes.model', { value: run?.modelName || '-' }),
+        t('canvas.changes.status', { value: run?.status ? t(`statuses.${run.status}`, { defaultValue: run.status }) : '-' }),
+        run?.errorMessage ? `${t('common.error')}: ${run.errorMessage}` : t('canvas.changes.noRunError'),
       ],
     },
     {
       id: 'metrics',
-      title: 'Metrics',
-      subtitle: 'Important changes',
+      title: t('canvas.nodeTitles.metrics'),
+      subtitle: t('canvas.nodeSubtitles.metrics'),
       icon: BarChart3,
       status: run?.metrics ? 'ready' : 'empty',
       metric: metricSummary.primary,
-      detail: run?.metrics ? 'Evaluation metrics summarize output changes across the selected dataset.' : 'Run has no metrics yet.',
+      detail: run?.metrics ? t('canvas.metricsDetail') : t('canvas.runHasNoMetrics'),
       changes: metricSummary.details,
     },
   ]
@@ -322,21 +314,21 @@ function normalizeText(value: string) {
   return value.trim().replace(/\s+/g, ' ')
 }
 
-function buildPrompt(taskType: string, input: string) {
+function buildPrompt(t: any, taskType: string, input: string) {
   if (!taskType || !input) return ''
-  const task = TASK_PROMPTS[taskType] || 'Process the text according to the selected NLP task.'
-  return `${task}\n\nText: ${input}`
+  const task = t(`canvas.prompts.${taskType}`, { defaultValue: t('canvas.prompts.generic') })
+  return `${task}\n\n${t('common.input')}: ${input}`
 }
 
-function summarizeMetrics(metrics: any) {
-  if (!metrics) return { primary: 'No metrics', details: ['Run an evaluation to inspect metric changes.'] }
+function summarizeMetrics(t: any, metrics: any) {
+  if (!metrics) return { primary: t('canvas.noMetrics'), details: [t('canvas.runEvaluationHint')] }
   const details = metricNames
-    .map(([key, label]) => [label, metrics[key]] as [string, number | undefined])
+    .map(key => [t(`metrics.${key}`, { defaultValue: key }), metrics[key]] as [string, number | undefined])
     .filter(([, value]) => value != null)
     .map(([label, value]) => `${label}: ${formatMetric(value)}`)
   return {
-    primary: details[0]?.replace(': ', ' ') || 'Metrics ready',
-    details: details.length ? details : ['Metrics object is present but contains no displayable values.'],
+    primary: details[0]?.replace(': ', ' ') || t('canvas.metricsReady'),
+    details: details.length ? details : [t('canvas.noDisplayableMetrics')],
   }
 }
 

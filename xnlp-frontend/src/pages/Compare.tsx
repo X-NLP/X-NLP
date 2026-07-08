@@ -5,12 +5,6 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
   from 'recharts'
 import { GitCompare, TrendingUp, TrendingDown } from 'lucide-react'
 
-const METRIC_LABELS: Record<string, string> = {
-  accuracy: 'Accuracy', f1Macro: 'F1 (macro)', precisionMacro: 'Precision',
-  recallMacro: 'Recall', rouge1: 'ROUGE-1', rouge2: 'ROUGE-2', rougeL: 'ROUGE-L',
-  bleu: 'BLEU', exactMatch: 'Exact Match', f1Score: 'F1 Score', entityF1: 'Entity F1',
-}
-
 const METRIC_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
 export default function Compare() {
@@ -49,10 +43,10 @@ export default function Compare() {
   const barData = () => {
     if (!compareResult) return []
     return Object.entries(compareResult.metricValues).map(([key, values]) => {
-      const obj: any = { metric: METRIC_LABELS[key] || key }
+      const obj: any = { metric: t(`metrics.${key}`, { defaultValue: key }) }
       ;(values as number[]).forEach((v, i) => {
         const run = compareResult.runs[i]
-        obj[run?.modelName || `Run ${i + 1}`] = isAccuracy(key) ? (v || 0) * 100 : v
+        obj[run?.modelName || t('common.run') + ` ${i + 1}`] = isAccuracy(key) ? (v || 0) * 100 : v
       })
       return obj
     })
@@ -135,7 +129,7 @@ export default function Compare() {
                 <tbody className="divide-y divide-gray-100">
                   {Object.entries(compareResult.metricValues).map(([key, values]) => (
                     <tr key={key} className="hover:bg-gray-50">
-                      <td className="px-4 py-2.5 text-gray-600 font-medium">{METRIC_LABELS[key] || key}</td>
+                      <td className="px-4 py-2.5 text-gray-600 font-medium">{t(`metrics.${key}`, { defaultValue: key })}</td>
                       {(values as number[]).map((v, i) => (
                         <td key={i} className="px-4 py-2.5">
                           <span className="font-mono" style={{ color: runColors?.[i] }}>
@@ -178,7 +172,7 @@ export default function Compare() {
                   <Tooltip />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   {compareResult.runs.map((run: any, i: number) => (
-                    <Bar key={i} dataKey={run.modelName || `Run ${i + 1}`} fill={runColors?.[i]} radius={[4, 4, 0, 0]} />
+                    <Bar key={i} dataKey={run.modelName || t('common.run') + ` ${i + 1}`} fill={runColors?.[i]} radius={[4, 4, 0, 0]} />
                   ))}
                 </BarChart>
               </ResponsiveContainer>
@@ -192,7 +186,7 @@ export default function Compare() {
                   <PolarAngleAxis dataKey="model" tick={{ fontSize: 12 }} />
                   <PolarRadiusAxis tick={{ fontSize: 10 }} />
                   {compareResult.runs.map((run: any, i: number) => (
-                    <Radar key={i} name={run.modelName || `Run ${i + 1}`}
+                    <Radar key={i} name={run.modelName || t('common.run') + ` ${i + 1}`}
                       dataKey="accuracy" stroke={runColors?.[i]} fill={runColors?.[i]} fillOpacity={0.2} />
                   ))}
                 </RadarChart>
