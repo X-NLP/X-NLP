@@ -9,15 +9,33 @@ ENDPOINTS=(
   "/api/v1/datasets"
   "/api/v1/evaluations"
 )
+TMP_FILES=()
+
+need_tool() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "Missing required command: $1" >&2
+    exit 2
+  fi
+}
+
+cleanup() {
+  if [[ "${#TMP_FILES[@]}" -gt 0 ]]; then
+    rm -f "${TMP_FILES[@]}"
+  fi
+}
+
+trap cleanup EXIT
+
+need_tool curl
 
 echo "X-NLP API smoke base: ${BASE_URL}"
 
 for endpoint in "${ENDPOINTS[@]}"; do
   url="${BASE_URL}${endpoint}"
   tmp_body="$(mktemp)"
+  TMP_FILES+=("$tmp_body")
   status="$(curl -sS -o "$tmp_body" -w '%{http_code}' "$url" || true)"
   preview="$(tr '\n' ' ' < "$tmp_body" | cut -c 1-180)"
-  rm -f "$tmp_body"
 
   echo "${status} ${endpoint} ${preview}"
 
