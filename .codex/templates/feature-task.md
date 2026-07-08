@@ -23,7 +23,8 @@
 
 - 前缀：`codex-test-`
 - 创建的数据：
-- 清理方式：`scripts/codex/cleanup-test-data.sh --apply`
+- 清理 dry-run：`scripts/codex/cleanup-test-data.sh`
+- 清理 apply：`scripts/codex/cleanup-test-data.sh --apply`
 
 ## 验证
 
@@ -36,4 +37,5 @@
 
 - Commit：
 - Push：
+- 推送安全：不把 GITHUB_TOKEN 写入磁盘、日志或远端 URL。
 - 残余风险：

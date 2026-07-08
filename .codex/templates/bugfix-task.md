@@ -30,4 +30,5 @@
 
 - Commit：
 - Push：
+- 推送安全：不把 GITHUB_TOKEN 写入磁盘、日志或远端 URL。
 - 残余风险：
