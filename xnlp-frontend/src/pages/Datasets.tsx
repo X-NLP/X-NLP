@@ -1,10 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { datasetsApi } from '../api/client'
-import { Plus, Trash2, Download, ChevronLeft, ChevronRight, Upload, Database } from 'lucide-react'
+import { Plus, Trash2, Download, Upload, Database } from 'lucide-react'
 
 const TASK_TYPES = ['TEXT_CLASSIFICATION', 'SENTIMENT_ANALYSIS', 'SUMMARIZATION',
   'NAMED_ENTITY_RECOGNITION', 'QUESTION_ANSWERING', 'TRANSLATION']
+
+type InputMode = 'quick' | 'json'
+
+type QuickEntry = {
+  input: string
+  expectedOutput: string
+}
+
+const emptyQuickEntry = (): QuickEntry => ({ input: '', expectedOutput: '' })
 
 export default function Datasets() {
   const { t } = useTranslation()
@@ -18,6 +27,8 @@ export default function Datasets() {
   const [name, setName] = useState('')
   const [desc, setDesc] = useState('')
   const [taskType, setTaskType] = useState('TEXT_CLASSIFICATION')
+  const [inputMode, setInputMode] = useState<InputMode>('quick')
+  const [quickEntries, setQuickEntries] = useState<QuickEntry[]>([emptyQuickEntry()])
   const [jsonText, setJsonText] = useState('')
   const [formError, setFormError] = useState('')
 
@@ -35,20 +46,38 @@ export default function Datasets() {
     setFormError('')
     if (!name.trim()) { setFormError(t('datasets.nameRequired')); return }
     let entries: any[]
-    try {
-      entries = JSON.parse(jsonText)
-      if (!Array.isArray(entries)) throw new Error(t('datasets.jsonArrayRequired'))
-    } catch {
-      setFormError(t('datasets.invalidJson'))
-      return
+    if (inputMode === 'quick') {
+      entries = quickEntries
+        .map(entry => ({ input: entry.input.trim(), expectedOutput: entry.expectedOutput.trim() }))
+        .filter(entry => entry.input || entry.expectedOutput)
+      if (entries.length === 0) { setFormError(t('datasets.quickEntriesRequired')); return }
+      if (entries.some(entry => !entry.input || !entry.expectedOutput)) { setFormError(t('datasets.quickEntriesComplete')); return }
+    } else {
+      try {
+        entries = JSON.parse(jsonText)
+        if (!Array.isArray(entries)) throw new Error(t('datasets.jsonArrayRequired'))
+      } catch {
+        setFormError(t('datasets.invalidJson'))
+        return
+      }
     }
     try {
       await datasetsApi.create({ name: name.trim(), description: desc.trim(), taskType, entries })
-      setName(''); setDesc(''); setJsonText(''); setShowForm(false)
+      setName(''); setDesc(''); setJsonText(''); setQuickEntries([emptyQuickEntry()]); setInputMode('quick'); setShowForm(false)
       await load()
     } catch (e: any) {
       setFormError(e.message)
     }
+  }
+
+  const updateQuickEntry = (index: number, field: keyof QuickEntry, value: string) => {
+    setQuickEntries(entries => entries.map((entry, i) => i === index ? { ...entry, [field]: value } : entry))
+  }
+
+  const addQuickEntry = () => setQuickEntries(entries => [...entries, emptyQuickEntry()])
+
+  const removeQuickEntry = (index: number) => {
+    setQuickEntries(entries => entries.length === 1 ? [emptyQuickEntry()] : entries.filter((_, i) => i !== index))
   }
 
   const handleDelete = async (id: string) => {
@@ -112,16 +141,75 @@ export default function Datasets() {
               className="w-full min-w-0 border rounded-md px-3 py-2 text-sm" placeholder={t('datasets.optionalDescription')} />
           </div>
           <div className="mb-4">
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              {t('datasets.entriesJson')}
-            </label>
-            <textarea value={jsonText} onChange={e => setJsonText(e.target.value)}
-              rows={8}
-              className="w-full min-w-0 border rounded-md px-3 py-2 text-sm font-mono"
-              placeholder='[{"input": "...", "expectedOutput": "positive"}]' />
-            <p className="text-xs text-gray-400 mt-1">
-              {t('datasets.entryHint')}
-            </p>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setInputMode('quick')}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium ${inputMode === 'quick' ? 'bg-gray-900 text-white' : 'border text-gray-600 hover:bg-gray-50'}`}
+              >
+                {t('datasets.quickMode')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMode('json')}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium ${inputMode === 'json' ? 'bg-gray-900 text-white' : 'border text-gray-600 hover:bg-gray-50'}`}
+              >
+                {t('datasets.jsonMode')}
+              </button>
+            </div>
+
+            {inputMode === 'quick' ? (
+              <div className="space-y-3">
+                {quickEntries.map((entry, index) => (
+                  <div key={index} className="grid grid-cols-1 gap-3 rounded-lg border bg-gray-50 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,280px)_auto]">
+                    <label className="block min-w-0">
+                      <span className="mb-1 block text-xs font-medium text-gray-500">{t('datasets.inputText')}</span>
+                      <textarea
+                        value={entry.input}
+                        onChange={event => updateQuickEntry(index, 'input', event.target.value)}
+                        rows={2}
+                        className="w-full min-w-0 rounded-md border bg-white px-3 py-2 text-sm"
+                        placeholder={t('datasets.inputPlaceholder')}
+                      />
+                    </label>
+                    <label className="block min-w-0">
+                      <span className="mb-1 block text-xs font-medium text-gray-500">{t('datasets.expectedOutput')}</span>
+                      <textarea
+                        value={entry.expectedOutput}
+                        onChange={event => updateQuickEntry(index, 'expectedOutput', event.target.value)}
+                        rows={2}
+                        className="w-full min-w-0 rounded-md border bg-white px-3 py-2 text-sm"
+                        placeholder={t('datasets.expectedPlaceholder')}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => removeQuickEntry(index)}
+                      className="self-end rounded-md border px-3 py-2 text-sm text-gray-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                      title={t('datasets.removeEntry')}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                <button type="button" onClick={addQuickEntry} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                  <Plus className="h-4 w-4" /> {t('datasets.addEntry')}
+                </button>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  {t('datasets.entriesJson')}
+                </label>
+                <textarea value={jsonText} onChange={e => setJsonText(e.target.value)}
+                  rows={8}
+                  className="w-full min-w-0 border rounded-md px-3 py-2 text-sm font-mono"
+                  placeholder='[{"input": "...", "expectedOutput": "positive"}]' />
+                <p className="text-xs text-gray-400 mt-1">
+                  {t('datasets.entryHint')}
+                </p>
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap gap-3">
             <button onClick={handleCreate}
