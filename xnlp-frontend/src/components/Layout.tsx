@@ -1,12 +1,13 @@
 import { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Database, FlaskConical, GitCompare, Activity, ServerCog } from 'lucide-react'
+import { LayoutDashboard, Database, FlaskConical, GitCompare, Activity, ServerCog, Workflow } from 'lucide-react'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/models', label: 'Models', icon: ServerCog },
   { to: '/datasets', label: 'Datasets', icon: Database },
   { to: '/evaluation', label: 'Evaluation', icon: FlaskConical },
+  { to: '/canvas', label: 'Canvas', icon: Workflow },
   { to: '/compare', label: 'Compare', icon: GitCompare },
 ]
 

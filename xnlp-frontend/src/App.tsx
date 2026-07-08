@@ -5,6 +5,7 @@ import Models from './pages/Models'
 import Datasets from './pages/Datasets'
 import Evaluation from './pages/Evaluation'
 import Compare from './pages/Compare'
+import Canvas from './pages/Canvas'
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
         <Route path="/models" element={<Models />} />
         <Route path="/datasets" element={<Datasets />} />
         <Route path="/evaluation" element={<Evaluation />} />
+        <Route path="/canvas" element={<Canvas />} />
         <Route path="/compare" element={<Compare />} />
       </Routes>
     </Layout>
