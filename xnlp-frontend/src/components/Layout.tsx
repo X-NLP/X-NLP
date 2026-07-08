@@ -17,37 +17,37 @@ export default function Layout({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
 
   return (
-    <div className="flex min-h-screen flex-col lg:flex-row">
-      <aside className="w-full bg-gray-900 text-gray-300 flex flex-col shrink-0 lg:w-56">
-        <div className="flex items-center gap-2 px-4 py-4 border-b border-gray-800 lg:py-5">
-          <Activity className="w-5 h-5 text-emerald-400" />
-          <span className="text-lg font-semibold text-white tracking-tight">X-NLP</span>
-        </div>
-        <nav className="flex gap-1 overflow-x-auto px-3 py-3 lg:block lg:flex-1 lg:space-y-1 lg:overflow-visible lg:py-4">
+    <div className="min-h-screen bg-gray-50">
+      <header className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
+          <div className="flex shrink-0 items-center gap-2 pr-2">
+            <Activity className="h-5 w-5 text-emerald-500" />
+            <span className="text-lg font-semibold tracking-tight text-gray-950">X-NLP</span>
+          </div>
+          <nav className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
           {navItems.map(item => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === '/'}
               className={({ isActive }) =>
-                `flex shrink-0 items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors lg:gap-3 ${
+                `flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-gray-800 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
                 }`
               }
             >
-              <item.icon className="w-4 h-4" />
+              <item.icon className="h-4 w-4" />
               {t(item.labelKey)}
             </NavLink>
           ))}
-        </nav>
-        <div className="border-t border-gray-800 lg:mt-auto">
+          </nav>
           <LanguageSwitcher />
         </div>
-      </aside>
-      <main className="flex-1 min-w-0">
-        <div className="px-4 py-5 max-w-7xl mx-auto sm:px-6 md:py-8">
+      </header>
+      <main className="min-w-0">
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 md:py-8">
           {children}
         </div>
       </main>

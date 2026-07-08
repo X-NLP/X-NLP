@@ -1,30 +1,24 @@
 import { useTranslation } from 'react-i18next'
 
-const languages = [
-  { value: 'zh-CN', labelKey: 'language.zh' },
-  { value: 'en', labelKey: 'language.en' },
-]
-
 export default function LanguageSwitcher() {
   const { i18n, t } = useTranslation()
 
-  const changeLanguage = (value: string) => {
-    localStorage.setItem('xnlp.language', value)
-    i18n.changeLanguage(value)
+  const currentLanguage = i18n.language?.startsWith('en') ? 'en' : 'zh-CN'
+  const nextLanguage = currentLanguage === 'zh-CN' ? 'en' : 'zh-CN'
+
+  const toggleLanguage = () => {
+    localStorage.setItem('xnlp.language', nextLanguage)
+    i18n.changeLanguage(nextLanguage)
   }
 
   return (
-    <label className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400 lg:px-4">
-      <span className="shrink-0">{t('language.label')}</span>
-      <select
-        value={i18n.language}
-        onChange={event => changeLanguage(event.target.value)}
-        className="rounded-md border border-gray-700 bg-gray-900 px-2 py-1 text-xs text-gray-200 outline-none focus:border-emerald-500"
-      >
-        {languages.map(language => (
-          <option key={language.value} value={language.value}>{t(language.labelKey)}</option>
-        ))}
-      </select>
-    </label>
+    <button
+      type="button"
+      onClick={toggleLanguage}
+      className="shrink-0 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+      title={t('language.label')}
+    >
+      {currentLanguage === 'zh-CN' ? t('language.zh') : t('language.en')}
+    </button>
   )
 }
