@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Models from './pages/Models'
+import NlpWorkbench from './pages/NlpWorkbench'
 import Datasets from './pages/Datasets'
 import Evaluation from './pages/Evaluation'
 import Compare from './pages/Compare'
@@ -13,6 +14,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/models" element={<Models />} />
+        <Route path="/nlp" element={<NlpWorkbench />} />
         <Route path="/datasets" element={<Datasets />} />
         <Route path="/evaluation" element={<Evaluation />} />
         <Route path="/canvas" element={<Canvas />} />

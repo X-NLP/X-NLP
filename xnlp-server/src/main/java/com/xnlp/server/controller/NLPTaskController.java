@@ -21,6 +21,11 @@ public class NLPTaskController {
         return nlpTaskService.listTasks();
     }
 
+    @PostMapping("/analyze")
+    public Map<String, Object> analyze(@RequestBody Map<String, Object> body) {
+        return nlpTaskService.analyze(body);
+    }
+
     @PostMapping("/classify")
     public Map<String, Object> classify(@RequestBody Map<String, Object> body) {
         String modelName = (String) body.get("modelName");

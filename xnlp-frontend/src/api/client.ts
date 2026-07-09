@@ -74,6 +74,8 @@ export const evaluationsApi = {
 // ---- NLP Tasks ----
 export const nlpApi = {
   tasks: () => request<any[]>('/nlp/tasks'),
+  analyze: (payload: any) =>
+    request<any>('/nlp/analyze', { method: 'POST', body: JSON.stringify(payload) }),
   classify: (modelName: string, text: string, categories: string[]) =>
     request<any>('/nlp/classify', { method: 'POST', body: JSON.stringify({ modelName, text, categories }) }),
   sentiment: (modelName: string, text: string) =>

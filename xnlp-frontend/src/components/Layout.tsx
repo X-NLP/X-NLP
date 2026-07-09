@@ -1,12 +1,13 @@
 import { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LayoutDashboard, Database, FlaskConical, GitCompare, Activity, ServerCog, Workflow } from 'lucide-react'
+import { LayoutDashboard, Database, FlaskConical, GitCompare, Activity, ServerCog, Workflow, ScanText } from 'lucide-react'
 import LanguageSwitcher from './LanguageSwitcher'
 
 const navItems = [
   { to: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard },
   { to: '/models', labelKey: 'nav.models', icon: ServerCog },
+  { to: '/nlp', labelKey: 'nav.nlp', icon: ScanText },
   { to: '/datasets', labelKey: 'nav.datasets', icon: Database },
   { to: '/evaluation', labelKey: 'nav.evaluation', icon: FlaskConical },
   { to: '/canvas', labelKey: 'nav.canvas', icon: Workflow },
