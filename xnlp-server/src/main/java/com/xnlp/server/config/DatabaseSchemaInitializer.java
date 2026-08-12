@@ -31,6 +31,7 @@ public class DatabaseSchemaInitializer {
         this.jdbc = jdbc;
         this.dataSource = dataSource;
         ensureEvaluationRunColumns();
+        ensureWasteWeighingColumns();
     }
 
     private void ensureEvaluationRunColumns() {
@@ -52,6 +53,15 @@ public class DatabaseSchemaInitializer {
         }
     }
 
+    private void ensureWasteWeighingColumns() {
+        try (Connection connection = dataSource.getConnection()) {
+            if (!hasColumn(connection.getMetaData(), connection, "waste_weighings", "trip_no")) {
+                jdbc.execute("ALTER TABLE waste_weighings ADD COLUMN trip_no INTEGER NOT NULL DEFAULT 1");
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed to validate or upgrade the waste weighing schema", ex);
+        }
+    }
 
     private boolean hasColumn(DatabaseMetaData metadata, Connection connection, String table, String column)
             throws SQLException {

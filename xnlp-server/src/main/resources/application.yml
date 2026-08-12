@@ -79,3 +79,7 @@ xnlp:
       device: cpu
       max-input-length: 4096
       max-output-length: 2048
+
+# Local append-only demo storage; replace with an object-storage adapter in production.
+waste:
+  upload-dir: ${WASTE_UPLOAD_DIR:./data/waste-uploads}

@@ -53,3 +53,63 @@ CREATE TABLE IF NOT EXISTS evaluation_runs (
     progress_percent DOUBLE PRECISION NOT NULL DEFAULT 0,
     cancel_requested BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+-- Construction waste vehicle access management (append-only business records).
+CREATE TABLE IF NOT EXISTS waste_vehicles (
+    id VARCHAR(64) PRIMARY KEY,
+    plate_no VARCHAR(32) NOT NULL UNIQUE,
+    vehicle_type VARCHAR(64) NOT NULL,
+    company_name VARCHAR(190) NOT NULL,
+    driver_name VARCHAR(64) NOT NULL,
+    driver_phone VARCHAR(32) NOT NULL,
+    verified BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS waste_applications (
+    id VARCHAR(64) PRIMARY KEY,
+    application_no VARCHAR(64) NOT NULL UNIQUE,
+    waste_type VARCHAR(64) NOT NULL,
+    clear_reason VARCHAR(255) NOT NULL,
+    pickup_location VARCHAR(255) NOT NULL,
+    estimated_weight_tons DOUBLE NOT NULL,
+    vehicle_id VARCHAR(64) NOT NULL,
+    processing_site VARCHAR(190) NOT NULL,
+    route_description VARCHAR(255),
+    order_subject VARCHAR(32) NOT NULL,
+    subject_name VARCHAR(190) NOT NULL,
+    contact_name VARCHAR(64) NOT NULL,
+    contact_phone VARCHAR(32) NOT NULL,
+    photo_urls TEXT,
+    status VARCHAR(32) NOT NULL,
+    remaining_weight_tons DOUBLE NOT NULL DEFAULT 0,
+    reviewer VARCHAR(64),
+    review_comment VARCHAR(255),
+    reviewed_at TIMESTAMP,
+    approved_at TIMESTAMP,
+    code VARCHAR(16),
+    code_expires_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS waste_audits (
+    id VARCHAR(64) PRIMARY KEY,
+    application_id VARCHAR(64) NOT NULL,
+    action VARCHAR(64) NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    operator_name VARCHAR(64),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS waste_weighings (
+    id VARCHAR(64) PRIMARY KEY,
+    application_id VARCHAR(64) NOT NULL,
+    application_no VARCHAR(64) NOT NULL,
+    plate_no VARCHAR(32) NOT NULL,
+    event_type VARCHAR(16) NOT NULL,
+    trip_no INTEGER NOT NULL DEFAULT 1,
+    gross_weight DOUBLE NOT NULL,
+    tare_weight DOUBLE NOT NULL,
+    net_weight DOUBLE NOT NULL,
+    weighbridge_no VARCHAR(64),
+    operator_name VARCHAR(64),
+    weighed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    source VARCHAR(32) NOT NULL
+);
