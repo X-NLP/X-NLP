@@ -6,7 +6,6 @@ import com.xnlp.server.service.DatasetService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -33,18 +32,18 @@ public class DatasetController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public EvaluationDataset create(@RequestBody EvaluationDataset dataset) throws IOException {
+    public EvaluationDataset create(@RequestBody EvaluationDataset dataset) {
         return datasetService.create(dataset);
     }
 
     @PutMapping("/{id}")
-    public EvaluationDataset update(@PathVariable String id, @RequestBody EvaluationDataset dataset) throws IOException {
+    public EvaluationDataset update(@PathVariable String id, @RequestBody EvaluationDataset dataset) {
         return datasetService.update(id, dataset);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable String id) throws IOException {
+    public void delete(@PathVariable String id) {
         datasetService.delete(id);
     }
 

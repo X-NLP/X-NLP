@@ -1,83 +1,56 @@
 package com.xnlp.server.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xnlp.core.eval.EvaluationDataset;
 import com.xnlp.core.eval.EvaluationEntry;
-import jakarta.annotation.PostConstruct;
+import com.xnlp.core.repository.DatasetRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Manages evaluation datasets with JSON file-based persistence.
+ * Manages evaluation datasets through the configured persistence profile.
  *
- * <p>Datasets are stored as JSON files under {@code data/datasets/} and
- * also cached in memory. Each dataset file is named {@code <id>.json}.
+ * <p>Delegates storage to a {@link DatasetRepository} implementation.
  */
 @Service
 public class DatasetService {
 
     private static final Logger log = LoggerFactory.getLogger(DatasetService.class);
-    private static final Path STORE_DIR = Paths.get("data", "datasets");
 
     private final ObjectMapper mapper = new ObjectMapper()
-            .findAndRegisterModules()
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-    private final Map<String, EvaluationDataset> cache = new ConcurrentHashMap<>();
+            .findAndRegisterModules();
+    private final DatasetRepository repository;
 
-    @PostConstruct
-    void init() throws IOException {
-        Files.createDirectories(STORE_DIR);
-        // Load existing datasets from disk on startup
-        try (var stream = Files.list(STORE_DIR)) {
-            stream.filter(p -> p.toString().endsWith(".json")).forEach(p -> {
-                try {
-                    EvaluationDataset ds = mapper.readValue(p.toFile(), EvaluationDataset.class);
-                    cache.put(ds.getId(), ds);
-                    log.info("Loaded dataset: {} ({} entries)", ds.getName(), ds.getEntryCount());
-                } catch (IOException e) {
-                    log.warn("Failed to load dataset from {}", p, e);
-                }
-            });
-        }
+    public DatasetService(DatasetRepository repository) {
+        this.repository = repository;
     }
 
     public List<EvaluationDataset> list() {
-        return cache.values().stream()
-                .sorted(Comparator.comparing(EvaluationDataset::getUpdatedAt).reversed())
-                .toList();
+        return repository.findAll();
     }
 
     public Optional<EvaluationDataset> get(String id) {
-        return Optional.ofNullable(cache.get(id));
+        return repository.findById(id);
     }
 
-    public EvaluationDataset create(EvaluationDataset dataset) throws IOException {
+    public EvaluationDataset create(EvaluationDataset dataset) {
         dataset.setId(UUID.randomUUID().toString());
         dataset.setCreatedAt(Instant.now());
         dataset.setUpdatedAt(Instant.now());
         dataset.setEntryCount(dataset.getEntries() != null ? dataset.getEntries().size() : 0);
-        persist(dataset);
-        cache.put(dataset.getId(), dataset);
+        repository.save(dataset);
         log.info("Created dataset: {} ({} entries)", dataset.getName(), dataset.getEntryCount());
         return dataset;
     }
 
-    public EvaluationDataset update(String id, EvaluationDataset updated) throws IOException {
-        EvaluationDataset existing = cache.get(id);
-        if (existing == null) {
-            throw new NoSuchElementException("Dataset not found: " + id);
-        }
+    public EvaluationDataset update(String id, EvaluationDataset updated) {
+        EvaluationDataset existing = repository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Dataset not found: " + id));
         existing.setName(updated.getName());
         existing.setDescription(updated.getDescription());
         existing.setTaskType(updated.getTaskType());
@@ -86,21 +59,17 @@ public class DatasetService {
             existing.setEntryCount(updated.getEntries().size());
         }
         existing.setUpdatedAt(Instant.now());
-        persist(existing);
-        cache.put(id, existing);
+        repository.save(existing);
         return existing;
     }
 
-    public void delete(String id) throws IOException {
-        cache.remove(id);
-        Path file = STORE_DIR.resolve(id + ".json");
-        Files.deleteIfExists(file);
-        log.info("Deleted dataset: {}", id);
+    public void delete(String id) {
+        repository.deleteById(id);
     }
 
     public List<EvaluationEntry> getEntries(String id, int page, int size) {
-        EvaluationDataset ds = cache.get(id);
-        if (ds == null) throw new NoSuchElementException("Dataset not found: " + id);
+        EvaluationDataset ds = repository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Dataset not found: " + id));
         List<EvaluationEntry> entries = ds.getEntries();
         int from = page * size;
         int to = Math.min(from + size, entries.size());
@@ -109,8 +78,8 @@ public class DatasetService {
     }
 
     public String exportJson(String id) {
-        EvaluationDataset ds = cache.get(id);
-        if (ds == null) throw new NoSuchElementException("Dataset not found: " + id);
+        EvaluationDataset ds = repository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Dataset not found: " + id));
         try {
             return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(ds);
         } catch (IOException e) {
@@ -118,10 +87,5 @@ public class DatasetService {
         }
     }
 
-    private void persist(EvaluationDataset dataset) throws IOException {
-        Path file = STORE_DIR.resolve(dataset.getId() + ".json");
-        mapper.writerWithDefaultPrettyPrinter().writeValue(file.toFile(), dataset);
-    }
-
-    public int count() { return cache.size(); }
+    public int count() { return repository.count(); }
 }

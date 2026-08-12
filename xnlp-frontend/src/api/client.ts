@@ -38,6 +38,11 @@ export const modelsApi = {
     request<any>(`/models/${name}/test`, { method: 'POST', body: JSON.stringify(payload) }),
   predict: (name: string, text: string) =>
     request<any>(`/models/${name}/predict`, { method: 'POST', body: JSON.stringify({ text }) }),
+  batchPredict: (name: string, requests: Array<{ text: string; modelName?: string }>) =>
+    request<any>(`/models/${name}/batch-predict`, {
+      method: 'POST',
+      body: JSON.stringify({ requests }),
+    }),
   benchmark: (modelName: string, params?: Record<string, any>) =>
     request<any>(`/benchmark/${modelName}`, { method: 'POST', body: JSON.stringify(params || {}) }),
 };
@@ -58,17 +63,32 @@ export const datasetsApi = {
 
 // ---- Evaluations ----
 export const evaluationsApi = {
-  list: () => request<any[]>('/evaluations'),
+  list: (filters?: { modelName?: string; datasetName?: string; status?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.modelName) params.set('modelName', filters.modelName);
+    if (filters?.datasetName) params.set('datasetName', filters.datasetName);
+    if (filters?.status) params.set('status', filters.status);
+    const query = params.toString();
+    return request<any[]>(`/evaluations${query ? `?${query}` : ''}`);
+  },
   get: (id: string) => request<any>(`/evaluations/${id}`),
   run: (modelName: string, datasetId: string, taskType?: string) =>
     request<any>('/evaluations', {
       method: 'POST',
       body: JSON.stringify({ modelName, datasetId, taskType }),
     }),
+  cancel: (id: string) => request<any>(`/evaluations/${id}/cancel`, { method: 'POST' }),
   compare: (ids: string[]) => {
     const qs = ids.map(id => `ids=${encodeURIComponent(id)}`).join('&');
     return request<any>(`/evaluations/compare?${qs}`);
   },
+};
+
+// ---- Pipelines ----
+export const pipelinesApi = {
+  capabilities: () => request<any[]>('/pipelines/capabilities'),
+  execute: (payload: any) =>
+    request<any>('/pipelines/execute', { method: 'POST', body: JSON.stringify(payload) }),
 };
 
 // ---- NLP Tasks ----
@@ -90,7 +110,18 @@ export const nlpApi = {
     request<any>('/nlp/translate', { method: 'POST', body: JSON.stringify({ modelName, text, sourceLanguage }) }),
 };
 
+// ---- Spring AI ----
+export const aiApi = {
+  status: () => request<any>('/ai/status'),
+  chat: (message: string, context?: string, modelName?: string) =>
+    request<any>('/ai/chat', { method: 'POST', body: JSON.stringify({ message, context, modelName }) }),
+};
+
 // ---- Health ----
 export const healthApi = {
-  check: () => request<any>('/../health'),
+  check: async () => {
+    const res = await fetch('/health', { headers: { 'Content-Type': 'application/json' } });
+    if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+    return res.json();
+  },
 };

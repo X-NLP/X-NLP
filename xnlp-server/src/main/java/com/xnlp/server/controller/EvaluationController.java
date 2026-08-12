@@ -4,7 +4,9 @@ import com.xnlp.core.eval.CompareResult;
 import com.xnlp.core.eval.EvaluationRun;
 import com.xnlp.core.eval.NLPTaskType;
 import com.xnlp.server.service.EvaluationService;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,8 +23,10 @@ public class EvaluationController {
     }
 
     @GetMapping
-    public List<EvaluationRun> list() {
-        return evaluationService.listRuns();
+    public List<EvaluationRun> list(@RequestParam(required = false) String modelName,
+                                    @RequestParam(required = false) String datasetName,
+                                    @RequestParam(required = false) String status) {
+        return evaluationService.listRuns(modelName, datasetName, status);
     }
 
     @GetMapping("/{id}")
@@ -32,13 +36,21 @@ public class EvaluationController {
     }
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public EvaluationRun create(@RequestBody Map<String, Object> body) {
+    public ResponseEntity<EvaluationRun> create(@RequestBody Map<String, Object> body) {
         String modelName = (String) body.get("modelName");
         String datasetId = (String) body.get("datasetId");
         String taskTypeStr = (String) body.get("taskType");
-        NLPTaskType taskType = taskTypeStr != null ? NLPTaskType.valueOf(taskTypeStr) : null;
-        return evaluationService.runEvaluation(modelName, datasetId, taskType);
+        NLPTaskType taskType = taskTypeStr != null && !taskTypeStr.isBlank()
+                ? NLPTaskType.valueOf(taskTypeStr) : null;
+        EvaluationRun run = evaluationService.startEvaluation(modelName, datasetId, taskType);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .header(HttpHeaders.LOCATION, "/api/v1/evaluations/" + run.getId())
+                .body(run);
+    }
+
+    @PostMapping("/{id}/cancel")
+    public EvaluationRun cancel(@PathVariable String id) {
+        return evaluationService.cancel(id);
     }
 
     @GetMapping("/compare")

@@ -1,9 +1,17 @@
 package com.xnlp.server;
 
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,10 +25,20 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = {
+                "spring.datasource.url=jdbc:h2:mem:xnlp-test;MODE=MySQL;DB_CLOSE_DELAY=-1",
+                "spring.datasource.username=sa",
+                "spring.datasource.password=",
+                "spring.sql.init.mode=always",
+                "spring.ai.model.chat=none",
+                "spring.ai.openai.api-key=test-key"
+        })
+@ActiveProfiles("h2")
 @DisplayName("X-NLP Server Smoke Tests")
 @SuppressWarnings({"rawtypes", "unchecked"})
-@org.junit.jupiter.api.Disabled("Spring AI 1.0.0 auto-config imports RestClientAutoConfiguration which was restructured in Spring Boot 4.x; requires a running ChatModel backend")
+@Import(XNLPApplicationSmokeTest.TestChatModelConfiguration.class)
 class XNLPApplicationSmokeTest {
 
     @LocalServerPort
@@ -110,7 +128,50 @@ class XNLPApplicationSmokeTest {
                 "http://localhost:" + port + "/api/v1/models", List.class);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(resp.getBody()).hasSize(1);
+        assertThat(resp.getBody()).extracting("name").contains("ollama-default");
+    }
+
+    @Test
+    @DisplayName("Spring AI status exposes the configured ChatModel")
+    void aiStatus() {
+        ResponseEntity<Map> resp = rest.getForEntity(
+                "http://localhost:" + port + "/api/v1/ai/status", Map.class);
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(resp.getBody()).containsEntry("available", true);
+        assertThat((List) resp.getBody().get("models")).contains("spring-ai-default");
+        assertThat(resp.getBody()).containsKeys("provider", "checkedAt");
+    }
+
+    @Test
+    @DisplayName("Spring AI chat endpoint returns provider-neutral assistant output")
+    void aiChat() {
+        Map<String, String> body = Map.of(
+                "message", "Explain how to validate a tokenizer pipeline.",
+                "context", "The pipeline is evaluated with a labeled dataset.");
+        ResponseEntity<Map> resp = rest.postForEntity(
+                "http://localhost:" + port + "/api/v1/ai/chat", body, Map.class);
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(resp.getBody()).containsKeys("content", "model", "provider", "timestamp");
+        assertThat((String) resp.getBody().get("content"))
+                .startsWith("test: ")
+                .contains("Explain how to validate a tokenizer pipeline.");
+    }
+
+    @Test
+    @DisplayName("component-based NLP analysis returns a registered capability result")
+    void nlpAnalyze() {
+        Map<String, Object> body = Map.of(
+                "task", "TOK",
+                "text", "自然语言处理工程");
+        ResponseEntity<Map> resp = rest.postForEntity(
+                "http://localhost:" + port + "/api/v1/nlp/analyze", body, Map.class);
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(resp.getBody()).containsEntry("task", "TOK");
+        assertThat(resp.getBody()).containsKeys("result", "runtime");
+        assertThat((Map) resp.getBody().get("result")).containsKeys("tokens", "count");
     }
 
     @Test
@@ -154,4 +215,82 @@ class XNLPApplicationSmokeTest {
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody()).containsKeys("model", "totalRequests", "latencyAvgMs");
     }
+
+    @Test
+    @DisplayName("pipeline endpoint executes registered capabilities and returns node trace")
+    void pipelineTrace() {
+        Map<String, Object> body = Map.of(
+                "text", "这个产品很好用，我很满意。",
+                "language", "zh",
+                "nodes", List.of(
+                        Map.of("id", "tokens", "capability", "TOK"),
+                        Map.of("id", "sentiment", "capability", "SENTIMENT")));
+        ResponseEntity<Map> resp = rest.postForEntity(
+                "http://localhost:" + port + "/api/v1/pipelines/execute", body, Map.class);
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(resp.getBody()).containsEntry("status", "completed");
+        assertThat(resp.getBody()).containsKeys("traceId", "inputText", "outputText", "nodes");
+        List nodes = (List) resp.getBody().get("nodes");
+        assertThat(nodes).hasSize(2);
+        assertThat((Map) nodes.get(0)).containsEntry("status", "completed");
+        assertThat((Map) nodes.get(1)).extracting("capability", "status")
+                .containsExactly("SENTIMENT", "completed");
+    }
+
+    @Test
+    @DisplayName("evaluation endpoint queues a run and exposes progress")
+    void evaluationQueuesAndCompletes() throws InterruptedException {
+        Map<String, Object> dataset = Map.of(
+                "name", "async-smoke",
+                "description", "async evaluation smoke",
+                "taskType", "SENTIMENT_ANALYSIS",
+                "entries", List.of(
+                        Map.of("input", "great", "expectedOutput", "positive"),
+                        Map.of("input", "bad", "expectedOutput", "negative")));
+        ResponseEntity<Map> datasetResp = rest.postForEntity(
+                "http://localhost:" + port + "/api/v1/datasets", dataset, Map.class);
+        assertThat(datasetResp.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        String datasetId = (String) datasetResp.getBody().get("id");
+
+        Map<String, Object> request = Map.of(
+                "modelName", "ollama-default",
+                "datasetId", datasetId,
+                "taskType", "SENTIMENT_ANALYSIS");
+        ResponseEntity<Map> runResp = rest.postForEntity(
+                "http://localhost:" + port + "/api/v1/evaluations", request, Map.class);
+        assertThat(runResp.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(runResp.getHeaders().getFirst("Location")).contains("/api/v1/evaluations/");
+        String runId = (String) runResp.getBody().get("id");
+
+        Map run = runResp.getBody();
+        for (int i = 0; i < 30 && !"completed".equals(run.get("status")); i++) {
+            Thread.sleep(100);
+            run = rest.getForObject("http://localhost:" + port + "/api/v1/evaluations/" + runId, Map.class);
+        }
+        assertThat(run.get("status")).isEqualTo("completed");
+        assertThat(run.get("totalEntries")).isEqualTo(2);
+        assertThat(run.get("processedEntries")).isEqualTo(2);
+        assertThat((Number) run.get("progressPercent")).isEqualTo(100.0);
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class TestChatModelConfiguration {
+
+        @Bean
+        ChatModel chatModel() {
+            return new ChatModel() {
+                @Override
+                public ChatResponse call(Prompt prompt) {
+                    String text = prompt.getInstructions().stream()
+                            .map(message -> message.getText())
+                            .reduce((left, right) -> left + "\n" + right)
+                            .orElse("");
+                    return new ChatResponse(List.of(
+                            new Generation(new AssistantMessage("test: " + text))));
+                }
+            };
+        }
+    }
+
 }

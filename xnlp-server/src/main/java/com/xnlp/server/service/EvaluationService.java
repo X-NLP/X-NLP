@@ -3,84 +3,211 @@ package com.xnlp.server.service;
 import com.xnlp.core.eval.*;
 import com.xnlp.core.model.PredictRequest;
 import com.xnlp.core.model.PredictResponse;
+import com.xnlp.core.repository.EvaluationRunRepository;
 import com.xnlp.core.registry.ModelRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Orchestrates NLP model evaluation against datasets.
+ *
+ * <p>Evaluation is submitted to a bounded executor so HTTP requests return
+ * quickly. Progress and terminal state are persisted after each entry, which
+ * makes the same API useful for a web UI, CLI and operational monitoring.</p>
  */
 @Service
 public class EvaluationService {
 
     private static final Logger log = LoggerFactory.getLogger(EvaluationService.class);
+    private static final Set<String> TERMINAL_STATUSES = Set.of("completed", "failed", "cancelled");
+
     private final ModelRegistry registry;
     private final DatasetService datasetService;
+    private final EvaluationRunRepository runRepository;
     private final MetricsCalculator calculator;
-    private final Map<String, EvaluationRun> runs = new ConcurrentHashMap<>();
+    private final TaskExecutor evaluationTaskExecutor;
 
     public EvaluationService(ModelRegistry registry, DatasetService datasetService,
-                             MetricsCalculator calculator) {
+                             EvaluationRunRepository runRepository,
+                             MetricsCalculator calculator,
+                             TaskExecutor evaluationTaskExecutor) {
         this.registry = registry;
         this.datasetService = datasetService;
+        this.runRepository = runRepository;
         this.calculator = calculator;
+        this.evaluationTaskExecutor = evaluationTaskExecutor;
     }
 
     public List<EvaluationRun> listRuns() {
-        return runs.values().stream()
-                .sorted(Comparator.comparing(EvaluationRun::getCreatedAt).reversed())
+        return listRuns(null, null, null);
+    }
+
+    public List<EvaluationRun> listRuns(String modelName, String datasetName, String status) {
+        return runRepository.findAll().stream()
+                .filter(run -> matches(run.getModelName(), modelName))
+                .filter(run -> matches(run.getDatasetName(), datasetName))
+                .filter(run -> matches(run.getStatus(), status))
                 .toList();
     }
 
     public Optional<EvaluationRun> getRun(String id) {
-        return Optional.ofNullable(runs.get(id));
+        return runRepository.findById(id);
     }
 
+    /** Creates and queues a run, returning before model inference begins. */
+    public EvaluationRun startEvaluation(String modelName, String datasetId, NLPTaskType taskType) {
+        EvaluationRequest request = prepareRequest(modelName, datasetId, taskType);
+        EvaluationRun run = request.run();
+        try {
+            evaluationTaskExecutor.execute(() -> executeEvaluation(run.getId(), request.modelName(),
+                    request.datasetId(), request.taskType()));
+        } catch (RuntimeException rejected) {
+            run.setStatus("failed");
+            run.setErrorMessage("Evaluation queue is unavailable: " + rejected.getMessage());
+            run.setCompletedAt(Instant.now());
+            run.setElapsedSeconds(0);
+            runRepository.save(run);
+            throw rejected;
+        }
+        return run;
+    }
+
+    /**
+     * Synchronous compatibility entry point for SDK/CLI callers that need a
+     * blocking operation. New HTTP callers should use {@link #startEvaluation}.
+     */
     public EvaluationRun runEvaluation(String modelName, String datasetId, NLPTaskType taskType) {
+        EvaluationRequest request = prepareRequest(modelName, datasetId, taskType);
+        executeEvaluation(request.run().getId(), request.modelName(), request.datasetId(), request.taskType());
+        return getRun(request.run().getId()).orElse(request.run());
+    }
+
+    /** Requests cancellation; the worker observes it between dataset entries. */
+    public EvaluationRun cancel(String id) {
+        EvaluationRun run = getRun(id)
+                .orElseThrow(() -> new NoSuchElementException("Evaluation run not found: " + id));
+        if (!TERMINAL_STATUSES.contains(run.getStatus())) {
+            run.setCancelRequested(true);
+            run.setStatus("cancelling");
+            runRepository.save(run);
+        }
+        return run;
+    }
+
+    private EvaluationRequest prepareRequest(String modelName, String datasetId, NLPTaskType taskType) {
+        if (modelName == null || modelName.isBlank()) {
+            throw new IllegalArgumentException("modelName must not be blank");
+        }
+        if (datasetId == null || datasetId.isBlank()) {
+            throw new IllegalArgumentException("datasetId must not be blank");
+        }
         EvaluationDataset dataset = datasetService.get(datasetId)
                 .orElseThrow(() -> new NoSuchElementException("Dataset not found: " + datasetId));
         NLPTaskType effectiveTask = taskType != null ? taskType : dataset.getTaskType();
         if (effectiveTask == null) {
             throw new IllegalArgumentException("Task type must be specified or present on dataset");
         }
+
         EvaluationRun run = new EvaluationRun();
         run.setId(UUID.randomUUID().toString());
         run.setModelName(modelName);
         run.setDatasetId(datasetId);
         run.setDatasetName(dataset.getName());
         run.setTaskType(effectiveTask);
-        run.setStatus("running");
+        run.setStatus("queued");
         run.setCreatedAt(Instant.now());
-        runs.put(run.getId(), run);
+        run.setTotalEntries(dataset.getEntries() == null ? 0 : dataset.getEntries().size());
+        run.setProcessedEntries(0);
+        run.setProgressPercent(run.getTotalEntries() == 0 ? 100 : 0);
+        run.setCancelRequested(false);
+        runRepository.save(run);
+        return new EvaluationRequest(run, modelName, datasetId, effectiveTask);
+    }
+
+    private void executeEvaluation(String runId, String modelName, String datasetId, NLPTaskType taskType) {
+        EvaluationRun run = runRepository.findById(runId).orElse(null);
+        if (run == null) {
+            log.warn("Evaluation run disappeared before execution: runId={}", runId);
+            return;
+        }
         long t0 = System.nanoTime();
         try {
+            EvaluationDataset dataset = datasetService.get(datasetId)
+                    .orElseThrow(() -> new NoSuchElementException("Dataset not found: " + datasetId));
+            List<EvaluationEntry> entries = dataset.getEntries() == null ? List.of() : List.copyOf(dataset.getEntries());
+            run.setTotalEntries(entries.size());
+            if (isCancellationRequested(runId)) {
+                finishCancelled(run, t0);
+                return;
+            }
+            run.setStatus("running");
+            runRepository.save(run);
+
             List<Map.Entry<String, String>> predictions = new ArrayList<>();
-            for (EvaluationEntry entry : dataset.getEntries()) {
+            for (int i = 0; i < entries.size(); i++) {
+                if (isCancellationRequested(runId)) {
+                    finishCancelled(run, t0);
+                    return;
+                }
+                EvaluationEntry entry = entries.get(i);
                 PredictRequest req = new PredictRequest();
                 req.setModelName(modelName);
-                req.setText(buildPrompt(effectiveTask, entry));
+                req.setText(buildPrompt(taskType, entry));
                 PredictResponse resp = registry.predict(req);
                 String actual = resp.getText() != null ? resp.getText().strip() : "";
-                predictions.add(Map.entry(entry.getExpectedOutput(), actual));
+                predictions.add(Map.entry(Objects.toString(entry.getExpectedOutput(), ""), actual));
+                run.setProcessedEntries(i + 1);
+                run.setProgressPercent(entries.isEmpty() ? 100 : ((i + 1) * 100.0) / entries.size());
+                persistProgress(run, runId);
             }
-            EvaluationMetrics metrics = calculator.compute(effectiveTask, predictions);
+
+            EvaluationMetrics metrics = calculator.compute(taskType, predictions);
             run.setMetrics(metrics);
             run.setStatus("completed");
+            run.setProcessedEntries(entries.size());
+            run.setProgressPercent(100);
         } catch (Exception e) {
-            log.error("Evaluation failed: runId={}", run.getId(), e);
+            log.error("Evaluation failed: runId={}", runId, e);
             run.setStatus("failed");
-            run.setErrorMessage(e.getMessage());
+            run.setErrorMessage(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
         }
         run.setCompletedAt(Instant.now());
         run.setElapsedSeconds((System.nanoTime() - t0) / 1_000_000_000.0);
-        log.info("Evaluation {}: model={} dataset={} task={} status={}",
-                run.getId(), modelName, datasetId, effectiveTask, run.getStatus());
-        return run;
+        persistProgress(run, runId);
+        log.info("Evaluation {}: model={} dataset={} task={} status={} progress={}/{}",
+                runId, modelName, datasetId, taskType, run.getStatus(),
+                run.getProcessedEntries(), run.getTotalEntries());
+    }
+
+    private void finishCancelled(EvaluationRun run, long t0) {
+        run.setStatus("cancelled");
+        run.setCompletedAt(Instant.now());
+        run.setElapsedSeconds((System.nanoTime() - t0) / 1_000_000_000.0);
+        runRepository.save(run);
+        log.info("Evaluation cancelled: runId={} progress={}/{}",
+                run.getId(), run.getProcessedEntries(), run.getTotalEntries());
+    }
+
+    private boolean isCancellationRequested(String runId) {
+        return runRepository.findById(runId).map(EvaluationRun::isCancelRequested).orElse(true);
+    }
+
+    private void persistProgress(EvaluationRun run, String runId) {
+        // Preserve a concurrent cancel request made by the API thread.
+        runRepository.findById(runId).ifPresent(latest -> {
+            if (latest.isCancelRequested()) run.setCancelRequested(true);
+        });
+        runRepository.save(run);
+    }
+
+    private static boolean matches(String actual, String expected) {
+        return expected == null || expected.isBlank()
+                || (actual != null && actual.toLowerCase(Locale.ROOT).contains(expected.toLowerCase(Locale.ROOT)));
     }
 
     public CompareResult compare(List<String> runIds) {
@@ -90,7 +217,8 @@ public class EvaluationService {
         CompareResult result = new CompareResult();
         List<EvaluationRun> selected = new ArrayList<>();
         for (String id : runIds) {
-            EvaluationRun r = runs.get(id);
+            EvaluationRun r = runRepository.findById(id)
+                    .orElse(null);
             if (r == null) throw new NoSuchElementException("Run not found: " + id);
             selected.add(r);
         }
@@ -108,7 +236,6 @@ public class EvaluationService {
                 result.getMetricValues().put(mn, vals);
             }
         }
-        // Deltas from first run
         for (var e : result.getMetricValues().entrySet()) {
             List<Double> vals = e.getValue();
             if (vals.get(0) == null) continue;
@@ -166,5 +293,8 @@ public class EvaluationService {
             case TRANSLATION -> "Translate the following text to English. "
                     + "Reply with only the translation.\n\nText: " + input;
         };
+    }
+
+    private record EvaluationRequest(EvaluationRun run, String modelName, String datasetId, NLPTaskType taskType) {
     }
 }

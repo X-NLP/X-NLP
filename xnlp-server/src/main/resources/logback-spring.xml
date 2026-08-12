@@ -24,7 +24,7 @@
     <property name="LOG_TOTAL_CAP"     value="${LOG_TOTAL_CAP:-10GB}"/>
 
     <!-- Dev / Default  —  Human-readable console output -->
-    <springProfile name="dev,default">
+    <springProfile name="dev,default,h2,mysql,postgres,file,memory">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
                 <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] [%X{traceId:-}] %cyan(%logger{36}) - %msg%n</pattern>

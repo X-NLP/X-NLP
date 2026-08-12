@@ -59,10 +59,10 @@ public class HealthController {
     @GetMapping(value = "/readyz", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> readyz() {
         try {
-            boolean ready = modelService.getRegistry() != null;
+            boolean ready = modelInitializer.isStartupComplete() && modelService.getRegistry() != null;
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("status", ready ? "READY" : "NOT_READY");
-            body.put("loaded_models", modelService.listModels().size());
+            body.put("loaded_models", modelService.listRuntimeModels().size());
             body.put("timestamp", Instant.now().toString());
             return ResponseEntity.status(ready ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE).body(body);
         } catch (Exception e) {
@@ -101,8 +101,9 @@ public class HealthController {
 
         Map<String, Object> probes = new LinkedHashMap<>();
         probes.put("liveness", Map.of("status", "UP"));
-        probes.put("readiness", modelService.getRegistry() != null
-                ? Map.of("status", "READY", "loaded_models", modelService.listModels().size())
+        boolean ready = modelInitializer.isStartupComplete() && modelService.getRegistry() != null;
+        probes.put("readiness", ready
+                ? Map.of("status", "READY", "loaded_models", modelService.listRuntimeModels().size())
                 : Map.of("status", "NOT_READY"));
         probes.put("startup", Map.of(
                 "status", modelInitializer.isStartupComplete() ? "STARTED" : "STARTING",
@@ -113,7 +114,7 @@ public class HealthController {
     }
 
     /** Absolute-minimal alive signal — returns 200 with an empty body. */
-    @GetMapping(value = "/ok", produces = MediaType.TEXT_PLAIN_VALUE)
+    @GetMapping("/ok")
     public ResponseEntity<Void> ok() {
         return ResponseEntity.ok().build();
     }

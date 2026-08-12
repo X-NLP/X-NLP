@@ -1,8 +1,30 @@
 spring:
-  autoconfigure:
-    exclude:
-      - org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration
-      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+  profiles:
+    active: h2
+  datasource:
+    url: jdbc:h2:mem:xnlp-test;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always
+  ai:
+    openai:
+      # Audio auto-configuration requires a non-empty credential even when chat is disabled.
+      api-key: test-key
+    # Disable provider auto-configuration in smoke tests; no external AI service is required.
+    model:
+      chat: none
 
 xnlp:
-  models: []
+  models:
+    - name: ollama-default
+      version: latest
+      model-name: test-chat
+      model-path: test-chat
+      provider: test
+      protocol: SPRING_AI_CHAT
+      backend: test
+      device: cpu
+      max-input-length: 4096
+      max-output-length: 2048

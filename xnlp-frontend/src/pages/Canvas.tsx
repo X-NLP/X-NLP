@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { datasetsApi, evaluationsApi } from '../api/client'
+import { datasetsApi, evaluationsApi, pipelinesApi } from '../api/client'
 import {
   ArrowRight,
   BarChart3,
@@ -58,6 +58,8 @@ export default function Canvas() {
   const [selectedNode, setSelectedNode] = useState('raw')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [trace, setTrace] = useState<any | null>(null)
+  const [traceLoading, setTraceLoading] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -94,6 +96,32 @@ export default function Canvas() {
   const dataset = datasets.find(item => item.id === datasetId)
   const run = evaluations.find(item => item.id === runId)
   const entry = entries[selectedEntry]
+
+  const executeTrace = async () => {
+    if (!entry?.input) {
+      setError(t('canvas.traceNoEntry'))
+      return
+    }
+    setTraceLoading(true)
+    setError('')
+    try {
+      const taskType = dataset?.taskType || run?.taskType || ''
+      const capabilities = pipelineCapabilitiesFor(taskType)
+      const result = await pipelinesApi.execute({
+        text: entry.input,
+        language: 'zh',
+        nodes: capabilities.map((capability, index) => ({
+          id: `node-${index + 1}`,
+          capability,
+        })),
+      })
+      setTrace(result)
+    } catch (e: any) {
+      setError(e.message || t('canvas.traceFailed'))
+    } finally {
+      setTraceLoading(false)
+    }
+  }
   const normalized = normalizeText(entry?.input || '')
   const prompt = buildPrompt(t, dataset?.taskType || run?.taskType, normalized)
   const metricSummary = summarizeMetrics(t, run?.metrics)
@@ -113,6 +141,10 @@ export default function Canvas() {
     }
   }, [datasetId, evaluations])
 
+  useEffect(() => {
+    setTrace(null)
+  }, [entry?.id])
+
   return (
     <div>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -120,12 +152,22 @@ export default function Canvas() {
           <h1 className="text-xl font-semibold text-gray-900">{t('canvas.title')}</h1>
           <p className="mt-1 text-sm text-gray-500">{t('canvas.subtitle')}</p>
         </div>
-        <button
-          onClick={load}
-          className="flex w-fit items-center gap-2 rounded-lg border px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
-        >
-          <RefreshCw className="h-4 w-4" /> {t('canvas.refresh')}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={executeTrace}
+            disabled={traceLoading || !entry?.input}
+            className="flex w-fit items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <PlayCircle className={`h-4 w-4 ${traceLoading ? 'animate-pulse' : ''}`} />
+            {traceLoading ? t('canvas.executingTrace') : t('canvas.executeTrace')}
+          </button>
+          <button
+            onClick={load}
+            className="flex w-fit items-center gap-2 rounded-lg border px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+          >
+            <RefreshCw className="h-4 w-4" /> {t('canvas.refresh')}
+          </button>
+        </div>
       </div>
 
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
@@ -212,6 +254,52 @@ export default function Canvas() {
           </div>
         </aside>
       </div>
+
+      <section className="mt-5 rounded-lg border bg-white">
+        <div className="flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-700">{t('canvas.liveTrace')}</h2>
+            <p className="mt-1 text-xs text-gray-500">{t('canvas.liveTraceDescription')}</p>
+          </div>
+          {trace && (
+            <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-medium ${trace.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+              {trace.status === 'completed' ? t('canvas.traceCompleted') : t('canvas.traceFailed')}
+            </span>
+          )}
+        </div>
+        {trace ? (
+          <div className="p-4">
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <SummaryTile label={t('canvas.traceStatus')} value={trace.status} icon={GitBranch} />
+              <SummaryTile label={t('canvas.traceNodes')} value={String(trace.nodes?.length || 0)} icon={Braces} />
+              <SummaryTile label={t('canvas.traceDuration')} value={`${trace.durationMs || 0} ms`} icon={Gauge} />
+            </div>
+            <div className="overflow-x-auto">
+              <div className="grid min-w-[760px] grid-cols-[repeat(4,170px)] items-stretch gap-3">
+                {(trace.nodes || []).map((node: any, index: number) => (
+                  <div key={node.id} className="flex items-stretch gap-3">
+                    <div className={`flex w-[170px] flex-col rounded-lg border p-3 ${node.status === 'completed' ? 'border-emerald-200 bg-emerald-50/40' : node.status === 'failed' ? 'border-red-200 bg-red-50/50' : 'border-gray-200 bg-gray-50'}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold uppercase text-gray-500">{node.capability}</span>
+                        <span className="text-[11px] text-gray-400">{node.durationMs} ms</span>
+                      </div>
+                      <span className="mt-2 text-sm font-semibold text-gray-900">{node.name}</span>
+                      <span className="mt-2 line-clamp-3 text-xs leading-5 text-gray-600">{node.outputText || node.errorMessage || t('canvas.traceNoOutput')}</span>
+                    </div>
+                    {index < trace.nodes.length - 1 && <div className="flex w-5 items-center justify-center text-gray-300"><ArrowRight className="h-4 w-4" /></div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <details className="mt-4 rounded-md border bg-gray-50 p-3">
+              <summary className="cursor-pointer text-sm font-medium text-gray-700">{t('canvas.traceResult')}</summary>
+              <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-gray-600">{JSON.stringify(trace, null, 2)}</pre>
+            </details>
+          </div>
+        ) : (
+          <div className="p-6 text-sm text-gray-500">{t('canvas.traceEmpty')}</div>
+        )}
+      </section>
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <TextPanel title={t('canvas.entryInput')} icon={FileText} text={entry?.input || t('canvas.selectEntry')} />
@@ -308,6 +396,16 @@ function buildNodes(t: any, dataset: any, run: any, entry: any, normalized: stri
       changes: metricSummary.details,
     },
   ]
+}
+
+function pipelineCapabilitiesFor(taskType: string): string[] {
+  const normalized = taskType.toUpperCase()
+  if (normalized.includes('SENTIMENT')) return ['TOK', 'POS', 'SENTIMENT']
+  if (normalized.includes('ENTITY') || normalized === 'NER') return ['TOK', 'NER']
+  if (normalized.includes('CLASSIFICATION')) return ['TOK', 'CLASSIFICATION']
+  if (normalized.includes('SUMMARY')) return ['TOK', 'KEYPHRASE', 'EXSUM']
+  if (normalized.includes('TRANSLATION')) return ['TOK', 'TST']
+  return ['TOK', 'POS', 'DEP']
 }
 
 function normalizeText(value: string) {

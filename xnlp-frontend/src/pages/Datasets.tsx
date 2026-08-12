@@ -22,6 +22,8 @@ export default function Datasets() {
   const [showForm, setShowForm] = useState(false)
   const [viewing, setViewing] = useState<any>(null)
   const [entries, setEntries] = useState<any>(null)
+  const [entriesPage, setEntriesPage] = useState(0)
+  const [entriesLoading, setEntriesLoading] = useState(false)
 
   // New dataset form
   const [name, setName] = useState('')
@@ -86,12 +88,36 @@ export default function Datasets() {
     await load()
   }
 
+  const loadEntries = async (ds: any, page: number) => {
+    setEntriesLoading(true)
+    try {
+      const data = await datasetsApi.entries(ds.id, page, 20)
+      setEntries(data)
+      setEntriesPage(page)
+    } catch { setEntries(null) }
+    finally { setEntriesLoading(false) }
+  }
+
   const handleView = async (ds: any) => {
     setViewing(ds)
+    setEntries(null)
+    setEntriesPage(0)
+    await loadEntries(ds, 0)
+  }
+
+  const handleJsonFile = async (file?: File) => {
+    if (!file) return
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      setFormError(t('datasets.jsonFileRequired'))
+      return
+    }
     try {
-      const data = await datasetsApi.entries(ds.id)
-      setEntries(data)
-    } catch { setEntries(null) }
+      setJsonText(await file.text())
+      setInputMode('json')
+      setFormError('')
+    } catch {
+      setFormError(t('datasets.invalidJson'))
+    }
   }
 
   const handleExport = async (ds: any) => {
@@ -201,6 +227,16 @@ export default function Datasets() {
                 <label className="block text-xs font-medium text-gray-500 mb-1">
                   {t('datasets.entriesJson')}
                 </label>
+                <label
+                  htmlFor="dataset-json-file"
+                  onDragOver={event => event.preventDefault()}
+                  onDrop={event => { event.preventDefault(); void handleJsonFile(event.dataTransfer.files[0]) }}
+                  className="mb-3 flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 py-4 text-sm text-gray-500 hover:border-blue-400 hover:bg-blue-50"
+                >
+                  <Upload className="h-4 w-4" /> {t('datasets.dropJson')}
+                  <input id="dataset-json-file" type="file" accept="application/json,.json" className="hidden"
+                    onChange={event => { void handleJsonFile(event.target.files?.[0]); event.currentTarget.value = '' }} />
+                </label>
                 <textarea value={jsonText} onChange={e => setJsonText(e.target.value)}
                   rows={8}
                   className="w-full min-w-0 border rounded-md px-3 py-2 text-sm font-mono"
@@ -283,14 +319,25 @@ export default function Datasets() {
               <button onClick={() => setViewing(null)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
             </div>
             <p className="text-sm text-gray-500 mb-4">{t('datasets.task')}: {t(`tasks.${viewing.taskType}`, { defaultValue: viewing.taskType })} &middot; {viewing.entryCount} {t('datasets.entries')}</p>
-            {entries ? (
+            {entriesLoading || entries ? (
               <div className="space-y-3">
-                {entries.entries?.map((e: any, i: number) => (
+                {entriesLoading ? (
+                  <p className="text-sm text-gray-400">{t('datasets.loadingEntries')}</p>
+                ) : entries.entries?.length ? entries.entries.map((e: any, i: number) => (
                   <div key={e.id || i} className="border rounded-lg p-3 text-sm">
                     <p className="text-gray-900 break-words"><span className="text-gray-400 font-mono text-xs">{t('common.input')}:</span> {e.input}</p>
                     <p className="text-green-700 mt-1 break-words"><span className="text-gray-400 font-mono text-xs">{t('common.expected')}:</span> {e.expectedOutput}</p>
                   </div>
-                ))}
+                )) : <p className="text-sm text-gray-400">{t('datasets.noEntries')}</p>}
+                {entries && entries.total > entries.size && (
+                  <div className="flex items-center justify-between border-t pt-3 text-sm">
+                    <span className="text-gray-500">{entriesPage * entries.size + 1}-{Math.min((entriesPage + 1) * entries.size, entries.total)} / {entries.total}</span>
+                    <div className="flex gap-2">
+                      <button disabled={entriesPage === 0 || entriesLoading} onClick={() => void loadEntries(viewing, entriesPage - 1)} className="rounded border px-3 py-1 text-gray-600 disabled:opacity-40">{t('common.previous')}</button>
+                      <button disabled={(entriesPage + 1) * entries.size >= entries.total || entriesLoading} onClick={() => void loadEntries(viewing, entriesPage + 1)} className="rounded border px-3 py-1 text-gray-600 disabled:opacity-40">{t('common.next')}</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-sm text-gray-400">{t('datasets.loadingEntries')}</p>

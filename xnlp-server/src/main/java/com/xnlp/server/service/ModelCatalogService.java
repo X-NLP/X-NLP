@@ -1,20 +1,15 @@
 package com.xnlp.server.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xnlp.core.config.ModelConfig;
 import com.xnlp.core.config.ModelProtocol;
 import com.xnlp.core.config.ModelSource;
 import com.xnlp.core.config.ModelType;
 import com.xnlp.core.model.ModelInfo;
-import jakarta.annotation.PostConstruct;
+import com.xnlp.core.repository.ModelConfigRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -24,47 +19,32 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Persists standard model connection profiles.
+ * Model profile catalog providing CRUD, metadata, and provider presets.
+ *
+ * <p>Persistence is delegated to {@link ModelConfigRepository}.
  */
 @Service
 public class ModelCatalogService {
 
     private static final Logger log = LoggerFactory.getLogger(ModelCatalogService.class);
-    private static final Path STORE_DIR = Paths.get("data", "models");
 
-    private final ObjectMapper mapper = new ObjectMapper();
-    private final Map<String, ModelConfig> catalog = new ConcurrentHashMap<>();
+    private final ModelConfigRepository repository;
 
-    @PostConstruct
-    void init() throws IOException {
-        Files.createDirectories(STORE_DIR);
-        try (var stream = Files.list(STORE_DIR)) {
-            stream.filter(path -> path.toString().endsWith(".json")).forEach(path -> {
-                try {
-                    ModelConfig config = mapper.readValue(path.toFile(), ModelConfig.class);
-                    validate(config);
-                    catalog.put(config.getName(), config);
-                    log.info("Loaded model profile: {} type={} protocol={}",
-                            config.getName(), config.getType(), config.getProtocol());
-                } catch (Exception e) {
-                    log.warn("Failed to load model profile from {}", path, e);
-                }
-            });
-        }
+    public ModelCatalogService(ModelConfigRepository repository) {
+        this.repository = repository;
     }
 
     public List<ModelInfo> list() {
-        return catalog.values().stream()
+        return repository.findAll().stream()
                 .sorted(Comparator.comparing(ModelConfig::getName))
                 .map(this::toInfo)
                 .toList();
     }
 
     public Optional<ModelConfig> getConfig(String name) {
-        return Optional.ofNullable(catalog.get(name));
+        return repository.findByName(name);
     }
 
     public ModelInfo get(String name) {
@@ -72,19 +52,17 @@ public class ModelCatalogService {
                 .orElseThrow(() -> new NoSuchElementException("Model profile not found: " + name));
     }
 
-    public ModelInfo save(ModelConfig config) throws IOException {
+    public ModelInfo save(ModelConfig config) {
         normalize(config);
         validate(config);
-        catalog.put(config.getName(), config);
-        persist(config);
+        repository.save(config);
         log.info("Saved model profile: {} type={} protocol={}",
                 config.getName(), config.getType(), config.getProtocol());
         return toInfo(config);
     }
 
-    public void delete(String name) throws IOException {
-        catalog.remove(name);
-        Files.deleteIfExists(fileFor(name));
+    public void delete(String name) {
+        repository.deleteByName(name);
         log.info("Deleted model profile: {}", name);
     }
 
@@ -151,14 +129,6 @@ public class ModelCatalogService {
         metadata.put("options", config.getOptions());
         info.setMetadata(metadata);
         return info;
-    }
-
-    private void persist(ModelConfig config) throws IOException {
-        mapper.writerWithDefaultPrettyPrinter().writeValue(fileFor(config.getName()).toFile(), config);
-    }
-
-    private Path fileFor(String name) {
-        return STORE_DIR.resolve(name.replaceAll("[^a-zA-Z0-9._-]", "_") + ".json");
     }
 
     private static boolean requiresBaseUrl(ModelProtocol protocol) {

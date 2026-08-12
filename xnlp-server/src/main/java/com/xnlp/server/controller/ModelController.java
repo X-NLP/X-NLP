@@ -5,13 +5,13 @@ import com.xnlp.core.model.ModelInfo;
 import com.xnlp.core.model.PredictRequest;
 import com.xnlp.core.model.PredictResponse;
 import com.xnlp.server.dto.ModelTestRequest;
+import com.xnlp.server.dto.BatchPredictRequest;
 import com.xnlp.server.service.InferenceService;
 import com.xnlp.server.service.ModelService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -49,7 +49,7 @@ public class ModelController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ModelInfo save(@Valid @RequestBody ModelConfig config) throws IOException {
+    public ModelInfo save(@Valid @RequestBody ModelConfig config) {
         return modelService.saveModel(config);
     }
 
@@ -60,7 +60,7 @@ public class ModelController {
 
     @DeleteMapping("/{name}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable String name) throws IOException {
+    public void delete(@PathVariable String name) {
         modelService.deleteModel(name);
     }
 
@@ -80,5 +80,12 @@ public class ModelController {
     public Map<String, Object> test(@PathVariable String name,
                                     @RequestBody ModelTestRequest request) {
         return modelService.testModel(name, request);
+    }
+
+    /** Bounded batch inference with item-level success/failure details. */
+    @PostMapping("/{name}/batch-predict")
+    public Map<String, Object> batchPredict(@PathVariable String name,
+                                             @Valid @RequestBody BatchPredictRequest request) {
+        return inferenceService.batchPredict(name, request.requests());
     }
 }

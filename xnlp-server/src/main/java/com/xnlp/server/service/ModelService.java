@@ -11,7 +11,6 @@ import com.xnlp.core.registry.ModelRegistry;
 import com.xnlp.server.dto.ModelTestRequest;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -29,7 +28,7 @@ public class ModelService {
         this.connectionTestService = connectionTestService;
     }
 
-    public ModelInfo saveModel(ModelConfig config) throws IOException {
+    public ModelInfo saveModel(ModelConfig config) {
         return catalog.save(config);
     }
 
@@ -47,7 +46,7 @@ public class ModelService {
         registry.unloadModel(name);
     }
 
-    public void deleteModel(String name) throws IOException {
+    public void deleteModel(String name) {
         registry.unloadModel(name);
         catalog.delete(name);
     }

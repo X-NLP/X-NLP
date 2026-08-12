@@ -4,11 +4,12 @@
 
 ```
 X-NLP/
-├── pom.xml                   # Parent POM (Spring Boot 4.1.0, Java 25, Spring AI 1.0)
+├── pom.xml                   # Parent POM (Spring Boot 4.1.0, Java 25, Spring AI 2.0.0)
 ├── Dockerfile                # eclipse-temurin:25-jre-alpine
 ├── configs/                  # Environment-specific YAML overrides
 ├── docker/                   # Docker Compose & K8s manifests
 ├── tests/                    # Integration / E2E scripts
+├── xnlp-frontend/            # React 18 + Vite + Tailwind web workbench
 │
 ├── xnlp-core/                # Shared domain model & SPI
 │   ├── model/                # PredictRequest, PredictResponse, ModelInfo, ...
@@ -26,7 +27,9 @@ X-NLP/
 │   ├── service/              # InferenceService, ModelService, MetricsService, ...
 │   ├── backend/              # SimpleONNXBackend, SimpleDJLBackend
 │   ├── config/               # TracingConfiguration, GlobalExceptionHandler, ...
-│   ├── startup/              # ModelInitializer
+│   ├── startup/              # ModelInitializer, Spring AI runtime bridge
+│   ├── repository/           # JdbcTemplate-backed persistence adapters
+│   ├── nlp/                  # Capability registry and built-in NLP components
 │   └── src/test/             # Smoke tests (JUnit 5 + AssertJ)
 │
 └── xnlp-cli/                 # Picocli CLI -- delegates all logic to xnlp-client
@@ -40,9 +43,9 @@ X-NLP/
 | Command | Purpose |
 |---|---|
 | `mvn clean verify` | Full build: compile + test + package all 4 modules |
-| `mvn test` | Run all tests (28 tests, JUnit 5 + AssertJ) |
+| `mvn test` | Run all tests (currently 37 tests, JUnit 5 + AssertJ) |
 | `mvn test -pl xnlp-server` | Run server-layer tests only |
-| `mvn spring-boot:run -pl xnlp-server` | Start server on port 8760 |
+| `mvn -pl xnlp-server -am package -DskipTests && SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.1.0.jar` | Package and start a local H2-backed server on port 8760 |
 | `java -jar xnlp-cli/target/xnlp-cli-*.jar` | Run CLI (pass `-s` to set server URL) |
 | `docker build -t xnlp:latest .` | Build Docker image |
 
@@ -50,7 +53,7 @@ Server exposes Actuator at `/actuator` (health, metrics, prometheus) and K8s pro
 
 ## Coding Style & Naming Conventions
 
-- **Java 25, Spring AI 1.0**, no preview features. 4-space indentation.
+- **Java 25, Spring AI 2.0.0**, no preview features. 4-space indentation.
 - **Packages**: `com.xnlp.<module>.<layer>` -- e.g. `com.xnlp.server.controller`
 - **Config classes**: `@Configuration`-annotated; properties via `@ConfigurationProperties("xnlp")`
 - **Beans**: Constructor injection only (no `@Autowired` fields). Use `private final` + single-constructor convention.

@@ -158,6 +158,16 @@ public class ModelRegistry {
         return List.copyOf(models.values());
     }
 
+    /**
+     * Resolve a registered chat runtime by its X-NLP model name.
+     *
+     * <p>The server-side AI assistant uses this method to honor an explicit
+     * model selection while keeping provider SDKs behind Spring AI.
+     */
+    public ChatModel getChatModel(String name) {
+        return name == null ? null : chatModels.get(name);
+    }
+
     /** Get info for a specific model. */
     public ModelInfo getModel(String name) {
         ModelInfo info = models.get(name);

@@ -40,29 +40,36 @@ export default function Compare() {
 
   const isAccuracy = (k: string) => ['accuracy', 'exactMatch'].includes(k)
 
+  const runKey = (index: number) => `run_${index}`
+
+  const runLabel = (run: any, index: number) =>
+    run?.modelName || `${t('common.run')} ${index + 1}`
+
   const barData = () => {
     if (!compareResult) return []
     return Object.entries(compareResult.metricValues).map(([key, values]) => {
       const obj: any = { metric: t(`metrics.${key}`, { defaultValue: key }) }
       ;(values as number[]).forEach((v, i) => {
-        const run = compareResult.runs[i]
-        obj[run?.modelName || t('common.run') + ` ${i + 1}`] = isAccuracy(key) ? (v || 0) * 100 : v
+        obj[runKey(i)] = isAccuracy(key) ? (v || 0) * 100 : v
       })
       return obj
     })
   }
 
+  // Recharts expects one value per metric on the angle axis.  Build one row
+  // per metric and use a unique data key for each run so duplicate model names
+  // do not overwrite one another.
   const radarData = () => {
     if (!compareResult || compareResult.runs.length < 2) return []
-    return compareResult.runs.map((run: any) => {
-      const m = run.metrics || {}
-      return {
-        model: run.modelName,
-        accuracy: (m.accuracy || 0) * 100,
-        f1Macro: (m.f1Macro || 0) * 100,
-        rouge1: (m.rouge1 || 0) * 100,
-        bleu: (m.bleu || 0) * 100,
-      }
+    const metricKeys = Object.keys(compareResult.metricValues || {})
+    return metricKeys.map(key => {
+      const values = compareResult.metricValues[key] || []
+      const row: any = { metric: t(`metrics.${key}`, { defaultValue: key }) }
+      compareResult.runs.forEach((_: any, i: number) => {
+        const value = values[i]
+        row[runKey(i)] = value == null ? 0 : value * 100
+      })
+      return row
     })
   }
 
@@ -172,7 +179,7 @@ export default function Compare() {
                   <Tooltip />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   {compareResult.runs.map((run: any, i: number) => (
-                    <Bar key={i} dataKey={run.modelName || t('common.run') + ` ${i + 1}`} fill={runColors?.[i]} radius={[4, 4, 0, 0]} />
+                    <Bar key={i} dataKey={runKey(i)} name={runLabel(run, i)} fill={runColors?.[i]} radius={[4, 4, 0, 0]} />
                   ))}
                 </BarChart>
               </ResponsiveContainer>
@@ -183,11 +190,11 @@ export default function Compare() {
               <ResponsiveContainer width="100%" height={300}>
                 <RadarChart data={radarData()}>
                   <PolarGrid />
-                  <PolarAngleAxis dataKey="model" tick={{ fontSize: 12 }} />
+                  <PolarAngleAxis dataKey="metric" tick={{ fontSize: 12 }} />
                   <PolarRadiusAxis tick={{ fontSize: 10 }} />
                   {compareResult.runs.map((run: any, i: number) => (
-                    <Radar key={i} name={run.modelName || t('common.run') + ` ${i + 1}`}
-                      dataKey="accuracy" stroke={runColors?.[i]} fill={runColors?.[i]} fillOpacity={0.2} />
+                    <Radar key={i} name={runLabel(run, i)}
+                      dataKey={runKey(i)} stroke={runColors?.[i]} fill={runColors?.[i]} fillOpacity={0.2} />
                   ))}
                 </RadarChart>
               </ResponsiveContainer>

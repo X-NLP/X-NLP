@@ -1,7 +1,7 @@
 ## X-NLP MVP 功能列表 & 规格说明
 
 > X-NLP 是一个 NLP 处理框架，目标是快速引入、组合、评测自然语言处理技术，并把处理过程和评测变化可视化。
-> 版本：MVP 0.1.1 | 更新：2026-07-08
+> 版本：MVP 0.2.0 | 更新：2026-07-23
 
 ---
 
@@ -20,7 +20,7 @@ X-NLP 不是单纯的大模型调用平台。当前阶段的核心是 NLP 处理
 | Datasets | 评测数据管理 | 管理数据集、样本、期望输出和元数据 |
 | Evaluation | 效果评测 | 选择模型/数据集/任务运行评测，沉淀指标 |
 | Compare | 评测对比 | 对比多次评测的指标变化 |
-| Canvas | 处理过程画布 | 查看数据在各处理节点下的重要变化；当前为前端派生视图，后续接入后端 pipeline trace |
+| Canvas | 处理过程画布 | 查看数据在各处理节点下的重要变化；已接入后端 pipeline trace |
 
 ### NLP 能力参考
 
@@ -28,14 +28,14 @@ NLP 当前处理能力参考 HanLP 常见功能体系，优先覆盖以下能力
 
 | 能力 | 说明 | MVP 状态 |
 |---|---|---|
-| 分词 | 粗粒度/细粒度 tokenization | 模型资产类型已预留，运行时待接入 |
-| 词性标注 | POS tagging | 模型资产类型已预留，运行时待接入 |
-| 命名实体识别 | 人名、机构、地名、时间等实体抽取 | 模型资产类型已预留，评测类型已有 |
-| 依存句法分析 | 输出词之间的依存关系 | 模型资产类型已预留，运行时待接入 |
-| 语义角色标注 | 谓词和论元角色识别 | 模型资产类型已预留，运行时待接入 |
-| 文本分类 | 单标签/多标签分类 | 模型资产类型已预留，评测类型已有 |
-| 情感分析 | 情感极性分类 | 评测类型已有，专用模型类型后续细化 |
-| 文本相似度/语义检索 | 依赖嵌入模型和向量检索 | 模型资产类型已有，检索链路待实现 |
+| 分词 | 粗粒度/细粒度 tokenization | 内置 demo runtime，真实模型 SPI 已预留 |
+| 词性标注 | POS tagging | 内置 demo runtime，真实模型 SPI 已预留 |
+| 命名实体识别 | 人名、机构、地名、时间等实体抽取 | 内置 demo runtime，真实模型 SPI 已预留 |
+| 依存句法分析 | 输出词之间的依存关系 | 内置 demo runtime，真实模型 SPI 已预留 |
+| 语义角色标注 | 谓词和论元角色识别 | 内置 demo runtime，真实模型 SPI 已预留 |
+| 文本分类 | 单标签/多标签分类 | 内置 demo runtime，评测类型已有 |
+| 情感分析 | 情感极性分类 | 内置 demo runtime，评测类型已有 |
+| 文本相似度/语义检索 | 依赖嵌入模型和向量检索 | 内置 demo runtime，真实向量检索链路待实现 |
 | 排序 | query-document rerank | 模型资产类型已有，标准协议测试已有 |
 
 ### 大语言模型的定位
@@ -57,7 +57,7 @@ NLP 当前处理能力参考 HanLP 常见功能体系，优先覆盖以下能力
 
 ```
 xnlp-core        共享领域模型、SPI、管线、模型注册中心
-xnlp-server      Spring Boot 4.1.0 REST API 服务 (端口 8080)
+xnlp-server      Spring Boot 4.1.0 REST API 服务 (端口 8760)
 xnlp-client       Java SDK (HTTP client)
 xnlp-cli          Picocli 命令行工具
 xnlp-frontend     React 18 + Vite 5 + Tailwind 3 前端 (端口 5173, 已代理到后端)
@@ -67,7 +67,7 @@ xnlp-frontend     React 18 + Vite 5 + Tailwind 3 前端 (端口 5173, 已代理�
 依赖图: xnlp-cli -> xnlp-client -> xnlp-core <- xnlp-server
 ```
 
-**当前运行状态**：后端 Java (8080) + 前端 Vite (5173) 均已启动并可交互。
+**当前运行状态**：后端 Java (8760) + 前端 Vite (5173) 均已启动并可交互。
 
 ---
 
@@ -84,11 +84,11 @@ xnlp-frontend     React 18 + Vite 5 + Tailwind 3 前端 (端口 5173, 已代理�
 | 5 | 最小存活信号 | `GET /ok` | ✅ | 200 空 body |
 | 6 | 列出模型 | `GET /api/v1/models` | ✅ | |
 | 7 | 查看模型详情 | `GET /api/v1/models/{name}` | ✅ | |
-| 8 | 加载模型 | `POST /api/v1/models` | ⚠️ | 需要 ChatModel 后端实例，当前无可用后端 |
+| 8 | 加载模型 | `POST /api/v1/models` | ⚠️ | 需要配置 Spring AI ChatModel（OpenAI API Key 或 Ollama） |
 | 9 | 删除模型档案 | `DELETE /api/v1/models/{name}` | ✅ | 删除配置档案并卸载运行时模型 |
-| 10 | 单次推理 | `POST /api/v1/models/{name}/predict` | ⚠️ | 需要 ChatModel，当前无可用后端 |
+| 10 | 单次推理 | `POST /api/v1/models/{name}/predict` | ⚠️ | 需要配置 Spring AI ChatModel（OpenAI API Key 或 Ollama） |
 | 11 | 基准测试 | `POST /api/v1/benchmark/{modelName}` | ⚠️ | 需要 ChatModel |
-| 12 | 列出数据集 | `GET /api/v1/datasets` | ✅ | JSON 文件持久化 |
+| 12 | 列出数据集 | `GET /api/v1/datasets` | ✅ | Spring JDBC + 当前数据库 profile |
 | 13 | 获取数据集 | `GET /api/v1/datasets/{id}` | ✅ | |
 | 14 | 创建数据集 | `POST /api/v1/datasets` | ✅ | 支持 JSON body |
 | 15 | 更新数据集 | `PUT /api/v1/datasets/{id}` | ✅ | |
@@ -96,9 +96,9 @@ xnlp-frontend     React 18 + Vite 5 + Tailwind 3 前端 (端口 5173, 已代理�
 | 17 | 查看条目(分页) | `GET /api/v1/datasets/{id}/entries` | ✅ | page + size 参数 |
 | 18 | 导出数据集 | `GET /api/v1/datasets/{id}/export` | ✅ | JSON 导出 |
 | 19 | 数据集计数 | `GET /api/v1/datasets/count` | ✅ | |
-| 20 | 列出评测记录 | `GET /api/v1/evaluations` | ✅ | 内存存储 |
+| 20 | 列出评测记录 | `GET /api/v1/evaluations` | ✅ | Spring JDBC 持久化（memory profile 除外） |
 | 21 | 获取评测详情 | `GET /api/v1/evaluations/{id}` | ✅ | |
-| 22 | 运行评测 | `POST /api/v1/evaluations` | ⚠️ | 需要运行中的模型进行推理 |
+| 22 | 运行评测 | `POST /api/v1/evaluations` | ✅ | 返回 `202 Accepted`，异步队列执行并持久化进度；真实推理仍需 provider |
 | 23 | 对比评测 | `GET /api/v1/evaluations/compare?ids=` | ✅ | 多跑对比 + 增量 + 最佳跑 |
 | 24 | NLP 能力列表 | `GET /api/v1/nlp/tasks` | ✅ | 返回 HanLP 风格能力目录 |
 | 25 | 文本分类 | `POST /api/v1/nlp/classify` | ⚠️ | 历史 prompt 实现；后续改为分类模型/流水线节点调用 |
@@ -124,10 +124,13 @@ xnlp-frontend     React 18 + Vite 5 + Tailwind 3 前端 (端口 5173, 已代理�
 | # | 页面 | 路由 | 状态 | 功能 |
 |---|------|------|------|------|
 | 1 | Dashboard | `/` | ✅ | 系统整体看板：模型资产、NLP 能力、数据集、评测概览 |
-| 2 | 模型管理 | `/models` | ✅ | 大语言模型/嵌入/排序/分词/POS/NER/句法/SRL/分类模型资产 CRUD、激活、测试 |
-| 3 | 数据集管理 | `/datasets` | ✅ | 创建(JSON上传) / 列表 / 查看 / 导出 / 删除 |
-| 4 | 评测管理 | `/evaluation` | ✅ | 模型+数据集选择 / 运行 / 历史 / 指标弹窗；后续按任务类型筛选适配模型 |
-| 5 | 对比分析 | `/compare` | ✅ | 多跑选择 / 指标表格+增量 / 柱状图 / 雷达图 |
+| 2 | AI Assistant | `/assistant` | ✅ | 基于 Spring AI ChatModel 的工程 Copilot，对话上下文与 provider 状态 |
+| 3 | 模型管理 | `/models` | ✅ | 大语言模型/嵌入/排序/分词/POS/NER/句法/SRL/分类模型资产 CRUD、激活、测试 |
+| 4 | NLP Workbench | `/nlp` | ✅ | TOK/POS/NER/DEP/SDP/SRL/CON/AMR/关键词/抽取式摘要/生成式摘要/纠错/分类/情感/STS/TST 交互式分析 |
+| 5 | 数据集管理 | `/datasets` | ✅ | 创建(JSON上传/拖拽) / 列表 / 查看 / 条目分页 / 导出 / 删除 |
+| 6 | 评测管理 | `/evaluation` | ✅ | 模型+数据集选择 / 运行 / 历史 / 指标弹窗 |
+| 7 | Pipeline Canvas | `/canvas` | ✅ | 以节点视图组合数据集、模型与评测步骤；支持执行后端 trace 并查看节点级输入/输出/耗时 |
+| 8 | 对比分析 | `/compare` | ✅ | 多跑选择 / 指标表格+增量 / 柱状图 / 雷达图 |
 
 ### 2.2a 前端 API 客户端覆盖 (client.ts)
 
@@ -166,13 +169,13 @@ xnlp-frontend     React 18 + Vite 5 + Tailwind 3 前端 (端口 5173, 已代理�
 | `nlpApi.translate` | POST | — | ❌ 未使用 |
 | `healthApi.check` | GET | — | ❌ 未使用 |
 
-**结论**：前端模型管理已使用 capabilities/create/delete/activate/test；6 个 NLP 任务 API + Predict/Benchmark/Health 仍已就绪但**无对应 UI**。
+**结论**：前端模型管理已使用 capabilities/create/delete/activate/test；NLP Workbench 已通过统一 `nlpApi.analyze` 覆盖 HanLP 风格任务目录；AI Assistant 已接入 `aiApi.status/chat`。Predict、Benchmark、历史兼容的 6 个 NLP API 与 Health API 仍保留为 SDK/后续页面的可用接口。
 
 ### 2.3 领域模型 (xnlp-core)
 
 | # | 模块 | 类 | 状态 |
 |---|------|-----|------|
-| 1 | 评测模型 | `NLPTaskType` (enum) | ⚠️ | 仍是历史 6 种评测类型，后续需扩展到 HanLP 风格能力 |
+| 1 | 评测模型 | `NLPTaskType` (enum) | ✅ | 保留评测任务类型；HanLP 风格运行能力由 `NlpComponent`/`CapabilityRegistry` 扩展 |
 | 2 | 评测模型 | `EvaluationEntry` | ✅ | input + expectedOutput |
 | 3 | 评测模型 | `EvaluationDataset` | ✅ | 名称/描述/类型/条目列表 |
 | 4 | 评测模型 | `EvaluationMetrics` | ✅ | 分类/NER/QA/ROUGE/BLEU 指标 |
@@ -192,7 +195,7 @@ xnlp-frontend     React 18 + Vite 5 + Tailwind 3 前端 (端口 5173, 已代理�
 
 | # | 服务 | 状态 | 说明 |
 |---|------|------|------|
-| 1 | `DatasetService` | ✅ | JSON 文件 CRUD (`data/datasets/`) |
+| 1 | `DatasetService` | ✅ | Spring JDBC CRUD，通过 MySQL/PostgreSQL/H2 profile 切换 |
 | 2 | `MetricsCalculator` | ✅ | F1/ROUGE/BLEU/精确匹配/NER F1 |
 | 3 | `EvaluationService` | ✅ | 评测编排 + 多跑对比 |
 | 4 | `NLPTaskService` | ⚠️ | 历史 prompt 任务实现；后续应重构为 HanLP 风格 pipeline 能力服务 |
@@ -215,11 +218,11 @@ xnlp-frontend     React 18 + Vite 5 + Tailwind 3 前端 (端口 5173, 已代理�
 
 | # | 测试类 | 模块 | 测试数 | 状态 |
 |---|--------|------|--------|------|
-| 1 | `XNLPExceptionTest` | xnlp-core | ~6 | ✅ 通过 |
-| 2 | `PredictRequestTest` | xnlp-core | ~6 | ✅ 通过 |
+| 1 | `XNLPExceptionTest` | xnlp-core | 4 | ✅ 通过 |
+| 2 | `PredictRequestTest` | xnlp-core | 4 | ✅ 通过 |
 | 3 | `PipelineManagerTest` | xnlp-core | 5 | ✅ 通过 |
-| 4 | `ModelRegistryTest` | xnlp-core | ~5 | ⚠️ 依赖 Mock ChatModel |
-| 5 | `XNLPApplicationSmokeTest` | xnlp-server | 8 | ❌ `@Disabled` — 需 ChatModel 后端 |
+| 4 | `ModelRegistryTest` | xnlp-core | 9 | ✅ 通过 |
+| 5 | `XNLPApplicationSmokeTest` | xnlp-server | 14 | ✅ H2 + 内存 ChatModel，覆盖健康、模型、Spring AI、NLP、评测 |
 
 **测试运行命令**：
 ```bash
@@ -235,17 +238,17 @@ mvn test -Dmaven.repo.local=/tmp/m2 -pl xnlp-core # 仅 core
 
 | 问题 | 严重度 | 说明 |
 |------|--------|------|
-| **无可用模型后端** | 🔴 Critical | Ollama/OpenAI Starters 因与 Spring Boot 4.1 不兼容被移除。`ModelRegistry` 依赖 `ChatModel` 接口但上下文中无实例。所有 `/predict` 端点、评测运行、NLP 任务实际执行均无法工作 |
-| **SmokeTest 被禁用** | 🟡 Medium | `XNLPApplicationSmokeTest` 整体 `@Disabled`，8 个集成测试全部跳过 |
+| **模型后端依赖运行时配置** | 🟡 Medium | Spring AI 2.0.0 已接入 OpenAI/Ollama starters；未设置 `OPENAI_API_KEY` 且未启动 Ollama 时，应用仍可启动，但需要先配置 provider 才能执行真实推理 |
+| **真实 AI provider 依赖运行时配置** | 🟡 Medium | Smoke test 已使用内存 ChatModel，不依赖外部服务；生产环境仍需配置 `OPENAI_API_KEY` 或启动 Ollama 才能执行真实推理 |
 
 ### 3.2 后端待实现
 
 | 功能 | 优先级 | 说明 |
 |------|--------|------|
-| 模型后端对接 | P0 | 对接 ChatModel 实现：Ollama / OpenAI API / Mock 后端 |
-| 批量推理端点 | P1 | `POST /api/v1/models/{name}/batch-predict` — 当前缺失 |
-| 异步评测 | P1 | 评测耗时长，需异步+进度+取消 |
-| 评测持久化 | P1 | 当前评测结果仅在内存，重启丢失 |
+| 模型后端对接 | P0 | ✅ 统一接入 Spring AI `ChatModel`，支持 OpenAI / Ollama provider 切换；测试使用内存 stub |
+| 批量推理端点 | P1 | ✅ `POST /api/v1/models/{name}/batch-predict`，有界批量、顺序执行、逐项错误返回 |
+| 异步评测 | P1 | ✅ 有界线程池、进度持久化、取消接口和状态过滤已实现 |
+| 评测持久化 | P1 | ✅ 默认使用 Spring JDBC 写入 evaluation_runs；`memory` profile 仅用于临时实验 |
 | 模型热加载/卸载 | P1 | 从应用配置动态加载模型 |
 | 用户认证/授权 | P2 | API Key 或 OAuth2 |
 | SDK 完善 | P2 | `xnlp-client` Java SDK |
@@ -255,21 +258,17 @@ mvn test -Dmaven.repo.local=/tmp/m2 -pl xnlp-core # 仅 core
 
 | 功能 | 优先级 | 说明 |
 |------|--------|------|
-| NLP Playground 页面 | P1 | 新建 `/nlp` 路由，集成分词、词性、NER、句法、SRL、分类、相似度、排序等能力交互 |
-| 评测进度展示 | P1 | 实时进度条/日志 |
-| 数据集条目分页 | P1 | 后端分页就绪; 前端 `Datasets.tsx` 硬编码 `page=0,size=50` |
-| JSON 文件拖拽导入 | P1 | 拖拽上传 JSON 创建数据集 |
+| NLP Playground 页面 | P1 | ✅ 已实现 `/nlp` 工作台与内置能力交互 |
+| 评测进度展示 | P1 | ✅ 轮询进度条、状态过滤与取消按钮；SSE/运行日志后续增强 |
+| 数据集条目分页 | P1 | ✅ 后端分页 + 前端分页控件，默认每页 20 条 |
+| JSON 文件拖拽导入 | P1 | ✅ 支持 `.json` 文件选择与拖拽上传创建数据集 |
 | 搜索/筛选 | P2 | 数据集和评测记录搜索 |
-| 暗色主题 | P2 | |
-| 国际化 | P3 | |
+| 暗色主题 | P2 | ✅ 现代化深色工作台布局与响应式交互 |
+| 国际化 | P3 | ✅ 中文/英文切换已接入 |
 
 ### 3.4 已知前端 Bugs
 
-| # | 位置 | 问题 | 严重度 |
-|---|------|------|--------|
-| 1 | `Compare.tsx:161` | Radar 图: `radarData()` 生成 `accuracy/f1Macro/rouge1/bleu` 四个维度字段，但所有 `<Radar>` 硬编码 `dataKey="accuracy"`，每模型仅展示单维单点 | 🟡 Medium |
-| 2 | `Datasets.tsx` | 条目查看模态框无分页控件，条目 > 50 时不可见 | 🟡 Medium |
-| 3 | `Datasets.tsx` | JSON 校验 `Array.isArray` 后字符串判断 `'objects'` 有误(应为 `'object'`) | 🟢 Low |
+当前已知的 Compare 雷达图、数据集条目分页和 JSON 文件导入问题已在 MVP 0.2.0 修复。后续缺陷以自动化测试和运行态验证结果为准。
 
 ### 3.5 基础设施
 
@@ -279,7 +278,7 @@ mvn test -Dmaven.repo.local=/tmp/m2 -pl xnlp-core # 仅 core
 | K8s 部署清单 | P1 | `docker/` 目录已预留 |
 | CI/CD | P2 | GitHub Actions |
 | 集成测试 | P2 | `tests/` 目录已预留 |
-| 数据库替代 JSON 文件 | P2 | PostgreSQL/H2 |
+| 数据库 profile 切换 | P1 | ✅ Spring Boot datasource profiles: MySQL/PostgreSQL/H2 |
 | Maven 离线构建 | P2 | 需 `-Dmaven.repo.local=/tmp/m2` 绕过沙箱网络限制 |
 
 ---
@@ -355,7 +354,7 @@ POST /api/v1/models/{name}/test
             elapsedSeconds, httpStatus?, result?, message?, runtimeReady? }
     说明: 已加载的 SPRING_AI_CHAT 使用 ChatModel；远程标准协议直接发标准连通性请求，
           供应商认证/模型错误以结构化 failed 结果返回，不再作为前端 HTTP 异常抛出。
-          HanLP/本地 NLP 组件当前只验证配置档案，返回 configured，待后续 pipeline runtime 接入。
+          HanLP/本地 NLP 组件可通过 /api/v1/pipelines/execute 进入内置能力 runtime 并返回节点级 trace。
 
 POST /api/v1/models/{name}/predict
     请求: { modelName?, text }
@@ -398,7 +397,7 @@ GET /api/v1/datasets/{id}
 POST /api/v1/datasets
     请求: { name, description?, taskType?, entries: [{ input, expectedOutput }] }
     响应: Dataset
-    存储: data/datasets/{id}.json  (JSON 文件持久化)
+    存储: datasets + dataset_entries 表（Spring JDBC + 当前数据库 profile）
 
 PUT /api/v1/datasets/{id}
     请求: { name, description?, taskType?, entries? }
@@ -419,11 +418,17 @@ DELETE /api/v1/datasets/{id}
 ```yaml
 POST /api/v1/evaluations
     请求: { modelName, datasetId, taskType? }
+    响应: 202 Accepted + EvaluationRun + Location: /api/v1/evaluations/{id}
+    状态流转: queued -> running -> completed | failed | cancelled
+    逻辑: 有界线程池异步遍历 dataset.entries，逐条构建 prompt -> registry.predict()
+          -> 对比 expectedOutput -> 持久化 processedEntries/progressPercent -> 计算指标
+
+POST /api/v1/evaluations/{id}/cancel
     响应: EvaluationRun
-    状态流转: running -> completed | failed
-    逻辑: 遍历 dataset.entries，逐条构建 prompt -> registry.predict() -> 对比 expectedOutput -> 计算指标
+    说明: 将活动任务标记为 cancelling，worker 在当前样本完成后转为 cancelled
 
 GET /api/v1/evaluations
+    查询参数: modelName?, datasetName?, status?
     响应: [ EvaluationRun ]  (按 createdAt 倒序)
 
 GET /api/v1/evaluations/{id}
@@ -444,10 +449,13 @@ GET /api/v1/evaluations/compare?ids=id1&ids=id2&ids=id3
 
 ```yaml
 GET /api/v1/nlp/tasks
-    响应: [{ task: "CLASSIFY", description: "...", parameters: [...], ...] }, ...]
-    当前能力目录: TOKENIZATION, PART_OF_SPEECH, NAMED_ENTITY_RECOGNITION,
-                 DEPENDENCY_PARSING, SEMANTIC_ROLE_LABELING, TEXT_CLASSIFICATION,
-                 TEXT_SIMILARITY, RERANKING
+    响应: [{ task: "TOK", description: "...", parameters: {...} }, ...]
+    当前能力目录: TOK, POS, NER, DEP, SDP, SRL, CON, AMR, KEYPHRASE,
+                 EXSUM, ABSUM, COR, CLASSIFICATION, SENTIMENT, STS, TST
+
+POST /api/v1/nlp/analyze
+    请求: { task?: string, capability?: string, text: string, language?: string, ... }
+    `task` 为规范字段，`capability` 为兼容别名；两者都支持能力 ID 或常见长名称
 
 POST /api/v1/nlp/classify
     请求: { modelName, text, categories: [string] }
@@ -478,7 +486,30 @@ POST /api/v1/nlp/translate
    pipeline 节点的通用 NLP 能力接口。大模型只有在规格明确时才作为独立节点或 baseline 使用。
 ```
 
-### 4.6 基准测试
+### 4.6 Pipeline 组合与 Trace
+
+```yaml
+GET /api/v1/pipelines/capabilities
+    响应: [{ id, displayName, description, parameters }, ...]
+
+POST /api/v1/pipelines/execute
+    请求: {
+      text: string,
+      textPair?: string,
+      language?: string,
+      parameters?: object,
+      nodes: [{ id: string, capability: string, name?: string, parameters?: object }]
+    }
+    响应: {
+      traceId, status: completed|failed, inputText, outputText, language,
+      startedAt, completedAt, durationMs,
+      nodes: [{ id, capability, name, status, inputText, outputText,
+                durationMs, result, errorMessage? }]
+    }
+    说明: 节点按请求顺序执行；文本型结果会作为下一节点输入；失败节点之后的节点标记为 skipped。
+```
+
+### 4.7 基准测试
 
 ```yaml
 POST /api/v1/benchmark/{modelName}
@@ -611,7 +642,7 @@ App.tsx
 - API Key 只写入后端，列表仅显示是否已配置
 - 列表标记 OFFICIAL/CUSTOM 来源
 - 支持激活 CHAT 模型到 Spring AI ChatModel 运行时，以及统一测试入口
-- EMBEDDING/RERANKING 当前走标准协议连通性测试；HanLP/本地 NLP 组件当前先维护标准档案并返回 configured，运行时执行待 pipeline runtime 接入
+- EMBEDDING/RERANKING 当前走标准协议连通性测试；HanLP/本地 NLP 组件已通过 pipeline runtime 执行并返回节点级 trace
 
 **Datasets** (`Datasets.tsx`):
 - 创建表单: JSON 文本区输入条目数组，支持选择任务类型
@@ -628,7 +659,7 @@ App.tsx
 - 选择面板: 已完成评测的标签式多选
 - 指标对比表格: 每个指标行展示各跑数值 + 增量箭头
 - 柱状图 (Recharts BarChart): 多模型多指标分组柱状图
-- 雷达图 (Recharts RadarChart): ⚠️ 当前仅展示 accuracy 维度 (已知 Bug)
+- 雷达图 (Recharts RadarChart): 按 accuracy/f1Macro/rouge1/bleu 等可用指标生成多维对比
 
 ---
 
@@ -637,7 +668,7 @@ App.tsx
 ### 8.1 application.yml 核心配置
 
 ```yaml
-server.port: ${XNLP_PORT:8760}      # ⚠️ 配置值为 8760，当前实际运行在 8080
+server.port: ${XNLP_PORT:8760}
 spring.application.name: xnlp-server
 
 management.endpoints.web.exposure.include: health,info,metrics,prometheus
@@ -663,18 +694,18 @@ logging.file.path: ${LOG_PATH:/var/log/xnlp}
 ### 8.2 Maven 构建
 
 ```bash
-# 由于沙箱网络限制，必须使用本地 Maven 仓库
-mvn clean verify -Dmaven.repo.local=/tmp/m2 -DskipTests
-mvn test -Dmaven.repo.local=/tmp/m2 -pl xnlp-core
-mvn spring-boot:run -pl xnlp-server -Dmaven.repo.local=/tmp/m2
+# 完整 reactor 验证（网络受限环境可显式指定可写 Maven 仓库和 settings）
+mvn -s /tmp/xnlp-central-settings.xml -Dmaven.repo.local=/tmp/m2 clean verify
+mvn -s /tmp/xnlp-central-settings.xml -Dmaven.repo.local=/tmp/m2 test -pl xnlp-core
 ```
 
 ### 8.3 启动服务
 
 ```bash
-# 后端 (需要 escalated sandbox)
+# 后端：先通过 reactor 打包，避免直接启动时解析到旧的本地 xnlp-core artifact
 cd /Users/haoxiaolong/data/codex/X-NLP
-mvn spring-boot:run -pl xnlp-server -Dmaven.repo.local=/tmp/m2 -DskipTests
+mvn -s /tmp/xnlp-central-settings.xml -Dmaven.repo.local=/tmp/m2 -pl xnlp-server -am package -DskipTests
+SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.1.0.jar
 
 # 前端 (需要 escalated sandbox)
 cd /Users/haoxiaolong/data/codex/X-NLP/xnlp-frontend
@@ -685,7 +716,7 @@ npm run dev
 
 ```typescript
 // vite.config.ts
-proxy: { '/api': { target: 'http://localhost:8080', changeOrigin: true } }
+proxy: { '/api': { target: 'http://localhost:8760', changeOrigin: true } }
 ```
 
 ### 8.5 前端技术栈版本
@@ -704,66 +735,43 @@ proxy: { '/api': { target: 'http://localhost:8080', changeOrigin: true } }
 
 ## 九、下一步 Vibe Coding 路线图
 
-### Phase 1 — 打通模型推理 (P0, 预计 1-2天)
-> 目标：让 `/predict` 和评测运行真正能用
+### Phase 1 — 打通模型推理 (P0)
+> 状态：✅ 已完成（provider-neutral Spring AI runtime bridge）
 
-**Task 1.1** — 实现 Mock ChatModel
-- 新建 `xnlp-server/.../backend/MockChatModel.java`
-- 实现 `org.springframework.ai.chat.model.ChatModel` 接口
-- `call()`: 回显 prompt 前 100 字符 + "[mock]"
-- 注册为 `@Bean` 到 Spring 容器
-
-**Task 1.2** — 修复 `XNLPConfiguration.java`
-- 在 `modelRegistry()` 中注入 `ChatModel` bean
-- `registry.registerChatModel(modelName, chatModel)` 完成模型注册
-- 移除 `ModelInitializer` 中 ollama-default 的错误日志
-
-**Task 1.3** — 验证链路
-- 启动服务后 `GET /api/v1/models` 返回含 `mock-chat` 的列表
-- `POST /api/v1/models/mock-chat/predict` 返回 mock 响应
-- `POST /api/v1/evaluations` 使用 mock 模型完成评测
-- 启用 `XNLPApplicationSmokeTest` 并修复测试预期
+- 使用 Spring AI `ChatModel` 作为统一推理 SPI，由 Spring Boot 配置选择 OpenAI 或 Ollama provider。
+- `SpringAIRuntimeBridge` 将可用的 `ChatModel` 注册为 `spring-ai-default`，模型预测与异步评测复用同一模型注册中心。
+- 测试环境通过 `XNLPApplicationSmokeTest.TestChatModelConfiguration` 提供内存 stub，验证 `/predict`、AI Chat 和评测链路；生产环境不自动伪造外部 provider。
+- 当没有 `OPENAI_API_KEY` 或 Ollama 服务时，AI 状态会明确返回不可用，而不是伪造成功。
 
 ### Phase 2 — 评测闭环 (P1, 预计 2-3天)
 > 目标：评测流程可重复、可追溯
 
 **Task 2.1** — 评测结果持久化
-- `EvaluationService` 将 runs 写入 `data/evaluations/` JSON 文件
-- 启动时从磁盘加载历史
+- `EvaluationService` 将 runs 写入 `evaluation_runs` 表；默认使用 Spring JDBC
+- 历史记录由当前 datasource profile 读取，数据库切换不改变服务层接口
 
 **Task 2.2** — 异步评测
-- `POST /api/v1/evaluations` 返回 202 + runId，后端异步执行
-- `GET /api/v1/evaluations/{id}` 查询进度
-- 可选：SSE 流式推送进度 `GET /api/v1/evaluations/{id}/stream`
+- ✅ `POST /api/v1/evaluations` 返回 `202 Accepted`、runId 和 `Location`，后端通过有界 `ThreadPoolTaskExecutor` 异步执行
+- ✅ `GET /api/v1/evaluations/{id}` 查询 `queued/running/cancelling/completed/failed/cancelled` 状态和进度
+- ✅ `POST /api/v1/evaluations/{id}/cancel` 请求取消，worker 在样本边界安全停止
+- SSE 流式推送暂未实现，前端使用 2 秒轮询
 
 **Task 2.3** — 评测批量对比
-- 前端 Compare 页面支持按模型/数据集筛选
-- 后端支持过滤参数 `?modelName=...&datasetName=...`
+- ✅ 前端 Compare 页面支持按模型/数据集筛选
+- ✅ 后端支持过滤参数 `?modelName=...&datasetName=...&status=...`
 
 **Task 2.4** — 前端评测进度
-- Evaluation 页面添加 run status 轮询 (setInterval 2s)
-- 显示进度条 (当前条目/总条目)
+- ✅ Evaluation 页面添加 run status 轮询 (setInterval 2s)
+- ✅ 显示进度条 (当前条目/总条目) 和取消按钮
 
-### Phase 3 — 前端交互增强 (P1, 预计 2-3天)
-> 目标：完善用户体验，补齐 NLP Playground
+### Phase 3 — 前端交互增强 (P1)
+> 状态：✅ 已完成（MVP 0.2.0）
 
-**Task 3.1** — NLP Playground 页面 (`/nlp`)
-- 新建 `pages/Playground.tsx`
-- 左侧: 模型选择 + 任务类型选择 + 参数输入；后续按 HanLP 风格能力筛选适配模型
-- 右侧: 结果展示
-- 历史记录 (session 内)
+- `/nlp` NLP Workbench 已提供任务选择、输入、结果与历史交互。
+- Datasets 已支持 JSON 文件选择/拖拽导入及条目分页。
+- Compare 已支持多指标雷达图与柱状图对比。
 
-**Task 3.2** — 数据集拖拽导入
-- 使用原生 Drag & Drop API
-- 支持 `.json` 文件拖拽或点击上传
-- 自动解析并填充创建表单
-
-**Task 3.3** — 数据集条目分页
-- `Datasets.tsx` 查看模态框添加分页控件
-- 使用已有的 `page`/`size` 参数
-
-**Task 3.4** — 修复 Compare 雷达图
-- 重构雷达图: 每模型用不同 `dataKey` 或改为单模型多指标模式
+后续增强项：评测进度的 SSE/WebSocket 实时推送、运行日志流式推送、持久化 pipeline trace 和真实生产模型运行时接入。
 
 ### Phase 4 — 基础设施 (P2, 预计 2-3天)
 > 目标：生产就绪的基础设施
@@ -788,7 +796,7 @@ proxy: { '/api': { target: 'http://localhost:8080', changeOrigin: true } }
 > 目标：生产级安全和可扩展性
 
 **Task 5.1** — 用户认证 (API Key / OAuth2 + Spring Security)
-**Task 5.2** — PostgreSQL 替代 JSON 文件持久化
+**Task 5.2** — 多数据库增强：数据库迁移版本化与运行时连接池调优
 **Task 5.3** — K8s Helm Chart
 **Task 5.4** — 多租户数据隔离
 
@@ -796,25 +804,30 @@ proxy: { '/api': { target: 'http://localhost:8080', changeOrigin: true } }
 
 ## 十、技术决策 & 注意事项
 
-### 10.1 Spring AI + Spring Boot 4.1 兼容性
+### 10.1 Spring AI + Spring Boot 4.1
 
-- **问题**: `spring-ai-starter-model-ollama` 和 `spring-ai-starter-model-openai` 的 auto-config 引用 `RestClientAutoConfiguration`，该配置类在 SB 4.x 中被重组/移除
-- **当前状态**: 两个 starter 已从 `xnlp-server/pom.xml` 移除
-- **xnlp-core** 保留 `spring-ai-model:1.0.0`（显式版本）— `ModelRegistry` 只需 `ChatModel` 接口
+- **当前状态**: 使用 Spring AI `2.0.0` BOM，与 Spring Boot 4.1 的运行时基线保持一致。
+- **Provider**: `spring-ai-starter-model-ollama` 与 `spring-ai-starter-model-openai` 由 Spring Boot 自动配置；通过 `SPRING_AI_MODEL_CHAT=ollama|openai` 选择当前 ChatModel，业务层通过 `ChatModel` 抽象调用，不绑定厂商 SDK。
+- **应用入口**: `GET /api/v1/ai/status` 检查运行时，`POST /api/v1/ai/chat` 提供工程化 Copilot 能力。
 
-### 10.2 Maven 本地仓库
+### 10.2 数据库切换
+
+- 默认 profile 为 `mysql`，可通过 `SPRING_PROFILES_ACTIVE=postgres` 或 `SPRING_PROFILES_ACTIVE=h2` 直接切换。
+- 连接信息使用 `DB_URL`、`DB_USERNAME`、`DB_PASSWORD` 环境变量覆盖；`schema.sql` 仅负责新数据库的便携式表结构初始化；生产环境已有旧表时，应使用对应数据库的迁移流程补齐新增评测进度字段。
+
+### 10.3 Maven 本地仓库
 
 - 沙箱环境有出站网络限制，必须使用预置本地仓库 `/tmp/m2`
 - 所有 mvn 命令需追加 `-Dmaven.repo.local=/tmp/m2`
 
-### 10.3 端口差异
+### 10.4 端口差异
 
 - `application.yml` 声明 `8760`，`XNLPProperties.java` 中也配置 `8760`
-- 实际运行在 **8080**（沙箱开放端口），Vite proxy 也指向 8080
-- 若部署到非沙箱环境，需对齐端口
+- 默认运行在 **8760**，可通过 `XNLP_PORT` 覆盖
+- Vite 开发代理使用 `8760`，部署时按环境变量对齐
 
-### 10.4 模型配置
+### 10.5 模型配置
 
-- `application.yml` 中 `xnlp.models` 数组保留了一条 `ollama-default` 配置
-- `ModelInitializer` 启动时尝试加载该模型，因无 ChatModel 实例会记录 error 日志
-- Phase 1 完成后可移除该配置或将其改为 mock 模型名
+- `application.yml` 中 `xnlp.models` 数组保留一条 `ollama-default` 示例配置
+- 配置 `OPENAI_API_KEY` 或启动 Ollama 后，`ModelInitializer` 会将 Spring AI ChatModel 注册到运行时
+- 未配置 provider 时应用仍可启动，模型/AI 接口会返回可诊断的服务不可用信息

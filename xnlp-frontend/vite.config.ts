@@ -10,6 +10,10 @@ export default defineConfig({
         target: 'http://localhost:8760',
         changeOrigin: true,
       },
+      '/health': { target: 'http://localhost:8760', changeOrigin: true },
+      '/livez': { target: 'http://localhost:8760', changeOrigin: true },
+      '/readyz': { target: 'http://localhost:8760', changeOrigin: true },
+      '/startupz': { target: 'http://localhost:8760', changeOrigin: true },
     },
   },
 })

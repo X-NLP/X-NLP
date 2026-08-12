@@ -35,7 +35,11 @@ public class EvaluationEntry {
     public String getExpectedOutput() { return expectedOutput; }
     public void setExpectedOutput(String expectedOutput) { this.expectedOutput = expectedOutput; }
     public Map<String, Object> getLabels() { return labels; }
-    public void setLabels(Map<String, Object> labels) { this.labels = new LinkedHashMap<>(labels); }
+    public void setLabels(Map<String, Object> labels) {
+        this.labels = labels != null ? new LinkedHashMap<>(labels) : new LinkedHashMap<>();
+    }
     public Map<String, Object> getMetadata() { return metadata; }
-    public void setMetadata(Map<String, Object> metadata) { this.metadata = new LinkedHashMap<>(metadata); }
+    public void setMetadata(Map<String, Object> metadata) {
+        this.metadata = metadata != null ? new LinkedHashMap<>(metadata) : new LinkedHashMap<>();
+    }
 }

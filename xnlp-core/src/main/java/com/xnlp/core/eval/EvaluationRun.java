@@ -19,6 +19,10 @@ public class EvaluationRun {
     private Instant createdAt;
     private Instant completedAt;
     private double elapsedSeconds;
+    private int totalEntries;
+    private int processedEntries;
+    private double progressPercent;
+    private boolean cancelRequested;
     private String errorMessage;
 
     public String getId() { return id; }
@@ -41,6 +45,16 @@ public class EvaluationRun {
     public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
     public double getElapsedSeconds() { return elapsedSeconds; }
     public void setElapsedSeconds(double elapsedSeconds) { this.elapsedSeconds = elapsedSeconds; }
+    public int getTotalEntries() { return totalEntries; }
+    public void setTotalEntries(int totalEntries) { this.totalEntries = Math.max(0, totalEntries); }
+    public int getProcessedEntries() { return processedEntries; }
+    public void setProcessedEntries(int processedEntries) { this.processedEntries = Math.max(0, processedEntries); }
+    public double getProgressPercent() { return progressPercent; }
+    public void setProgressPercent(double progressPercent) {
+        this.progressPercent = Math.max(0, Math.min(100, progressPercent));
+    }
+    public boolean isCancelRequested() { return cancelRequested; }
+    public void setCancelRequested(boolean cancelRequested) { this.cancelRequested = cancelRequested; }
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
 }

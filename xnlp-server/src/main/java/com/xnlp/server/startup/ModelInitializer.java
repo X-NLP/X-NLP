@@ -3,11 +3,13 @@ package com.xnlp.server.startup;
 import com.xnlp.core.config.ModelConfig;
 import com.xnlp.core.registry.ModelRegistry;
 import com.xnlp.server.service.MetricsService;
+import com.xnlp.core.repository.ModelConfigRepository;
 import com.xnlp.server.config.XNLPProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
@@ -26,17 +28,23 @@ public class ModelInitializer {
     private final ModelRegistry registry;
     private final MetricsService metrics;
     private final XNLPProperties properties;
+    private final ModelConfigRepository modelConfigRepository;
 
-    public ModelInitializer(ModelRegistry registry, MetricsService metrics, XNLPProperties properties) {
+    public ModelInitializer(ModelRegistry registry, MetricsService metrics, XNLPProperties properties,
+                            ModelConfigRepository modelConfigRepository) {
         this.registry = registry;
         this.metrics = metrics;
         this.properties = properties;
+        this.modelConfigRepository = modelConfigRepository;
     }
 
+    @Order(1)
     @EventListener(ApplicationReadyEvent.class)
     public void onReady() {
         for (ModelConfig cfg : properties.getModels()) {
             try {
+                // Keep declarative startup models visible in the persistent catalog as well as in runtime.
+                modelConfigRepository.save(cfg);
                 registry.loadModel(cfg);
                 metrics.incrementLoadedModels();
                 log.info("Auto-loaded model: {} provider={}", cfg.getName(), cfg.getBackend());
