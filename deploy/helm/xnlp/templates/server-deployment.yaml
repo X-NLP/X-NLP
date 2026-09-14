@@ -53,14 +53,20 @@ spec:
                   key: DB_PASSWORD
             - name: SPRING_AI_MODEL_CHAT
               value: {{ .Values.server.env.aiModelChat | quote }}
+            - name: SPRING_AI_MODEL_EMBEDDING
+              value: {{ .Values.server.env.aiModelEmbedding | quote }}
             - name: OLLAMA_BASE_URL
               value: {{ .Values.server.env.ollamaBaseUrl | quote }}
             - name: OLLAMA_CHAT_MODEL
               value: {{ .Values.server.env.ollamaChatModel | quote }}
+            - name: OLLAMA_EMBEDDING_MODEL
+              value: {{ .Values.server.env.ollamaEmbeddingModel | quote }}
             - name: OPENAI_BASE_URL
               value: {{ .Values.server.openai.baseUrl | quote }}
             - name: OPENAI_CHAT_MODEL
               value: {{ .Values.server.openai.chatModel | quote }}
+            - name: OPENAI_EMBEDDING_MODEL
+              value: {{ .Values.server.openai.embeddingModel | quote }}
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:

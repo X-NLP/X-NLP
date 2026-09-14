@@ -91,6 +91,25 @@ mvn -pl xnlp-server -am package -DskipTests && \
 SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.1.0.jar
 ```
 
+### Spring AI Embedding 语义检索
+
+在配置 embedding provider 后，工作台的 `STS` 能力会优先使用 Spring AI `EmbeddingModel`，并可直接对评测数据集执行按租户隔离的 Top-K 语义搜索：
+
+```bash
+SPRING_AI_MODEL_EMBEDDING=ollama OLLAMA_EMBEDDING_MODEL=nomic-embed-text \
+  SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.1.0.jar
+
+curl -X POST http://localhost:8760/api/v1/nlp/semantic-similarity \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"自然语言处理","textPair":"NLP 技术"}'
+
+curl -X POST http://localhost:8760/api/v1/datasets/<dataset-id>/semantic-search \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"检索排序","topK":5}'
+```
+
+未配置 embedding provider 时，STS 仍回退到内置 demo runtime；检索接口会返回明确的 provider 配置错误，不会伪造向量结果。
+
 ### Pipeline Trace API
 
 Canvas 可对数据集样本执行一个有序的 NLP 能力链，并返回可审计的节点级 trace：

@@ -1,19 +1,27 @@
 package com.xnlp.server.controller;
 
 import com.xnlp.server.service.NLPTaskService;
+import com.xnlp.server.service.SemanticSearchService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.validation.annotation.Validated;
+
 @RestController
 @RequestMapping("/api/v1/nlp")
+@Validated
 public class NLPTaskController {
 
     private final NLPTaskService nlpTaskService;
+    private final SemanticSearchService semanticSearchService;
 
-    public NLPTaskController(NLPTaskService nlpTaskService) {
+    public NLPTaskController(NLPTaskService nlpTaskService, SemanticSearchService semanticSearchService) {
         this.nlpTaskService = nlpTaskService;
+        this.semanticSearchService = semanticSearchService;
     }
 
     @GetMapping("/tasks")
@@ -24,6 +32,11 @@ public class NLPTaskController {
     @PostMapping("/analyze")
     public Map<String, Object> analyze(@RequestBody Map<String, Object> body) {
         return nlpTaskService.analyze(body);
+    }
+
+    @PostMapping("/semantic-similarity")
+    public Map<String, Object> semanticSimilarity(@Valid @RequestBody SimilarityRequest request) {
+        return semanticSearchService.similarity(request.text(), request.textPair());
     }
 
     @PostMapping("/classify")
@@ -62,5 +75,8 @@ public class NLPTaskController {
     public Map<String, Object> translate(@RequestBody Map<String, Object> body) {
         return nlpTaskService.translate((String) body.get("modelName"),
                 (String) body.get("text"), (String) body.get("sourceLanguage"));
+    }
+
+    public record SimilarityRequest(@NotBlank String text, @NotBlank String textPair) {
     }
 }

@@ -31,10 +31,13 @@ public class NLPTaskService {
 
     private final ModelRegistry registry;
     private final CapabilityRegistry capabilityRegistry;
+    private final SemanticSearchService semanticSearchService;
 
-    public NLPTaskService(ModelRegistry registry, CapabilityRegistry capabilityRegistry) {
+    public NLPTaskService(ModelRegistry registry, CapabilityRegistry capabilityRegistry,
+                          SemanticSearchService semanticSearchService) {
         this.registry = registry;
         this.capabilityRegistry = capabilityRegistry;
+        this.semanticSearchService = semanticSearchService;
     }
 
     /** Delegates to the component-based capability registry. */
@@ -84,6 +87,15 @@ public class NLPTaskService {
             default -> taskId;
         };
 
+        if ("STS".equals(resolvedId) && semanticSearchService.isAvailable() && !textPair.isBlank()) {
+            Map<String, Object> response = new LinkedHashMap<>(semanticSearchService.similarity(text, textPair));
+            response.put("task", taskId);
+            response.put("language", language);
+            response.put("input", text);
+            response.put("textPair", textPair);
+            return response;
+        }
+
         ComponentResult cr = capabilityRegistry.execute(resolvedId, ctx);
 
         Map<String, Object> response = new LinkedHashMap<>();
@@ -92,7 +104,8 @@ public class NLPTaskService {
         response.put("input", text);
         if (!textPair.isBlank()) response.put("textPair", textPair);
         response.put("result", cr.getData());
-        response.put("runtime", Map.of("mode", "builtin-demo", "standard", "hanlp-demo-compatible"));
+        response.put("runtime", Map.of("mode", "builtin-demo", "standard", "hanlp-demo-compatible",
+                "springAiEmbeddingAvailable", semanticSearchService.isAvailable()));
         return response;
     }
 

@@ -17,8 +17,10 @@ server:
     profile: h2
     port: 8760
     aiModelChat: ollama
+    aiModelEmbedding: none
     ollamaBaseUrl: http://ollama:11434
     ollamaChatModel: llama3.1
+    ollamaEmbeddingModel: nomic-embed-text
     dbPoolMaxSize: "10"
     dbPoolMinIdle: "2"
   database:
@@ -33,6 +35,7 @@ server:
     apiKey: ""
     baseUrl: https://api.openai.com
     chatModel: gpt-4o-mini
+    embeddingModel: text-embedding-3-small
   persistence:
     enabled: true
     size: 5Gi
