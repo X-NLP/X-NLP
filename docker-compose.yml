@@ -1,0 +1,73 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: xnlp
+      MYSQL_USER: ${DB_USERNAME:-xnlp}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-xnlp}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: mysql
+      DB_URL: jdbc:mysql://mysql:3306/xnlp?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_USERNAME: ${DB_USERNAME:-xnlp}
+      DB_PASSWORD: ${DB_PASSWORD:-xnlp}
+      SPRING_AI_MODEL_CHAT: ollama
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.1}
+      WASTE_UPLOAD_DIR: /opt/xnlp/data/waste-uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    volumes:
+      - xnlp-data:/opt/xnlp/data
+    ports:
+      - "${XNLP_PORT:-8760}:8760"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8760/readyz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./xnlp-frontend
+      dockerfile: Dockerfile
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  ollama-data:
+  xnlp-data:

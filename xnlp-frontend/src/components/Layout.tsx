@@ -12,6 +12,7 @@ import {
   ScanText,
   ServerCog,
   Workflow,
+  Truck,
   X,
 } from 'lucide-react'
 import LanguageSwitcher from './LanguageSwitcher'
@@ -26,6 +27,7 @@ const navItems = [
   { to: '/evaluation', labelKey: 'nav.evaluation', icon: FlaskConical },
   { to: '/canvas', labelKey: 'nav.canvas', icon: Workflow },
   { to: '/compare', labelKey: 'nav.compare', icon: GitCompare },
+  { to: '/waste', labelKey: 'nav.waste', icon: Truck },
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {

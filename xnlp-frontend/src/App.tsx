@@ -8,6 +8,7 @@ import Datasets from './pages/Datasets'
 import Evaluation from './pages/Evaluation'
 import Models from './pages/Models'
 import NlpWorkbench from './pages/NlpWorkbench'
+import WasteFlow from './pages/WasteFlow'
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/evaluation" element={<Evaluation />} />
         <Route path="/canvas" element={<Canvas />} />
         <Route path="/compare" element={<Compare />} />
+        <Route path="/waste" element={<WasteFlow />} />
       </Routes>
     </Layout>
   )

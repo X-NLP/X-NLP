@@ -22,7 +22,7 @@ Designed for both research and enterprise production environments.
 当前版本围绕“探索 → 组合 → 评测 → 交付”重构：
 
 - **现代 Web 工作台**：左侧工作区导航、响应式布局、NLP 工作台、数据集/评测/画布和 `AI Assistant` 页面。
-- **Spring AI 2.0.0**：服务端通过 Spring AI 的 `ChatModel` 抽象接入 Ollama 与 OpenAI-compatible provider，业务层不直接依赖厂商 SDK；对外提供 `GET /api/v1/ai/status` 与 `POST /api/v1/ai/chat`。
+- **Spring AI 2.0.1**：服务端通过 Spring AI 的 `ChatModel` 抽象接入 Ollama 与 OpenAI-compatible provider，业务层不直接依赖厂商 SDK；对外提供 `GET /api/v1/ai/status` 与 `POST /api/v1/ai/chat`。
 - **工程能力**：统一 prompt 约束、请求观测、模型注册、数据集、评测、指标与对比链路；Pipeline Canvas 已可调用后端 pipeline trace，记录每个节点的输入、输出、状态和耗时。评测支持异步队列、逐条进度持久化、取消和模型/数据集/状态过滤。
 - **数据库可切换**：使用 Spring Boot 的 `spring.datasource` profile 配置，默认 MySQL，也提供 PostgreSQL 和 H2 文件数据库配置；新库表结构由可移植的 `schema.sql` 初始化，数据访问层继续保持 repository 抽象。
 
@@ -32,6 +32,30 @@ Designed for both research and enterprise production environments.
 npm install --prefix xnlp-frontend
 npm run dev --prefix xnlp-frontend
 ```
+
+### 使用 Docker Compose 启动完整工作台
+
+Compose 会启动 MySQL、Ollama、X-NLP Server 和 Nginx 前端。首次使用时先拉取一个 Ollama 模型：
+
+```bash
+docker compose up -d --build
+docker compose exec ollama ollama pull llama3.1
+# 浏览器访问 http://localhost:5173，API 访问 http://localhost:8760
+```
+
+可通过环境变量覆盖端口、数据库凭据和 Ollama 模型：
+
+```bash
+DB_USERNAME=xnlp DB_PASSWORD=change-me OLLAMA_CHAT_MODEL=qwen2.5:7b \
+  XNLP_PORT=8760 FRONTEND_PORT=5173 docker compose up -d --build
+```
+
+停止服务但保留数据库和模型卷：
+
+```bash
+docker compose down
+```
+
 
 ### 选择数据库
 

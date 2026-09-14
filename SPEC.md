@@ -1,7 +1,7 @@
 ## X-NLP MVP 功能列表 & 规格说明
 
 > X-NLP 是一个 NLP 处理框架，目标是快速引入、组合、评测自然语言处理技术，并把处理过程和评测变化可视化。
-> 版本：MVP 0.2.0 | 更新：2026-07-23
+> 版本：MVP 0.2.0 | 更新：2026-09-14
 
 ---
 
@@ -238,7 +238,7 @@ mvn test -Dmaven.repo.local=/tmp/m2 -pl xnlp-core # 仅 core
 
 | 问题 | 严重度 | 说明 |
 |------|--------|------|
-| **模型后端依赖运行时配置** | 🟡 Medium | Spring AI 2.0.0 已接入 OpenAI/Ollama starters；未设置 `OPENAI_API_KEY` 且未启动 Ollama 时，应用仍可启动，但需要先配置 provider 才能执行真实推理 |
+| **模型后端依赖运行时配置** | 🟡 Medium | Spring AI 2.0.1 已接入 OpenAI/Ollama starters；未设置 `OPENAI_API_KEY` 且未启动 Ollama 时，应用仍可启动，但需要先配置 provider 才能执行真实推理 |
 | **真实 AI provider 依赖运行时配置** | 🟡 Medium | Smoke test 已使用内存 ChatModel，不依赖外部服务；生产环境仍需配置 `OPENAI_API_KEY` 或启动 Ollama 才能执行真实推理 |
 
 ### 3.2 后端待实现
@@ -777,8 +777,9 @@ proxy: { '/api': { target: 'http://localhost:8760', changeOrigin: true } }
 > 目标：生产就绪的基础设施
 
 **Task 4.1** — Docker Compose
-- `docker-compose.yml`: xnlp-server + xnlp-frontend (nginx serve) + ollama
-- 健康检查依赖
+- ✅ `docker-compose.yml`: MySQL + xnlp-server + xnlp-frontend (nginx serve) + Ollama
+- ✅ 服务健康检查与 `depends_on` 启动依赖
+- ✅ 服务端和前端均提供可复现的多阶段 Docker 构建
 
 **Task 4.2** — 前端搜索/筛选
 - Dashboard 添加搜索框 (模型/数据集/评测)
@@ -789,8 +790,8 @@ proxy: { '/api': { target: 'http://localhost:8760', changeOrigin: true } }
 - 启动时自动导入 (或提供一键导入按钮)
 
 **Task 4.4** — CI/CD
-- GitHub Actions: `mvn verify` + 前端 `npm run build`
-- Docker 镜像构建并推送到 registry
+- ✅ GitHub Actions: `mvn verify` + 前端 `npm run build`
+- ✅ CI 构建服务端与前端 Docker 镜像，发布到 registry 仍需配置仓库凭据与发布策略
 
 ### Phase 5 — 企业级 (P3)
 > 目标：生产级安全和可扩展性
@@ -806,7 +807,7 @@ proxy: { '/api': { target: 'http://localhost:8760', changeOrigin: true } }
 
 ### 10.1 Spring AI + Spring Boot 4.1
 
-- **当前状态**: 使用 Spring AI `2.0.0` BOM，与 Spring Boot 4.1 的运行时基线保持一致。
+- **当前状态**: 使用 Spring AI `2.0.1` BOM，与 Spring Boot 4.1 的运行时基线保持一致。
 - **Provider**: `spring-ai-starter-model-ollama` 与 `spring-ai-starter-model-openai` 由 Spring Boot 自动配置；通过 `SPRING_AI_MODEL_CHAT=ollama|openai` 选择当前 ChatModel，业务层通过 `ChatModel` 抽象调用，不绑定厂商 SDK。
 - **应用入口**: `GET /api/v1/ai/status` 检查运行时，`POST /api/v1/ai/chat` 提供工程化 Copilot 能力。
 

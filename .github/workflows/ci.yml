@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: xnlp-frontend/package-lock.json
+
+      - name: Verify backend
+        run: mvn -B -ntp verify
+
+      - name: Build frontend
+        run: npm ci --prefix xnlp-frontend && npm run build --prefix xnlp-frontend
+
+      - name: Build server image
+        run: docker build --tag xnlp-server:ci .
+
+      - name: Build frontend image
+        run: docker build --tag xnlp-frontend:ci ./xnlp-frontend

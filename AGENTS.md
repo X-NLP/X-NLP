@@ -4,7 +4,7 @@
 
 ```
 X-NLP/
-├── pom.xml                   # Parent POM (Spring Boot 4.1.0, Java 25, Spring AI 2.0.0)
+├── pom.xml                   # Parent POM (Spring Boot 4.1.0, Java 25, Spring AI 2.0.1)
 ├── Dockerfile                # eclipse-temurin:25-jre-alpine
 ├── configs/                  # Environment-specific YAML overrides
 ├── docker/                   # Docker Compose & K8s manifests
@@ -53,7 +53,7 @@ Server exposes Actuator at `/actuator` (health, metrics, prometheus) and K8s pro
 
 ## Coding Style & Naming Conventions
 
-- **Java 25, Spring AI 2.0.0**, no preview features. 4-space indentation.
+- **Java 25, Spring AI 2.0.1**, no preview features. 4-space indentation.
 - **Packages**: `com.xnlp.<module>.<layer>` -- e.g. `com.xnlp.server.controller`
 - **Config classes**: `@Configuration`-annotated; properties via `@ConfigurationProperties("xnlp")`
 - **Beans**: Constructor injection only (no `@Autowired` fields). Use `private final` + single-constructor convention.

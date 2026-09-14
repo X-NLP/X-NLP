@@ -1,0 +1,12 @@
+.git
+.gitignore
+.idea
+.vscode
+.DS_Store
+**/target
+xnlp-frontend/node_modules
+xnlp-frontend/dist
+xnlp-frontend/tsconfig.tsbuildinfo
+data
+models
+*.log

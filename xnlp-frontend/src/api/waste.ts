@@ -7,7 +7,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     headers: { ...(isMultipart ? {} : { 'Content-Type': 'application/json' }), ...(options?.headers as Record<string, string> || {}) },
   })
   if (!response.ok) {
-    const message = await response.text()
+    const raw = await response.text()
+    let message = raw
+    try { message = JSON.parse(raw)?.message || raw } catch { /* plain-text error */ }
     throw new Error(message || `${response.status} 请求失败`)
   }
   return response.status === 204 ? undefined as T : response.json()
