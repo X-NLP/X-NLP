@@ -250,7 +250,7 @@ mvn test -Dmaven.repo.local=/tmp/m2 -pl xnlp-core # 仅 core
 | 异步评测 | P1 | ✅ 有界线程池、进度持久化、取消接口和状态过滤已实现 |
 | 评测持久化 | P1 | ✅ 默认使用 Spring JDBC 写入 evaluation_runs；`memory` profile 仅用于临时实验 |
 | 模型热加载/卸载 | P1 | 从应用配置动态加载模型 |
-| 用户认证/授权 | P2 | API Key 或 OAuth2 |
+| 用户认证/授权 | P2 | ✅ 已提供可选 API Key + Spring Security；OAuth2/JWT 可作为后续 provider 扩展 |
 | SDK 完善 | P2 | `xnlp-client` Java SDK |
 | CLI 完善 | P2 | `xnlp-cli` 子命令 |
 
@@ -799,6 +799,12 @@ proxy: { '/api': { target: 'http://localhost:8760', changeOrigin: true } }
 > 目标：生产级安全和可扩展性
 
 **Task 5.1** — 用户认证 (API Key / OAuth2 + Spring Security)
+- ✅ Spring Security API Key 模式可通过 `XNLP_SECURITY_ENABLED` 开关启用
+- ✅ 支持多个逗号分隔 API Key、`X-API-Key` 请求头和 Bearer fallback
+- ✅ 健康探针与 OpenAPI 资源保持公开，业务 API 未授权时返回结构化 401
+- ✅ 前端通过 `VITE_XNLP_API_KEY` 自动注入 API 请求头
+- OAuth2/JWT provider 仍可在需要统一身份平台时接入
+
 **Task 5.2** — 多数据库增强：数据库迁移版本化与运行时连接池调优
 **Task 5.3** — K8s Helm Chart
 **Task 5.4** — 多租户数据隔离

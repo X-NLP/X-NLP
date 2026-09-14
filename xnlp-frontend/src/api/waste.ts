@@ -1,10 +1,15 @@
 const BASE = '/api/v1/waste'
+const API_KEY = import.meta.env.VITE_XNLP_API_KEY?.trim();
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const isMultipart = options?.body instanceof FormData
   const response = await fetch(`${BASE}${path}`, {
     ...options,
-    headers: { ...(isMultipart ? {} : { 'Content-Type': 'application/json' }), ...(options?.headers as Record<string, string> || {}) },
+    headers: {
+      ...(isMultipart ? {} : { 'Content-Type': 'application/json' }),
+      ...(API_KEY ? { 'X-API-Key': API_KEY } : {}),
+      ...(options?.headers as Record<string, string> || {}),
+    },
   })
   if (!response.ok) {
     const raw = await response.text()

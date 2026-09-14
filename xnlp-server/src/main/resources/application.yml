@@ -68,6 +68,10 @@ xnlp:
     max-workers: ${XNLP_MAX_WORKERS:4}
     request-timeout-seconds: ${XNLP_REQUEST_TIMEOUT_SECONDS:60}
     max-batch-size: ${XNLP_MAX_BATCH_SIZE:32}
+  security:
+    enabled: ${XNLP_SECURITY_ENABLED:false}
+    header-name: ${XNLP_SECURITY_HEADER:X-API-Key}
+    api-keys: ${XNLP_SECURITY_API_KEYS:}
   models:
     - name: ollama-default
       version: latest

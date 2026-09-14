@@ -129,3 +129,16 @@ SPRING_AI_MODEL_CHAT=openai OPENAI_API_KEY=*** \
   OPENAI_BASE_URL=https://api.openai.com OPENAI_CHAT_MODEL=gpt-4o-mini \
   SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.1.0.jar
 ```
+
+### 可选 API Key 保护
+
+服务默认保持本地开发兼容，`XNLP_SECURITY_ENABLED=false` 时不要求鉴权。部署到共享环境时建议开启 Spring Security API Key 模式：
+
+```bash
+XNLP_SECURITY_ENABLED=true \
+XNLP_SECURITY_API_KEYS='replace-with-a-long-random-key,another-key' \
+SPRING_PROFILES_ACTIVE=h2 \
+java -jar xnlp-server/target/xnlp-server-0.1.0.jar
+```
+
+开启后，以下运维入口仍可供探针和文档访问：`/health`、`/livez`、`/readyz`、`/startupz`、`/ok`、`/actuator/health`、Swagger/OpenAPI 资源；其余接口需要携带 `X-API-Key`，也兼容 `Authorization: Bearer <key>`。前端构建时可设置 `VITE_XNLP_API_KEY`，工作台会自动为 API 和废弃物上传请求附加该 Header。

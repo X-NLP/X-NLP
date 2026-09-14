@@ -1,8 +1,17 @@
 const BASE = '/api/v1';
+const API_KEY = import.meta.env.VITE_XNLP_API_KEY?.trim();
+
+function headers(options?: RequestInit): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    ...(API_KEY ? { 'X-API-Key': API_KEY } : {}),
+    ...(options?.headers as Record<string, string> || {}),
+  };
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(options?.headers as Record<string, string> || {}) },
+    headers: headers(options),
     ...options,
   });
   if (!res.ok) {
@@ -15,7 +24,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 async function requestText(path: string, options?: RequestInit): Promise<string> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(options?.headers as Record<string, string> || {}) },
+    headers: headers(options),
     ...options,
   });
   if (!res.ok) {
@@ -120,7 +129,7 @@ export const aiApi = {
 // ---- Health ----
 export const healthApi = {
   check: async () => {
-    const res = await fetch('/health', { headers: { 'Content-Type': 'application/json' } });
+    const res = await fetch('/health', { headers: headers() });
     if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
     return res.json();
   },
