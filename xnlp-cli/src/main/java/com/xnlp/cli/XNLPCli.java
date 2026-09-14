@@ -1,7 +1,9 @@
 package com.xnlp.cli;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.xnlp.client.XNLPClient;
-import com.xnlp.core.model.BenchmarkResult;
+import com.xnlp.client.XNLPClientException;
 import com.xnlp.core.model.ModelInfo;
 import com.xnlp.core.model.PredictResponse;
 import picocli.CommandLine;
@@ -9,85 +11,259 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
+import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
+/** Command-line client for the X-NLP control plane. */
 @Command(name = "xnlp", mixinStandardHelpOptions = true,
-         description = "X-NLP CLI - Unified NLP Model Serving Client")
+        description = "X-NLP CLI - model, dataset and evaluation workbench",
+        subcommands = {
+                XNLPCli.HealthCommand.class,
+                XNLPCli.ListModelsCommand.class,
+                XNLPCli.CapabilitiesCommand.class,
+                XNLPCli.LoadCommand.class,
+                XNLPCli.ActivateCommand.class,
+                XNLPCli.UnloadCommand.class,
+                XNLPCli.DeleteCommand.class,
+                XNLPCli.PredictCommand.class,
+                XNLPCli.DatasetListCommand.class,
+                XNLPCli.EvaluationStartCommand.class,
+                XNLPCli.EvaluationStatusCommand.class,
+                XNLPCli.EvaluationCancelCommand.class
+})
 public class XNLPCli implements Callable<Integer> {
+
+    private static final ObjectMapper JSON = new ObjectMapper()
+            .findAndRegisterModules()
+            .enable(SerializationFeature.INDENT_OUTPUT);
 
     @Option(names = {"-s", "--server"}, defaultValue = "http://localhost:8760",
             description = "X-NLP server URL")
     private String serverUrl;
 
+    @Option(names = {"-k", "--api-key"}, description = "API key (or XNLP_API_KEY environment variable)")
+    private String apiKey;
+
+    @Option(names = {"-t", "--tenant"}, description = "Tenant ID (or XNLP_TENANT_ID environment variable)")
+    private String tenantId;
+
+    @Option(names = "--timeout-seconds", defaultValue = "60", description = "HTTP request timeout in seconds")
+    private long timeoutSeconds;
+
     private XNLPClient client;
 
     private XNLPClient client() {
         if (client == null) {
-            client = new XNLPClient(serverUrl);
+            String resolvedApiKey = apiKey != null ? apiKey : System.getenv("XNLP_API_KEY");
+            String resolvedTenant = tenantId != null ? tenantId : System.getenv("XNLP_TENANT_ID");
+            client = XNLPClient.builder(serverUrl)
+                    .apiKey(resolvedApiKey)
+                    .tenantId(resolvedTenant)
+                    .requestTimeout(Duration.ofSeconds(timeoutSeconds))
+                    .build();
         }
         return client;
     }
 
     @Override
     public Integer call() {
-        System.out.println("X-NLP CLI - use subcommands: list, load, unload, predict, health");
+        System.out.println("X-NLP CLI - use --help to list commands");
         return 0;
     }
 
     @Command(name = "health", description = "Check server health")
-    int health() throws Exception {
-        Map<String, Object> resp = client().health();
-        System.out.println(resp);
-        return 0;
-    }
+    static class HealthCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand XNLPCli root;
 
-    @Command(name = "list", description = "List loaded models")
-    int list() throws Exception {
-        var models = client().listModels();
-        for (ModelInfo m : models) {
-            System.out.printf("%s  %s  %s  %s%n",
-                    m.getName(), m.getVersion(), m.getBackend(), m.getStatus());
+        @Override
+        public Integer call() {
+            print(root.client().health());
+            return 0;
         }
-        return 0;
     }
 
-    @Command(name = "load", description = "Load a model")
-    int load(
-        @Parameters(index = "0", description = "Model name") String name,
-        @Parameters(index = "1", description = "Model path") String path,
-        @Option(names = {"-b", "--backend"}, defaultValue = "auto") String backend
-    ) throws Exception {
-        Map<String, Object> config = Map.of(
-                "name", name,
-                "model_path", path,
-                "backend", backend);
-        ModelInfo info = client().loadModel(config);
-        System.out.printf("Loaded: %s  %s  %s  %s%n",
-                info.getName(), info.getVersion(), info.getBackend(), info.getStatus());
-        return 0;
+    @Command(name = "list", aliases = "models", description = "List configured model profiles")
+    static class ListModelsCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand XNLPCli root;
+        @Option(names = "--runtime", description = "List only models loaded in the runtime")
+        boolean runtime;
+
+        @Override
+        public Integer call() {
+            List<ModelInfo> models = runtime ? root.client().listRuntimeModels() : root.client().listModels();
+            for (ModelInfo model : models) {
+                System.out.printf("%-24s %-12s %-18s %-12s %s%n", model.getName(),
+                        model.getType(), model.getProvider(), model.getStatus(), model.getModelName());
+            }
+            return 0;
+        }
     }
 
-    @Command(name = "unload", description = "Unload a model")
-    int unload(@Parameters(index = "0", description = "Model name") String name)
-            throws Exception {
-        client().unloadModel(name);
-        System.out.println("Unloaded: " + name);
-        return 0;
+    @Command(name = "capabilities", description = "List supported model protocols and providers")
+    static class CapabilitiesCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand XNLPCli root;
+
+        @Override
+        public Integer call() {
+            print(root.client().modelCapabilities());
+            return 0;
+        }
     }
 
-    @Command(name = "predict", description = "Run inference")
-    int predict(
-        @Parameters(index = "0", description = "Model name") String name,
-        @Parameters(index = "1", description = "Input text") String text
-    ) throws Exception {
-        PredictResponse resp = client().predict(name, text);
-        System.out.println(resp);
-        return 0;
+    @Command(name = "load", description = "Create or update a model profile")
+    static class LoadCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand XNLPCli root;
+        @Parameters(index = "0", description = "Profile name") String name;
+        @Parameters(index = "1", description = "Provider model name") String modelName;
+        @Option(names = "--type", defaultValue = "CHAT") String type;
+        @Option(names = "--protocol", defaultValue = "SPRING_AI_CHAT") String protocol;
+        @Option(names = "--provider", defaultValue = "spring-ai") String provider;
+        @Option(names = "--base-url") String baseUrl;
+        @Option(names = "--model-path") String modelPath;
+        @Option(names = "--activate", description = "Load the profile into the runtime after saving") boolean activate;
+
+        @Override
+        public Integer call() {
+            Map<String, Object> config = new LinkedHashMap<>();
+            config.put("name", name);
+            config.put("modelName", modelName);
+            config.put("modelPath", modelPath == null ? modelName : modelPath);
+            config.put("type", type);
+            config.put("protocol", protocol);
+            config.put("provider", provider);
+            if (baseUrl != null) config.put("baseUrl", baseUrl);
+            ModelInfo saved = root.client().saveModel(config);
+            if (activate) saved = root.client().activateModel(name);
+            System.out.printf("%s: %s (%s)%n", activate ? "Activated" : "Saved", saved.getName(), saved.getStatus());
+            return 0;
+        }
+    }
+
+    @Command(name = "activate", description = "Load a saved CHAT profile into the runtime")
+    static class ActivateCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand XNLPCli root;
+        @Parameters(index = "0") String name;
+
+        @Override
+        public Integer call() {
+            ModelInfo model = root.client().activateModel(name);
+            System.out.printf("Activated: %s (%s)%n", model.getName(), model.getStatus());
+            return 0;
+        }
+    }
+
+    @Command(name = "unload", description = "Unload a runtime model but keep its profile")
+    static class UnloadCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand XNLPCli root;
+        @Parameters(index = "0") String name;
+
+        @Override
+        public Integer call() {
+            root.client().unloadModel(name);
+            System.out.println("Unloaded: " + name);
+            return 0;
+        }
+    }
+
+    @Command(name = "delete", description = "Delete a model profile and unload its runtime")
+    static class DeleteCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand XNLPCli root;
+        @Parameters(index = "0") String name;
+
+        @Override
+        public Integer call() {
+            root.client().deleteModel(name);
+            System.out.println("Deleted: " + name);
+            return 0;
+        }
+    }
+
+    @Command(name = "predict", description = "Run one inference request")
+    static class PredictCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand XNLPCli root;
+        @Parameters(index = "0") String name;
+        @Parameters(index = "1") String text;
+
+        @Override
+        public Integer call() {
+            PredictResponse response = root.client().predict(name, text);
+            print(response);
+            return 0;
+        }
+    }
+
+    @Command(name = "dataset-list", description = "List evaluation datasets")
+    static class DatasetListCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand XNLPCli root;
+
+        @Override
+        public Integer call() {
+            root.client().listDatasets().forEach(dataset ->
+                    System.out.printf("%-38s %-24s %5d entries%n", dataset.getId(), dataset.getName(), dataset.getEntryCount()));
+            return 0;
+        }
+    }
+
+    @Command(name = "evaluation-start", description = "Queue an asynchronous evaluation")
+    static class EvaluationStartCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand XNLPCli root;
+        @Option(names = "--model", required = true) String model;
+        @Option(names = "--dataset", required = true) String dataset;
+        @Option(names = "--task") String task;
+
+        @Override
+        public Integer call() {
+            print(root.client().startEvaluation(model, dataset, task));
+            return 0;
+        }
+    }
+
+    @Command(name = "evaluation-status", description = "Show evaluation runs")
+    static class EvaluationStatusCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand XNLPCli root;
+        @Option(names = "--model") String model;
+        @Option(names = "--dataset") String dataset;
+        @Option(names = "--status") String status;
+
+        @Override
+        public Integer call() {
+            print(root.client().listEvaluations(model, dataset, status));
+            return 0;
+        }
+    }
+
+    @Command(name = "evaluation-cancel", description = "Request cancellation of an evaluation")
+    static class EvaluationCancelCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand XNLPCli root;
+        @Parameters(index = "0") String id;
+
+        @Override
+        public Integer call() {
+            print(root.client().cancelEvaluation(id));
+            return 0;
+        }
+    }
+
+    private static void print(Object value) {
+        try {
+            System.out.println(JSON.writeValueAsString(value));
+        } catch (Exception e) {
+            System.out.println(String.valueOf(value));
+        }
     }
 
     public static void main(String[] args) {
-        int exitCode = new CommandLine(new XNLPCli()).execute(args);
+        CommandLine command = new CommandLine(new XNLPCli());
+        int exitCode;
+        try {
+            exitCode = command.execute(args);
+        } catch (XNLPClientException | IllegalArgumentException e) {
+            System.err.println("xnlp: " + e.getMessage());
+            exitCode = 2;
+        }
         System.exit(exitCode);
     }
 }
