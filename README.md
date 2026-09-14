@@ -190,7 +190,7 @@ SPRING_PROFILES_ACTIVE=h2 \
 java -jar xnlp-server/target/xnlp-server-0.1.0.jar
 ```
 
-开启后，以下运维入口仍可供探针和文档访问：`/health`、`/livez`、`/readyz`、`/startupz`、`/ok`、`/actuator/health`、Swagger/OpenAPI 资源；其余接口需要携带 `X-API-Key`，也兼容 `Authorization: Bearer <key>`。前端构建时可设置 `VITE_XNLP_API_KEY`，工作台会自动为 API 和废弃物上传请求附加该 Header。
+开启后，以下运维入口仍可供探针和文档访问：`/health`、`/livez`、`/readyz`、`/startupz`、`/ok`、`/actuator/health`、Swagger/OpenAPI 资源；其余接口需要携带 `X-API-Key`，也兼容 `Authorization: Bearer <key>`。前端构建时可设置 `VITE_XNLP_API_KEY` 与 `VITE_XNLP_TENANT_ID`，工作台会自动为普通 API、SSE 和废弃物上传请求附加认证及租户 Header。
 
 ### 多租户数据隔离
 
@@ -205,4 +205,4 @@ xnlp:
       tenant-b: ${TENANT_B_API_KEY}
 ```
 
-未开启安全时，`X-Tenant-ID` 仅用于本地开发切换租户；未携带时使用 `default`。模型配置、数据集、评测运行和废弃物清运业务数据均按租户过滤，JDBC、file、memory 三种存储实现保持相同隔离语义。已有数据库由 V4 迁移自动补充 `tenant_id` 并将历史数据归入 `default`。
+未开启安全时，`X-Tenant-ID` 仅用于本地开发切换租户；前端可通过 `VITE_XNLP_TENANT_ID` 设置，未携带时使用 `default`。模型配置、数据集、评测运行和废弃物清运业务数据均按租户过滤，JDBC、file、memory 三种存储实现保持相同隔离语义。已有数据库由 V4 迁移自动补充 `tenant_id` 并将历史数据归入 `default`。

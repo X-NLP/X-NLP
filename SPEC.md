@@ -803,7 +803,7 @@ proxy: { '/api': { target: 'http://localhost:8760', changeOrigin: true } }
 - ✅ Spring Security API Key 模式可通过 `XNLP_SECURITY_ENABLED` 开关启用
 - ✅ 支持多个逗号分隔 API Key、`X-API-Key` 请求头和 Bearer fallback
 - ✅ 健康探针与 OpenAPI 资源保持公开，业务 API 未授权时返回结构化 401
-- ✅ 前端通过 `VITE_XNLP_API_KEY` 自动注入 API 请求头
+- ✅ 前端通过 `VITE_XNLP_API_KEY` 和 `VITE_XNLP_TENANT_ID` 自动注入认证与租户请求头
 - OAuth2/JWT provider 仍可在需要统一身份平台时接入
 
 **Task 5.2** — 多数据库增强：数据库迁移版本化与运行时连接池调优

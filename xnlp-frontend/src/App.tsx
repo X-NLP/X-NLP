@@ -1,29 +1,47 @@
+import { lazy, Suspense } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
-import Assistant from './pages/Assistant'
-import Canvas from './pages/Canvas'
-import Compare from './pages/Compare'
 import Dashboard from './pages/Dashboard'
-import Datasets from './pages/Datasets'
-import Evaluation from './pages/Evaluation'
-import Models from './pages/Models'
-import NlpWorkbench from './pages/NlpWorkbench'
-import WasteFlow from './pages/WasteFlow'
+
+const Assistant = lazy(() => import('./pages/Assistant'))
+const Canvas = lazy(() => import('./pages/Canvas'))
+const Compare = lazy(() => import('./pages/Compare'))
+const Datasets = lazy(() => import('./pages/Datasets'))
+const Evaluation = lazy(() => import('./pages/Evaluation'))
+const Models = lazy(() => import('./pages/Models'))
+const NlpWorkbench = lazy(() => import('./pages/NlpWorkbench'))
+const WasteFlow = lazy(() => import('./pages/WasteFlow'))
+
+function RouteLoading() {
+  return (
+    <div className="space-y-5" aria-busy="true" aria-label="Loading workspace">
+      <div className="h-8 w-56 animate-pulse rounded-xl bg-slate-200" />
+      <div className="grid gap-4 md:grid-cols-3">
+        {[0, 1, 2].map(item => (
+          <div key={item} className="h-32 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+        ))}
+      </div>
+      <div className="h-80 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+    </div>
+  )
+}
 
 export default function App() {
   return (
     <Layout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/assistant" element={<Assistant />} />
-        <Route path="/models" element={<Models />} />
-        <Route path="/nlp" element={<NlpWorkbench />} />
-        <Route path="/datasets" element={<Datasets />} />
-        <Route path="/evaluation" element={<Evaluation />} />
-        <Route path="/canvas" element={<Canvas />} />
-        <Route path="/compare" element={<Compare />} />
-        <Route path="/waste" element={<WasteFlow />} />
-      </Routes>
+      <Suspense fallback={<RouteLoading />}>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/assistant" element={<Assistant />} />
+          <Route path="/models" element={<Models />} />
+          <Route path="/nlp" element={<NlpWorkbench />} />
+          <Route path="/datasets" element={<Datasets />} />
+          <Route path="/evaluation" element={<Evaluation />} />
+          <Route path="/canvas" element={<Canvas />} />
+          <Route path="/compare" element={<Compare />} />
+          <Route path="/waste" element={<WasteFlow />} />
+        </Routes>
+      </Suspense>
     </Layout>
   )
 }
