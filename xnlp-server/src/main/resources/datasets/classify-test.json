@@ -1,0 +1,16 @@
+{
+  "id": "template-classify-test-v1",
+  "name": "classify-test-v1",
+  "description": "Built-in support-ticket classification template for validating model routing and evaluation metrics.",
+  "taskType": "TEXT_CLASSIFICATION",
+  "entries": [
+    {"id": "classify-001", "input": "我无法登录账号，验证码一直收不到。", "expectedOutput": "account", "labels": {"category": "account"}, "metadata": {"language": "zh"}},
+    {"id": "classify-002", "input": "请帮我修改绑定的手机号码。", "expectedOutput": "account", "labels": {"category": "account"}, "metadata": {"language": "zh"}},
+    {"id": "classify-003", "input": "订单显示已付款，但商家还没有发货。", "expectedOutput": "order", "labels": {"category": "order"}, "metadata": {"language": "zh"}},
+    {"id": "classify-004", "input": "Where can I find the tracking number for my order?", "expectedOutput": "order", "labels": {"category": "order"}, "metadata": {"language": "en"}},
+    {"id": "classify-005", "input": "信用卡已经扣款两次，请协助退款。", "expectedOutput": "billing", "labels": {"category": "billing"}, "metadata": {"language": "zh"}},
+    {"id": "classify-006", "input": "I do not recognize this charge on my statement.", "expectedOutput": "billing", "labels": {"category": "billing"}, "metadata": {"language": "en"}},
+    {"id": "classify-007", "input": "应用打开后一直白屏，重新安装也没有解决。", "expectedOutput": "technical", "labels": {"category": "technical"}, "metadata": {"language": "zh"}},
+    {"id": "classify-008", "input": "The API returns a 500 error when I upload a file.", "expectedOutput": "technical", "labels": {"category": "technical"}, "metadata": {"language": "en"}}
+  ]
+}

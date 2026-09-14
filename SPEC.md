@@ -787,8 +787,9 @@ proxy: { '/api': { target: 'http://localhost:8760', changeOrigin: true } }
 - ✅ 评测记录支持按模型、数据集名称和状态筛选
 
 **Task 4.3** — 内置评测数据集模板
-- 预置 2-3 个标准数据集 JSON (sentiment-test, classify-test)
-- 启动时自动导入 (或提供一键导入按钮)
+- ✅ 预置 `sentiment-test-v1` 与 `classify-test-v1` 标准 JSON 模板
+- ✅ 应用启动后按稳定 ID 幂等导入，兼容 JDBC 与 file 数据存储 profile
+- ✅ 模板存在时不覆盖用户修改，缺失时自动恢复
 
 **Task 4.4** — CI/CD
 - ✅ GitHub Actions: `mvn verify` + 前端 `npm run build`

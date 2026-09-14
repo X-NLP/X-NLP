@@ -1,0 +1,16 @@
+{
+  "id": "template-sentiment-test-v1",
+  "name": "sentiment-test-v1",
+  "description": "Built-in bilingual sentiment evaluation template for smoke tests and first-run exploration.",
+  "taskType": "SENTIMENT_ANALYSIS",
+  "entries": [
+    {"id": "sentiment-001", "input": "这个产品很好用，我很满意。", "expectedOutput": "positive", "labels": {"sentiment": "positive"}, "metadata": {"language": "zh"}},
+    {"id": "sentiment-002", "input": "物流很快，包装也很仔细。", "expectedOutput": "positive", "labels": {"sentiment": "positive"}, "metadata": {"language": "zh"}},
+    {"id": "sentiment-003", "input": "客服响应及时，问题解决得很专业。", "expectedOutput": "positive", "labels": {"sentiment": "positive"}, "metadata": {"language": "zh"}},
+    {"id": "sentiment-004", "input": "The setup was easy and the documentation was clear.", "expectedOutput": "positive", "labels": {"sentiment": "positive"}, "metadata": {"language": "en"}},
+    {"id": "sentiment-005", "input": "这个接口经常超时，体验非常差。", "expectedOutput": "negative", "labels": {"sentiment": "negative"}, "metadata": {"language": "zh"}},
+    {"id": "sentiment-006", "input": "收到的商品有明显划痕，我不推荐购买。", "expectedOutput": "negative", "labels": {"sentiment": "negative"}, "metadata": {"language": "zh"}},
+    {"id": "sentiment-007", "input": "The output is unstable and the examples are outdated.", "expectedOutput": "negative", "labels": {"sentiment": "negative"}, "metadata": {"language": "en"}},
+    {"id": "sentiment-008", "input": "It works, but the performance is only acceptable.", "expectedOutput": "neutral", "labels": {"sentiment": "neutral"}, "metadata": {"language": "en"}}
+  ]
+}

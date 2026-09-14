@@ -165,7 +165,7 @@ public class WasteApplicationService {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, id, applicationId, application.get("application_no"), application.get("plate_no"), eventType, tripNo,
                 gross, tare, net, value(payload, "weighbridgeNo"), value(payload, "operatorName"), LocalDateTime.now(), "MANUAL");
-        double consumed = jdbc.queryForObject("SELECT COALESCE(SUM(net_weight), 0) FROM waste_weighings WHERE application_id = ? AND event_type = 'OUTBOUND'", Double.class);
+        double consumed = jdbc.queryForObject("SELECT COALESCE(SUM(net_weight), 0) FROM waste_weighings WHERE application_id = ? AND event_type = 'OUTBOUND'", Double.class, applicationId);
         double remaining = Math.max(0, number(application, "estimated_weight_tons") - consumed);
         if (remaining <= 0.000001) {
             jdbc.update("UPDATE waste_applications SET remaining_weight_tons = 0, status = 'COMPLETED', code = NULL, code_expires_at = NULL WHERE id = ?", applicationId);

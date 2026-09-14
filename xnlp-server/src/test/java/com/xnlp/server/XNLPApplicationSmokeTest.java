@@ -319,6 +319,17 @@ class XNLPApplicationSmokeTest {
     }
 
     @Test
+    @DisplayName("first-run dataset templates are imported idempotently")
+    void builtInDatasetTemplates() {
+        ResponseEntity<List> response = rest.getForEntity(
+                "http://localhost:" + port + "/api/v1/datasets", List.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).extracting("name")
+                .contains("sentiment-test-v1", "classify-test-v1");
+    }
+
+    @Test
     @DisplayName("evaluation endpoint queues a run and exposes progress")
     void evaluationQueuesAndCompletes() throws InterruptedException {
         Map<String, Object> dataset = Map.of(
