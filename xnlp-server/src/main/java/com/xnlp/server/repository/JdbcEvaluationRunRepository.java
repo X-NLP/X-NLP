@@ -6,6 +6,7 @@ import com.xnlp.core.eval.EvaluationMetrics;
 import com.xnlp.core.eval.EvaluationRun;
 import com.xnlp.core.eval.NLPTaskType;
 import com.xnlp.core.repository.EvaluationRunRepository;
+import com.xnlp.server.tenant.TenantContext;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -36,8 +37,8 @@ public class JdbcEvaluationRunRepository implements EvaluationRunRepository {
                 SELECT id, model_name, dataset_id, dataset_name, task_type, status, error_message,
                     metrics_json, created_at, completed_at, elapsed_seconds,
                     total_entries, processed_entries, progress_percent, cancel_requested
-                FROM evaluation_runs ORDER BY created_at DESC
-                """, this::mapRow);
+                FROM evaluation_runs WHERE tenant_id = ? ORDER BY created_at DESC
+                """, this::mapRow, TenantContext.currentTenantId());
     }
 
     @Override
@@ -46,8 +47,8 @@ public class JdbcEvaluationRunRepository implements EvaluationRunRepository {
                 SELECT id, model_name, dataset_id, dataset_name, task_type, status, error_message,
                     metrics_json, created_at, completed_at, elapsed_seconds,
                     total_entries, processed_entries, progress_percent, cancel_requested
-                FROM evaluation_runs WHERE id = ?
-                """, this::mapRow, id).stream().findFirst();
+                FROM evaluation_runs WHERE id = ? AND tenant_id = ?
+                """, this::mapRow, id, TenantContext.currentTenantId()).stream().findFirst();
     }
 
     @Override
@@ -56,19 +57,20 @@ public class JdbcEvaluationRunRepository implements EvaluationRunRepository {
                 UPDATE evaluation_runs SET model_name = ?, dataset_id = ?, dataset_name = ?, task_type = ?,
                     status = ?, error_message = ?, metrics_json = ?, created_at = ?, completed_at = ?,
                     elapsed_seconds = ?, total_entries = ?, processed_entries = ?, progress_percent = ?,
-                    cancel_requested = ? WHERE id = ?
+                    cancel_requested = ? WHERE id = ? AND tenant_id = ?
                 """, run.getModelName(), run.getDatasetId(), run.getDatasetName(),
                 run.getTaskType() == null ? null : run.getTaskType().name(), run.getStatus(),
                 run.getErrorMessage(), toJson(run.getMetrics()), timestamp(run.getCreatedAt()),
                 timestamp(run.getCompletedAt()), run.getElapsedSeconds(), run.getTotalEntries(),
-                run.getProcessedEntries(), run.getProgressPercent(), run.isCancelRequested(), run.getId());
+                run.getProcessedEntries(), run.getProgressPercent(), run.isCancelRequested(), run.getId(),
+                TenantContext.currentTenantId());
         if (updated == 0) {
             jdbc.update("""
-                    INSERT INTO evaluation_runs (id, model_name, dataset_id, dataset_name, task_type, status,
+                    INSERT INTO evaluation_runs (id, tenant_id, model_name, dataset_id, dataset_name, task_type, status,
                         error_message, metrics_json, created_at, completed_at, elapsed_seconds,
                         total_entries, processed_entries, progress_percent, cancel_requested)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, run.getId(), run.getModelName(), run.getDatasetId(), run.getDatasetName(),
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, run.getId(), TenantContext.currentTenantId(), run.getModelName(), run.getDatasetId(), run.getDatasetName(),
                     run.getTaskType() == null ? null : run.getTaskType().name(), run.getStatus(),
                     run.getErrorMessage(), toJson(run.getMetrics()), timestamp(run.getCreatedAt()),
                     timestamp(run.getCompletedAt()), run.getElapsedSeconds(), run.getTotalEntries(),

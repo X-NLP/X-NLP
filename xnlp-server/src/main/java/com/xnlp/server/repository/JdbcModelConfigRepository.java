@@ -8,6 +8,7 @@ import com.xnlp.core.config.ModelProtocol;
 import com.xnlp.core.config.ModelSource;
 import com.xnlp.core.config.ModelType;
 import com.xnlp.core.repository.ModelConfigRepository;
+import com.xnlp.server.tenant.TenantContext;
 import org.springframework.context.annotation.Profile;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -48,12 +49,14 @@ public class JdbcModelConfigRepository implements ModelConfigRepository {
 
     @Override
     public List<ModelConfig> findAll() {
-        return jdbc.query("SELECT " + SELECT_COLUMNS + " FROM model_config ORDER BY name", this::mapRow);
+        return jdbc.query("SELECT " + SELECT_COLUMNS + " FROM model_config WHERE tenant_id = ? ORDER BY name",
+                this::mapRow, TenantContext.currentTenantId());
     }
 
     @Override
     public Optional<ModelConfig> findByName(String name) {
-        return jdbc.query("SELECT " + SELECT_COLUMNS + " FROM model_config WHERE name = ?", this::mapRow, name)
+        return jdbc.query("SELECT " + SELECT_COLUMNS + " FROM model_config WHERE name = ? AND tenant_id = ?",
+                this::mapRow, storageName(name), TenantContext.currentTenantId())
                 .stream().findFirst();
     }
 
@@ -64,21 +67,22 @@ public class JdbcModelConfigRepository implements ModelConfigRepository {
                 UPDATE model_config SET type = ?, protocol = ?, source = ?, provider = ?, model_name = ?,
                     base_url = ?, api_key = ?, version = ?, model_path = ?, backend = ?, device = ?,
                     max_input_length = ?, max_output_length = ?, options_json = ?, updated_at = ?
-                WHERE name = ?
+                WHERE name = ? AND tenant_id = ?
                 """, config.getType() == null ? null : config.getType().name(),
                 config.getProtocol() == null ? null : config.getProtocol().name(),
                 config.getSource() == null ? null : config.getSource().name(), config.getProvider(),
                 config.getModelName(), config.getBaseUrl(), config.getApiKey(), config.getVersion(),
                 config.getModelPath(), config.getBackend(), config.getDevice(), config.getMaxInputLength(),
-                config.getMaxOutputLength(), optionsJson, Timestamp.from(Instant.now()), config.getName());
+                config.getMaxOutputLength(), optionsJson, Timestamp.from(Instant.now()), storageName(config.getName()),
+                TenantContext.currentTenantId());
         if (updated == 0) {
             Instant now = Instant.now();
             jdbc.update("""
-                    INSERT INTO model_config (name, type, protocol, source, provider, model_name, base_url,
+                    INSERT INTO model_config (name, tenant_id, type, protocol, source, provider, model_name, base_url,
                         api_key, version, model_path, backend, device, max_input_length, max_output_length,
                         options_json, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, config.getName(), config.getType() == null ? null : config.getType().name(),
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, storageName(config.getName()), TenantContext.currentTenantId(), config.getType() == null ? null : config.getType().name(),
                     config.getProtocol() == null ? null : config.getProtocol().name(),
                     config.getSource() == null ? null : config.getSource().name(), config.getProvider(),
                     config.getModelName(), config.getBaseUrl(), config.getApiKey(), config.getVersion(),
@@ -90,12 +94,13 @@ public class JdbcModelConfigRepository implements ModelConfigRepository {
 
     @Override
     public void deleteByName(String name) {
-        jdbc.update("DELETE FROM model_config WHERE name = ?", name);
+        jdbc.update("DELETE FROM model_config WHERE name = ? AND tenant_id = ?",
+                storageName(name), TenantContext.currentTenantId());
     }
 
     private ModelConfig mapRow(ResultSet rs, int rowNum) throws SQLException {
         ModelConfig config = new ModelConfig();
-        config.setName(rs.getString("name"));
+        config.setName(logicalName(rs.getString("name")));
         config.setType(enumValue(ModelType.class, rs.getString("type")));
         config.setProtocol(enumValue(ModelProtocol.class, rs.getString("protocol")));
         config.setSource(enumValue(ModelSource.class, rs.getString("source")));
@@ -113,6 +118,18 @@ public class JdbcModelConfigRepository implements ModelConfigRepository {
         config.setMaxOutputLength(maxOutputLength == null ? 256 : maxOutputLength);
         config.setOptions(fromJson(rs.getString("options_json")));
         return config;
+    }
+
+    private String storageName(String logicalName) {
+        String tenantId = TenantContext.currentTenantId();
+        return TenantContext.DEFAULT_TENANT_ID.equals(tenantId)
+                ? logicalName : tenantId + "::" + logicalName;
+    }
+
+    private String logicalName(String storedName) {
+        String prefix = TenantContext.currentTenantId() + "::";
+        return storedName != null && storedName.startsWith(prefix)
+                ? storedName.substring(prefix.length()) : storedName;
     }
 
     private String toJson(Map<String, Object> value) {
