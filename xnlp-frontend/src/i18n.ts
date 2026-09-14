@@ -269,6 +269,10 @@ const resources = {
         exportJson: '导出 JSON',
         loadingEntries: '正在加载样本...',
         namePlaceholder: '例如 sentiment-test-v1',
+        searchPlaceholder: '搜索数据集名称、描述或任务类型…',
+        taskFilter: '任务筛选',
+        allTasks: '全部任务',
+        noMatches: '没有匹配的数据集。请调整搜索或筛选条件。',
       },
       evaluation: {
         eyebrow: '可追踪的评测流水线',
@@ -681,6 +685,10 @@ const resources = {
         dropJson: 'Drop a JSON file here, or click to choose one',
         jsonFileRequired: 'Please choose a JSON file.',
         namePlaceholder: 'e.g. sentiment-test-v1',
+        searchPlaceholder: 'Search name, description, or task…',
+        taskFilter: 'Task filter',
+        allTasks: 'All tasks',
+        noMatches: 'No datasets match the current search or filter.',
       },
       evaluation: {
         eyebrow: 'Traceable evaluation pipelines',

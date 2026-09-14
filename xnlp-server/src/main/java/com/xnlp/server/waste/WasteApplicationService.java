@@ -7,10 +7,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.security.SecureRandom;
+import java.util.NoSuchElementException;
+import java.util.Locale;
 
 @Service
 public class WasteApplicationService {
@@ -37,13 +40,13 @@ public class WasteApplicationService {
 
     public List<Map<String, Object>> vehicles() {
         seedVehicles();
-        return jdbc.queryForList("SELECT id, plate_no, vehicle_type, company_name, driver_name, driver_phone, verified FROM waste_vehicles WHERE verified = TRUE ORDER BY plate_no");
+        return normalizeRows(jdbc.queryForList("SELECT id, plate_no, vehicle_type, company_name, driver_name, driver_phone, verified FROM waste_vehicles WHERE verified = TRUE ORDER BY plate_no"));
     }
 
     @Transactional
     public Map<String, Object> create(Map<String, Object> payload) {
         String id = UUID.randomUUID().toString();
-        String applicationNo = "JS" + LocalDateTime.now().format(NO_FORMAT) + String.format("%03d", (int) (Math.random() * 1000));
+        String applicationNo = newApplicationNo();
         String vehicleId = required(payload, "vehicleId");
         jdbc.queryForMap("SELECT * FROM waste_vehicles WHERE id = ? AND verified = TRUE", vehicleId);
         double estimatedWeight = positiveNumber(payload, "estimatedWeight");
@@ -70,22 +73,24 @@ public class WasteApplicationService {
                 SELECT a.*, v.plate_no, v.vehicle_type, v.company_name, v.driver_name, v.driver_phone
                 FROM waste_applications a JOIN waste_vehicles v ON v.id = a.vehicle_id
                 """;
-        if (status != null && !status.isBlank()) return jdbc.queryForList(sql + " WHERE a.status = ? ORDER BY a.created_at DESC", status);
-        return jdbc.queryForList(sql + " ORDER BY a.created_at DESC");
+        if (status != null && !status.isBlank()) return normalizeRows(jdbc.queryForList(sql + " WHERE a.status = ? ORDER BY a.created_at DESC", status));
+        return normalizeRows(jdbc.queryForList(sql + " ORDER BY a.created_at DESC"));
     }
 
     public Map<String, Object> get(String id) {
         refreshExpiredAuthorizationCodes();
-        return jdbc.queryForMap("""
+        List<Map<String, Object>> rows = jdbc.queryForList("""
                 SELECT a.*, v.plate_no, v.vehicle_type, v.company_name, v.driver_name, v.driver_phone
                 FROM waste_applications a JOIN waste_vehicles v ON v.id = a.vehicle_id WHERE a.id = ?
                 """, id);
+        if (rows.isEmpty()) throw new NoSuchElementException("未找到清运申请：" + id);
+        return normalizeRow(rows.getFirst());
     }
 
     @Transactional
     public Map<String, Object> review(String id, boolean approve, String reviewer, String comment) {
         Map<String, Object> application = get(id);
-        if (!"PENDING".equals(application.get("status"))) throw new IllegalStateException("该申请已审核，不能重复处理");
+        if (!"PENDING".equals(application.get("status"))) throw new WasteWorkflowException("该申请已审核，不能重复处理");
         LocalDateTime now = LocalDateTime.now();
         if (approve) {
             String code = newAuthorizationCode();
@@ -104,7 +109,7 @@ public class WasteApplicationService {
     @Transactional
     public Map<String, Object> refreshCode(String id) {
         Map<String, Object> application = get(id);
-        if (!"APPROVED".equals(application.get("status"))) throw new IllegalStateException("仅审核通过的工单可以刷新授权码");
+        if (!"APPROVED".equals(application.get("status"))) throw new WasteWorkflowException("仅审核通过的工单可以刷新授权码");
         String code = newAuthorizationCode();
         LocalDateTime expires = LocalDateTime.now().plusMinutes(AUTHORIZATION_CODE_MINUTES);
         jdbc.update("UPDATE waste_applications SET code = ?, code_expires_at = ? WHERE id = ?", code, expires, id);
@@ -121,10 +126,11 @@ public class WasteApplicationService {
         List<Map<String, Object>> rows = jdbc.queryForList("""
                 SELECT a.*, v.plate_no, v.driver_name, v.company_name
                 FROM waste_applications a JOIN waste_vehicles v ON v.id = a.vehicle_id
-                WHERE a.code = ? AND v.plate_no = ? AND a.status = 'APPROVED' AND a.code_expires_at > CURRENT_TIMESTAMP
+                WHERE a.code = ? AND v.plate_no = ? AND v.verified = TRUE
+                  AND a.status = 'APPROVED' AND a.code_expires_at > CURRENT_TIMESTAMP
                 """, code.trim(), plateNo.trim());
         if (rows.isEmpty()) return Map.of("allowed", false, "message", "验签失败：授权码、车牌或有效期不匹配");
-        Map<String, Object> application = rows.getFirst();
+        Map<String, Object> application = normalizeRow(rows.getFirst());
         addAudit(String.valueOf(application.get("id")), "GATE_VERIFY", "门禁验签通过", "门禁设备");
         return Map.of("allowed", true, "message", "验签通过，抬杆放行", "application", application);
     }
@@ -133,21 +139,22 @@ public class WasteApplicationService {
     public Map<String, Object> addWeighing(Map<String, Object> payload) {
         String applicationId = required(payload, "applicationId");
         Map<String, Object> application = get(applicationId);
-        if (!"APPROVED".equals(application.get("status"))) throw new IllegalStateException("只有审核通过的申请才允许过磅");
-        String eventType = required(payload, "eventType").toUpperCase();
+        if (!"APPROVED".equals(application.get("status"))) throw new WasteWorkflowException("只有审核通过的申请才允许过磅");
+        String eventType = required(payload, "eventType").toUpperCase(Locale.ROOT);
         if (!"INBOUND".equals(eventType) && !"OUTBOUND".equals(eventType)) throw new IllegalArgumentException("eventType 必须是 INBOUND 或 OUTBOUND");
         double gross = nonNegativeNumber(payload, "grossWeight");
         double tare = nonNegativeNumber(payload, "tareWeight");
         if (gross < tare) throw new IllegalArgumentException("毛重不能小于皮重");
         double net = gross - tare;
+        if (net <= 0) throw new IllegalArgumentException("本次过磅净重必须大于 0");
         int inboundCount = countWeighings(applicationId, "INBOUND");
         int outboundCount = countWeighings(applicationId, "OUTBOUND");
         if (eventType.equals("INBOUND") && inboundCount != outboundCount) {
-            throw new IllegalStateException("上一趟运输尚未完成出场过磅，不能重复进场");
+            throw new WasteWorkflowException("上一趟运输尚未完成出场过磅，不能重复进场");
         }
         int tripNo = outboundCount + 1;
         if (eventType.equals("OUTBOUND")) {
-            if (inboundCount <= outboundCount) throw new IllegalStateException("出场过磅前必须先完成本趟进场过磅");
+            if (inboundCount <= outboundCount) throw new WasteWorkflowException("出场过磅前必须先完成本趟进场过磅");
             double remaining = number(application, "remaining_weight_tons");
             if (net > remaining + 0.000001) throw new IllegalArgumentException("本次出场净重不能超过工单剩余重量");
         }
@@ -167,21 +174,21 @@ public class WasteApplicationService {
             jdbc.update("UPDATE waste_applications SET remaining_weight_tons = ? WHERE id = ?", remaining, applicationId);
         }
         addAudit(applicationId, "WEIGH_" + eventType, "第" + tripNo + "趟" + (eventType.equals("INBOUND") ? "进场过磅" : "出场过磅"), value(payload, "operatorName"));
-        return jdbc.queryForMap("SELECT * FROM waste_weighings WHERE id = ?", id);
+        return normalizeRow(jdbc.queryForMap("SELECT * FROM waste_weighings WHERE id = ?", id));
     }
 
     public List<Map<String, Object>> ledger(String plateNo, String eventType) {
         StringBuilder sql = new StringBuilder("SELECT w.*, a.waste_type, a.processing_site, a.estimated_weight_tons FROM waste_weighings w JOIN waste_applications a ON a.id = w.application_id WHERE 1=1");
         List<Object> args = new ArrayList<>();
         if (plateNo != null && !plateNo.isBlank()) { sql.append(" AND w.plate_no LIKE ?"); args.add("%" + plateNo.trim() + "%"); }
-        if (eventType != null && !eventType.isBlank()) { sql.append(" AND w.event_type = ?"); args.add(eventType.trim().toUpperCase()); }
+        if (eventType != null && !eventType.isBlank()) { sql.append(" AND w.event_type = ?"); args.add(eventType.trim().toUpperCase(Locale.ROOT)); }
         sql.append(" ORDER BY w.weighed_at DESC");
-        return jdbc.queryForList(sql.toString(), args.toArray());
+        return normalizeRows(jdbc.queryForList(sql.toString(), args.toArray()));
     }
 
     public Map<String, Object> dashboard() {
         refreshExpiredAuthorizationCodes();
-        return jdbc.queryForMap("""
+        return normalizeRow(jdbc.queryForMap("""
                 SELECT
                   (SELECT COUNT(*) FROM waste_applications) AS total_applications,
                   (SELECT COUNT(*) FROM waste_applications WHERE status = 'PENDING') AS pending_applications,
@@ -189,11 +196,21 @@ public class WasteApplicationService {
                   (SELECT COUNT(*) FROM waste_weighings WHERE event_type = 'INBOUND') AS inbound_count,
                   (SELECT COUNT(*) FROM waste_weighings WHERE event_type = 'OUTBOUND') AS outbound_count,
                   (SELECT COALESCE(SUM(net_weight), 0) FROM waste_weighings WHERE event_type = 'OUTBOUND') AS total_cleared_tons
-                """);
+                """));
     }
 
     public List<Map<String, Object>> audits(String id) {
-        return jdbc.queryForList("SELECT action, description, operator_name, created_at FROM waste_audits WHERE application_id = ? ORDER BY created_at ASC", id);
+        return normalizeRows(jdbc.queryForList("SELECT action, description, operator_name, created_at FROM waste_audits WHERE application_id = ? ORDER BY created_at ASC", id));
+    }
+
+    private static List<Map<String, Object>> normalizeRows(List<Map<String, Object>> rows) {
+        return rows.stream().map(WasteApplicationService::normalizeRow).toList();
+    }
+
+    private static Map<String, Object> normalizeRow(Map<String, Object> row) {
+        Map<String, Object> normalized = new LinkedHashMap<>();
+        row.forEach((key, value) -> normalized.put(key.toLowerCase(Locale.ROOT), value));
+        return normalized;
     }
 
     private int countWeighings(String applicationId, String eventType) {
@@ -213,10 +230,21 @@ public class WasteApplicationService {
                 String.class);
         for (String applicationId : expiredIds) {
             LocalDateTime now = LocalDateTime.now();
-            jdbc.update("UPDATE waste_applications SET code = ?, code_expires_at = ? WHERE id = ? AND status = 'APPROVED' AND code_expires_at <= CURRENT_TIMESTAMP",
+            int updated = jdbc.update("UPDATE waste_applications SET code = ?, code_expires_at = ? WHERE id = ? AND status = 'APPROVED' AND code_expires_at <= CURRENT_TIMESTAMP",
                     newAuthorizationCode(), now.plusMinutes(AUTHORIZATION_CODE_MINUTES), applicationId);
-            addAudit(applicationId, "AUTO_REFRESH_CODE", "授权码到期自动轮换，旧码立即失效", "系统");
+            if (updated > 0) addAudit(applicationId, "AUTO_REFRESH_CODE", "授权码到期自动轮换，旧码立即失效", "系统");
         }
+    }
+
+    private String newApplicationNo() {
+        for (int attempt = 0; attempt < 8; attempt++) {
+            String candidate = "JS" + LocalDateTime.now().format(NO_FORMAT)
+                    + String.format("%06d", RANDOM.nextInt(1_000_000));
+            Integer count = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM waste_applications WHERE application_no = ?", Integer.class, candidate);
+            if (count == null || count == 0) return candidate;
+        }
+        throw new IllegalStateException("无法生成唯一的申请编号，请稍后重试");
     }
 
     private static void validatePhotoUrls(Map<String, Object> payload) {

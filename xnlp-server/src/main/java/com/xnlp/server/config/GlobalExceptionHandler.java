@@ -1,6 +1,7 @@
 package com.xnlp.server.config;
 
 import com.xnlp.core.errors.*;
+import com.xnlp.server.waste.WasteWorkflowException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -47,6 +48,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(XNLPException.class)
     public ResponseEntity<Map<String, Object>> handle(XNLPException e) {
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "xnlp_error", e);
+    }
+
+    @ExceptionHandler(WasteWorkflowException.class)
+    public ResponseEntity<Map<String, Object>> handle(WasteWorkflowException e) {
+        return simpleError(HttpStatus.CONFLICT, "workflow_conflict", e.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

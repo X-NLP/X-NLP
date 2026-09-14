@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @RestController
@@ -33,7 +34,9 @@ public class WastePhotoController {
         if (file == null || file.isEmpty()) throw new IllegalArgumentException("现场照片不能为空");
         if (file.getSize() > 10 * 1024 * 1024) throw new IllegalArgumentException("单张照片不能超过 10MB");
         String contentType = file.getContentType() == null ? "" : file.getContentType().toLowerCase(Locale.ROOT);
-        if (!contentType.startsWith("image/")) throw new IllegalArgumentException("仅支持图片文件");
+        if (!Set.of("image/jpeg", "image/png", "image/gif", "image/webp").contains(contentType)) {
+            throw new IllegalArgumentException("仅支持 JPG、PNG、GIF 或 WEBP 图片");
+        }
         String extension = extension(file.getOriginalFilename(), contentType);
         String filename = UUID.randomUUID() + extension;
         try {

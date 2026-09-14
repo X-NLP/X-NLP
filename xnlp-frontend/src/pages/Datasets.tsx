@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { datasetsApi } from '../api/client'
-import { Plus, Trash2, Download, Upload, Database } from 'lucide-react'
+import { Plus, Trash2, Download, Upload, Database, Search, SlidersHorizontal } from 'lucide-react'
 
 const TASK_TYPES = ['TEXT_CLASSIFICATION', 'SENTIMENT_ANALYSIS', 'SUMMARIZATION',
   'NAMED_ENTITY_RECOGNITION', 'QUESTION_ANSWERING', 'TRANSLATION']
@@ -24,6 +24,8 @@ export default function Datasets() {
   const [entries, setEntries] = useState<any>(null)
   const [entriesPage, setEntriesPage] = useState(0)
   const [entriesLoading, setEntriesLoading] = useState(false)
+  const [search, setSearch] = useState('')
+  const [taskFilter, setTaskFilter] = useState('')
 
   // New dataset form
   const [name, setName] = useState('')
@@ -43,6 +45,18 @@ export default function Datasets() {
   }
 
   useEffect(() => { load() }, [])
+
+  const visibleDatasets = useMemo(() => {
+    const keyword = search.trim().toLowerCase()
+    return datasets.filter(dataset => {
+      const matchesTask = !taskFilter || dataset.taskType === taskFilter
+      const haystack = [dataset.name, dataset.description, dataset.taskType]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return matchesTask && (!keyword || haystack.includes(keyword))
+    })
+  }, [datasets, search, taskFilter])
 
   const handleCreate = async () => {
     setFormError('')
@@ -141,6 +155,21 @@ export default function Datasets() {
         >
           <Plus className="w-4 h-4" /> {t('datasets.newDataset')}
         </button>
+      </div>
+
+      <div className="mb-5 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:flex-row">
+        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-gray-400">
+          <Search className="h-4 w-4 shrink-0" />
+          <input value={search} onChange={event => setSearch(event.target.value)} className="min-w-0 flex-1 text-sm text-gray-700 outline-none placeholder:text-gray-400" placeholder={t('datasets.searchPlaceholder')} />
+        </label>
+        <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-gray-500">
+          <SlidersHorizontal className="h-4 w-4 shrink-0" />
+          <span className="sr-only">{t('datasets.taskFilter')}</span>
+          <select value={taskFilter} onChange={event => setTaskFilter(event.target.value)} className="bg-transparent text-sm text-gray-700 outline-none">
+            <option value="">{t('datasets.allTasks')}</option>
+            {TASK_TYPES.map(type => <option key={type} value={type}>{t(`tasks.${type}`, { defaultValue: type })}</option>)}
+          </select>
+        </label>
       </div>
 
       {showForm && (
@@ -278,7 +307,7 @@ export default function Datasets() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {datasets.map((ds: any) => (
+              {visibleDatasets.map((ds: any) => (
                 <tr key={ds.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <button onClick={() => handleView(ds)} className="text-left text-blue-600 hover:text-blue-800 font-medium break-words">

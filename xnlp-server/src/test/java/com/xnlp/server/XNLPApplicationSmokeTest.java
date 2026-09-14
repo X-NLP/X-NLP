@@ -239,6 +239,86 @@ class XNLPApplicationSmokeTest {
     }
 
     @Test
+    @DisplayName("construction waste workflow enforces review, gate and weighing lifecycle")
+    void wasteWorkflow() {
+        ResponseEntity<List> vehiclesResponse = rest.getForEntity(
+                "http://localhost:" + port + "/api/v1/waste/vehicles", List.class);
+        assertThat(vehiclesResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map vehicle = (Map) vehiclesResponse.getBody().getFirst();
+        String vehicleId = String.valueOf(vehicle.get("id"));
+        String plateNo = String.valueOf(vehicle.get("plate_no"));
+
+        Map<String, Object> applicationPayload = new java.util.LinkedHashMap<>();
+        applicationPayload.put("wasteType", "工程渣土");
+        applicationPayload.put("clearReason", "基坑开挖");
+        applicationPayload.put("pickupLocation", "天河区测试工地");
+        applicationPayload.put("estimatedWeight", 60);
+        applicationPayload.put("vehicleId", vehicleId);
+        applicationPayload.put("processingSite", "广州资源化消纳场");
+        applicationPayload.put("routeDescription", "工地至消纳场");
+        applicationPayload.put("orderSubject", "项目");
+        applicationPayload.put("subjectName", "X-NLP 测试项目");
+        applicationPayload.put("contactName", "测试联系人");
+        applicationPayload.put("contactPhone", "13800000000");
+        applicationPayload.put("photoUrls", "/uploads/waste/a.jpg,/uploads/waste/b.jpg");
+
+        ResponseEntity<Map> createResponse = rest.postForEntity(
+                "http://localhost:" + port + "/api/v1/waste/applications", applicationPayload, Map.class);
+        assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        String applicationId = String.valueOf(createResponse.getBody().get("id"));
+        assertThat(createResponse.getBody()).containsEntry("status", "PENDING");
+
+        ResponseEntity<Map> reviewResponse = rest.postForEntity(
+                "http://localhost:" + port + "/api/v1/waste/applications/" + applicationId + "/review",
+                Map.of("approve", true, "reviewer", "测试审核员"), Map.class);
+        assertThat(reviewResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(reviewResponse.getBody()).containsEntry("status", "APPROVED");
+        String authorizationCode = String.valueOf(reviewResponse.getBody().get("code"));
+
+        ResponseEntity<Map> gateResponse = rest.postForEntity(
+                "http://localhost:" + port + "/api/v1/waste/gate/verify",
+                Map.of("code", authorizationCode, "plateNo", plateNo), Map.class);
+        assertThat(gateResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(gateResponse.getBody()).containsEntry("allowed", true);
+
+        ResponseEntity<Map> inboundResponse = rest.postForEntity(
+                "http://localhost:" + port + "/api/v1/waste/weighings",
+                Map.of("applicationId", applicationId, "eventType", "INBOUND",
+                        "grossWeight", 80, "tareWeight", 20, "operatorName", "门岗一"), Map.class);
+        assertThat(inboundResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(inboundResponse.getBody()).containsEntry("event_type", "INBOUND");
+        assertThat(inboundResponse.getBody().get("net_weight")).isEqualTo(60.0);
+
+        ResponseEntity<Map> outboundResponse = rest.postForEntity(
+                "http://localhost:" + port + "/api/v1/waste/weighings",
+                Map.of("applicationId", applicationId, "eventType", "OUTBOUND",
+                        "grossWeight", 70, "tareWeight", 10, "operatorName", "门岗一"), Map.class);
+        assertThat(outboundResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(outboundResponse.getBody()).containsEntry("event_type", "OUTBOUND");
+
+        ResponseEntity<Map> completedResponse = rest.getForEntity(
+                "http://localhost:" + port + "/api/v1/waste/applications/" + applicationId, Map.class);
+        assertThat(completedResponse.getBody()).containsEntry("status", "COMPLETED");
+        assertThat(completedResponse.getBody().get("code")).isNull();
+
+        ResponseEntity<Map> closedGateResponse = rest.postForEntity(
+                "http://localhost:" + port + "/api/v1/waste/gate/verify",
+                Map.of("code", authorizationCode, "plateNo", plateNo), Map.class);
+        assertThat(closedGateResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(closedGateResponse.getBody()).containsEntry("allowed", false);
+    }
+
+    @Test
+    @DisplayName("missing waste application returns a structured 404")
+    void missingWasteApplication() {
+        ResponseEntity<Map> response = rest.getForEntity(
+                "http://localhost:" + port + "/api/v1/waste/applications/not-found", Map.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).containsEntry("error", "resource_not_found");
+    }
+
+    @Test
     @DisplayName("evaluation endpoint queues a run and exposes progress")
     void evaluationQueuesAndCompletes() throws InterruptedException {
         Map<String, Object> dataset = Map.of(
