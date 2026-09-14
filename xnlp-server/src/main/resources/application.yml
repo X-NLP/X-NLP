@@ -83,7 +83,12 @@ xnlp:
   security:
     enabled: ${XNLP_SECURITY_ENABLED:false}
     header-name: ${XNLP_SECURITY_HEADER:X-API-Key}
+    tenant-header-name: ${XNLP_SECURITY_TENANT_HEADER:X-Tenant-ID}
+    default-tenant-id: ${XNLP_SECURITY_DEFAULT_TENANT:default}
     api-keys: ${XNLP_SECURITY_API_KEYS:}
+    # Optional tenant -> API key map. Environment binding example:
+    # XNLP_SECURITY_API_KEY_TENANTS_TENANT_A=secret-a
+    api-key-tenants: {}
   models:
     - name: ollama-default
       version: latest

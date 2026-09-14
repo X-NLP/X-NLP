@@ -35,15 +35,19 @@ class DatabaseMigrationIntegrationTest {
         List<Map<String, Object>> history = jdbc.queryForList(
                 "SELECT version, description, checksum FROM xnlp_schema_history ORDER BY version");
 
-        assertThat(history).hasSize(3);
-        assertThat(history).extracting(row -> row.get("VERSION")).containsExactly(1, 2, 3);
+        assertThat(history).hasSize(4);
+        assertThat(history).extracting(row -> row.get("VERSION")).containsExactly(1, 2, 3, 4);
         assertThat(history).extracting(row -> row.get("DESCRIPTION"))
-                .containsExactly("baseline", "evaluation-progress-columns", "waste-weighing-trip-number");
+                .containsExactly("baseline", "evaluation-progress-columns", "waste-weighing-trip-number", "multi-tenant-isolation");
         assertThat(history).allSatisfy(row -> assertThat(row.get("CHECKSUM")).isNotNull());
 
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM evaluation_runs WHERE 1 = 0", Integer.class)).isZero();
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM waste_weighings WHERE 1 = 0", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM datasets WHERE tenant_id = 'default'", Integer.class)).isGreaterThanOrEqualTo(0);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM waste_vehicles WHERE tenant_id = 'default'", Integer.class)).isGreaterThanOrEqualTo(0);
     }
 }
