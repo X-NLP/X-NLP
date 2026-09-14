@@ -19,6 +19,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import com.xnlp.server.tenant.TenantContextFilter;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -76,7 +78,8 @@ public class ApiKeySecurityConfiguration {
                 .cors(cors -> {})
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .requestCache(requestCache -> requestCache.disable())
-                .securityContext(securityContext -> securityContext.requireExplicitSave(false));
+                .securityContext(securityContext -> securityContext.requireExplicitSave(false))
+                .addFilterAfter(new TenantContextFilter(properties), AnonymousAuthenticationFilter.class);
 
         if (!properties.isEnabled()) {
             http.authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll());
@@ -140,8 +143,9 @@ public class ApiKeySecurityConfiguration {
                 return;
             }
 
+            String tenantId = properties.tenantFor(candidate);
             var authentication = UsernamePasswordAuthenticationToken.authenticated(
-                    "api-key", null, List.of(new SimpleGrantedAuthority("ROLE_API")));
+                    tenantId, null, List.of(new SimpleGrantedAuthority("ROLE_API")));
             var context = SecurityContextHolder.createEmptyContext();
             context.setAuthentication(authentication);
             SecurityContextHolder.setContext(context);

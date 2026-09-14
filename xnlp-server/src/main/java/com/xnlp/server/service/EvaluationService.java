@@ -5,6 +5,7 @@ import com.xnlp.core.model.PredictRequest;
 import com.xnlp.core.model.PredictResponse;
 import com.xnlp.core.repository.EvaluationRunRepository;
 import com.xnlp.core.registry.ModelRegistry;
+import com.xnlp.server.tenant.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.task.TaskExecutor;
@@ -76,8 +77,9 @@ public class EvaluationService {
         EvaluationRequest request = prepareRequest(modelName, datasetId, taskType);
         EvaluationRun run = request.run();
         try {
-            evaluationTaskExecutor.execute(() -> executeEvaluation(run.getId(), request.modelName(),
-                    request.datasetId(), request.taskType()));
+            String tenantId = TenantContext.currentTenantId();
+            evaluationTaskExecutor.execute(() -> TenantContext.runWithTenant(tenantId,
+                    () -> executeEvaluation(run.getId(), request.modelName(), request.datasetId(), request.taskType())));
         } catch (RuntimeException rejected) {
             run.setStatus("failed");
             run.setErrorMessage("Evaluation queue is unavailable: " + rejected.getMessage());

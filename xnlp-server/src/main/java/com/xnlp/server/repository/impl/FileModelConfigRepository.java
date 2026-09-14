@@ -6,6 +6,7 @@ import com.xnlp.core.config.ModelProtocol;
 import com.xnlp.core.config.ModelSource;
 import com.xnlp.core.config.ModelType;
 import com.xnlp.core.repository.ModelConfigRepository;
+import com.xnlp.server.tenant.TenantContext;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,16 +39,14 @@ public class FileModelConfigRepository implements ModelConfigRepository {
     @PostConstruct
     void init() throws IOException {
         Files.createDirectories(STORE_DIR);
+        loadDirectory(STORE_DIR, TenantContext.DEFAULT_TENANT_ID);
         try (var stream = Files.list(STORE_DIR)) {
-            stream.filter(path -> path.toString().endsWith(".json")).forEach(path -> {
+            stream.filter(Files::isDirectory).forEach(path -> {
+                String tenantId = TenantContext.normalize(path.getFileName().toString());
                 try {
-                    ModelConfig config = mapper.readValue(path.toFile(), ModelConfig.class);
-                    validate(config);
-                    cache.put(config.getName(), config);
-                    log.info("Loaded model profile: {} type={} protocol={}",
-                            config.getName(), config.getType(), config.getProtocol());
-                } catch (Exception e) {
-                    log.warn("Failed to load model profile from {}", path, e);
+                    loadDirectory(path, tenantId);
+                } catch (IOException e) {
+                    log.warn("Failed to load model profiles for tenant {}", tenantId, e);
                 }
             });
         }
@@ -55,14 +54,17 @@ public class FileModelConfigRepository implements ModelConfigRepository {
 
     @Override
     public List<ModelConfig> findAll() {
-        return cache.values().stream()
+        String prefix = keyPrefix(TenantContext.currentTenantId());
+        return cache.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix))
+                .map(Map.Entry::getValue)
                 .sorted(Comparator.comparing(ModelConfig::getName))
                 .toList();
     }
 
     @Override
     public Optional<ModelConfig> findByName(String name) {
-        return Optional.ofNullable(cache.get(name));
+        return Optional.ofNullable(cache.get(key(name)));
     }
 
     @Override
@@ -70,9 +72,12 @@ public class FileModelConfigRepository implements ModelConfigRepository {
         try {
             normalize(config);
             validate(config);
-            cache.put(config.getName(), config);
+            String tenantId = TenantContext.currentTenantId();
+            Path directory = tenantDirectory(tenantId);
+            Files.createDirectories(directory);
+            cache.put(key(config.getName()), config);
             mapper.writerWithDefaultPrettyPrinter().writeValue(
-                    STORE_DIR.resolve(config.getName() + ".json").toFile(), config);
+                    directory.resolve(config.getName() + ".json").toFile(), config);
             log.info("Saved model profile: {} type={} protocol={}",
                     config.getName(), config.getType(), config.getProtocol());
         } catch (IOException e) {
@@ -84,12 +89,47 @@ public class FileModelConfigRepository implements ModelConfigRepository {
     @Override
     public void deleteByName(String name) {
         try {
-            cache.remove(name);
-            Files.deleteIfExists(STORE_DIR.resolve(name + ".json"));
+            String tenantId = TenantContext.currentTenantId();
+            cache.remove(key(name));
+            Files.deleteIfExists(tenantDirectory(tenantId).resolve(name + ".json"));
             log.info("Deleted model profile: {}", name);
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to delete model profile: " + name, e);
         }
+    }
+
+    private void loadDirectory(Path directory, String tenantId) throws IOException {
+        if (!Files.exists(directory)) return;
+        try (var stream = Files.list(directory)) {
+            stream.filter(path -> path.toString().endsWith(".json")).forEach(path -> {
+                try {
+                    ModelConfig config = mapper.readValue(path.toFile(), ModelConfig.class);
+                    validate(config);
+                    cache.put(key(tenantId, config.getName()), config);
+                    log.info("Loaded model profile for tenant {}: {} type={} protocol={}",
+                            tenantId, config.getName(), config.getType(), config.getProtocol());
+                } catch (Exception e) {
+                    log.warn("Failed to load model profile from {}", path, e);
+                }
+            });
+        }
+    }
+
+    private Path tenantDirectory(String tenantId) {
+        return TenantContext.DEFAULT_TENANT_ID.equals(tenantId)
+                ? STORE_DIR : STORE_DIR.resolve(tenantId);
+    }
+
+    private String key(String name) {
+        return key(TenantContext.currentTenantId(), name);
+    }
+
+    private static String key(String tenantId, String name) {
+        return tenantId + "\0" + name;
+    }
+
+    private static String keyPrefix(String tenantId) {
+        return tenantId + "\0";
     }
 
     private void normalize(ModelConfig config) {

@@ -3,6 +3,7 @@ package com.xnlp.server.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xnlp.core.registry.ModelRegistry;
 import com.xnlp.server.JsonUtils;
+import com.xnlp.server.tenant.TenantContext;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +35,7 @@ public class XNLPConfiguration {
 
     @Bean
     public ModelRegistry modelRegistry() {
-        ModelRegistry reg = new ModelRegistry();
+        ModelRegistry reg = new ModelRegistry(null, TenantContext::currentTenantId);
         this.registry = reg;
         log.info("X-NLP ModelRegistry initialized");
         return reg;

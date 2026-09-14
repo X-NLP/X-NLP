@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.xnlp.core.eval.EvaluationDataset;
 import com.xnlp.core.repository.DatasetRepository;
+import com.xnlp.server.tenant.TenantContext;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,14 +39,14 @@ public class FileDatasetRepository implements DatasetRepository {
     @PostConstruct
     void init() throws IOException {
         Files.createDirectories(STORE_DIR);
+        loadDirectory(STORE_DIR, TenantContext.DEFAULT_TENANT_ID);
         try (var stream = Files.list(STORE_DIR)) {
-            stream.filter(path -> path.toString().endsWith(".json")).forEach(path -> {
+            stream.filter(Files::isDirectory).forEach(path -> {
+                String tenantId = TenantContext.normalize(path.getFileName().toString());
                 try {
-                    EvaluationDataset ds = mapper.readValue(path.toFile(), EvaluationDataset.class);
-                    cache.put(ds.getId(), ds);
-                    log.info("Loaded dataset: {} ({} entries)", ds.getName(), ds.getEntryCount());
+                    loadDirectory(path, tenantId);
                 } catch (IOException e) {
-                    log.warn("Failed to load dataset from {}", path, e);
+                    log.warn("Failed to load datasets for tenant {}", tenantId, e);
                 }
             });
         }
@@ -53,22 +54,27 @@ public class FileDatasetRepository implements DatasetRepository {
 
     @Override
     public List<EvaluationDataset> findAll() {
-        return cache.values().stream()
+        String prefix = keyPrefix(TenantContext.currentTenantId());
+        return cache.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix))
+                .map(Map.Entry::getValue)
                 .sorted(Comparator.comparing(EvaluationDataset::getUpdatedAt).reversed())
                 .toList();
     }
 
     @Override
     public Optional<EvaluationDataset> findById(String id) {
-        return Optional.ofNullable(cache.get(id));
+        return Optional.ofNullable(cache.get(key(id)));
     }
 
     @Override
     public EvaluationDataset save(EvaluationDataset dataset) {
         try {
-            Path file = STORE_DIR.resolve(dataset.getId() + ".json");
+            Path directory = tenantDirectory(TenantContext.currentTenantId());
+            Files.createDirectories(directory);
+            Path file = directory.resolve(dataset.getId() + ".json");
             mapper.writerWithDefaultPrettyPrinter().writeValue(file.toFile(), dataset);
-            cache.put(dataset.getId(), dataset);
+            cache.put(key(dataset.getId()), dataset);
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to persist dataset: " + dataset.getId(), e);
         }
@@ -78,8 +84,8 @@ public class FileDatasetRepository implements DatasetRepository {
     @Override
     public void deleteById(String id) {
         try {
-            cache.remove(id);
-            Files.deleteIfExists(STORE_DIR.resolve(id + ".json"));
+            cache.remove(key(id));
+            Files.deleteIfExists(tenantDirectory(TenantContext.currentTenantId()).resolve(id + ".json"));
             log.info("Deleted dataset: {}", id);
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to delete dataset: " + id, e);
@@ -88,6 +94,40 @@ public class FileDatasetRepository implements DatasetRepository {
 
     @Override
     public int count() {
-        return cache.size();
+        String prefix = keyPrefix(TenantContext.currentTenantId());
+        return (int) cache.keySet().stream().filter(key -> key.startsWith(prefix)).count();
+    }
+
+    private void loadDirectory(Path directory, String tenantId) throws IOException {
+        if (!Files.exists(directory)) return;
+        try (var stream = Files.list(directory)) {
+            stream.filter(path -> path.toString().endsWith(".json")).forEach(path -> {
+                try {
+                    EvaluationDataset ds = mapper.readValue(path.toFile(), EvaluationDataset.class);
+                    cache.put(key(tenantId, ds.getId()), ds);
+                    log.info("Loaded dataset for tenant {}: {} ({} entries)",
+                            tenantId, ds.getName(), ds.getEntryCount());
+                } catch (IOException e) {
+                    log.warn("Failed to load dataset from {}", path, e);
+                }
+            });
+        }
+    }
+
+    private Path tenantDirectory(String tenantId) {
+        return TenantContext.DEFAULT_TENANT_ID.equals(tenantId)
+                ? STORE_DIR : STORE_DIR.resolve(tenantId);
+    }
+
+    private String key(String id) {
+        return key(TenantContext.currentTenantId(), id);
+    }
+
+    private static String key(String tenantId, String id) {
+        return tenantId + "\0" + id;
+    }
+
+    private static String keyPrefix(String tenantId) {
+        return tenantId + "\0";
     }
 }

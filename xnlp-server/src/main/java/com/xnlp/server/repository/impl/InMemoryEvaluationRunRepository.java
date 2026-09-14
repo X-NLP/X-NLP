@@ -2,6 +2,7 @@ package com.xnlp.server.repository.impl;
 
 import com.xnlp.core.eval.EvaluationRun;
 import com.xnlp.core.repository.EvaluationRunRepository;
+import com.xnlp.server.tenant.TenantContext;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -22,19 +23,26 @@ public class InMemoryEvaluationRunRepository implements EvaluationRunRepository 
 
     @Override
     public List<EvaluationRun> findAll() {
-        return store.values().stream()
+        String prefix = TenantContext.currentTenantId() + "\0";
+        return store.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix))
+                .map(Map.Entry::getValue)
                 .sorted(Comparator.comparing(EvaluationRun::getCreatedAt).reversed())
                 .toList();
     }
 
     @Override
     public Optional<EvaluationRun> findById(String id) {
-        return Optional.ofNullable(store.get(id));
+        return Optional.ofNullable(store.get(key(id)));
     }
 
     @Override
     public EvaluationRun save(EvaluationRun run) {
-        store.put(run.getId(), run);
+        store.put(key(run.getId()), run);
         return run;
+    }
+
+    private String key(String id) {
+        return TenantContext.currentTenantId() + "\0" + id;
     }
 }

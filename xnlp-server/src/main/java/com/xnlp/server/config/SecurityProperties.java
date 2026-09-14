@@ -1,26 +1,34 @@
 package com.xnlp.server.config;
 
+import com.xnlp.server.tenant.TenantContext;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Runtime API security settings.
+ * Runtime API security and tenant routing settings.
  *
  * <p>Authentication is deliberately opt-in so local development and existing
  * installations remain backwards compatible. Production deployments should
- * set {@code XNLP_SECURITY_ENABLED=true} and inject one or more keys through
- * {@code XNLP_SECURITY_API_KEYS} rather than committing credentials to YAML.</p>
+ * set {@code XNLP_SECURITY_ENABLED=true} and inject keys through
+ * {@code XNLP_SECURITY_API_KEYS} or tenant mappings through
+ * {@code XNLP_SECURITY_API_KEY_TENANTS}.</p>
  */
 @ConfigurationProperties(prefix = "xnlp.security")
 public class SecurityProperties {
 
     private boolean enabled;
     private String headerName = "X-API-Key";
+    private String tenantHeaderName = "X-Tenant-ID";
+    private String defaultTenantId = TenantContext.DEFAULT_TENANT_ID;
     private List<String> apiKeys = new ArrayList<>();
+    /** Map of tenant id -> API key. Values are compared in constant time. */
+    private Map<String, String> apiKeyTenants = new LinkedHashMap<>();
 
     public boolean isEnabled() {
         return enabled;
@@ -40,6 +48,24 @@ public class SecurityProperties {
         }
     }
 
+    public String getTenantHeaderName() {
+        return tenantHeaderName;
+    }
+
+    public void setTenantHeaderName(String tenantHeaderName) {
+        if (tenantHeaderName != null && !tenantHeaderName.isBlank()) {
+            this.tenantHeaderName = tenantHeaderName.trim();
+        }
+    }
+
+    public String getDefaultTenantId() {
+        return defaultTenantId;
+    }
+
+    public void setDefaultTenantId(String defaultTenantId) {
+        this.defaultTenantId = TenantContext.normalize(defaultTenantId);
+    }
+
     public List<String> getApiKeys() {
         return apiKeys;
     }
@@ -48,26 +74,53 @@ public class SecurityProperties {
         this.apiKeys = apiKeys == null ? new ArrayList<>() : new ArrayList<>(apiKeys);
     }
 
+    public Map<String, String> getApiKeyTenants() {
+        return apiKeyTenants;
+    }
+
+    public void setApiKeyTenants(Map<String, String> apiKeyTenants) {
+        this.apiKeyTenants = apiKeyTenants == null
+                ? new LinkedHashMap<>() : new LinkedHashMap<>(apiKeyTenants);
+    }
+
     /**
      * Fail closed at startup instead of running an apparently protected server
      * that can never authenticate a request.
      */
     public void validate() {
-        if (enabled && apiKeys.stream().noneMatch(this::hasText)) {
+        defaultTenantId = TenantContext.normalize(defaultTenantId);
+        if (enabled && apiKeys.stream().noneMatch(this::hasText)
+                && apiKeyTenants.entrySet().stream().noneMatch(entry -> hasText(entry.getKey()) && hasText(entry.getValue()))) {
             throw new IllegalStateException(
-                    "xnlp.security.enabled=true requires at least one xnlp.security.api-keys value");
+                    "xnlp.security.enabled=true requires at least one API key or tenant API key mapping");
+        }
+        for (String tenantId : apiKeyTenants.keySet()) {
+            TenantContext.normalize(tenantId);
         }
     }
 
-    public boolean matches(String candidate) {
+    /** Return the tenant bound to a key, or {@code null} when the key is invalid. */
+    public String tenantFor(String candidate) {
         if (!hasText(candidate)) {
-            return false;
+            return null;
         }
         byte[] actual = candidate.trim().getBytes(StandardCharsets.UTF_8);
+        for (Map.Entry<String, String> entry : apiKeyTenants.entrySet()) {
+            if (!hasText(entry.getKey()) || !hasText(entry.getValue())) continue;
+            byte[] expected = entry.getValue().trim().getBytes(StandardCharsets.UTF_8);
+            if (MessageDigest.isEqual(expected, actual)) {
+                return TenantContext.normalize(entry.getKey());
+            }
+        }
         return apiKeys.stream()
                 .filter(this::hasText)
                 .map(key -> key.trim().getBytes(StandardCharsets.UTF_8))
-                .anyMatch(expected -> MessageDigest.isEqual(expected, actual));
+                .anyMatch(expected -> MessageDigest.isEqual(expected, actual))
+                ? defaultTenantId : null;
+    }
+
+    public boolean matches(String candidate) {
+        return tenantFor(candidate) != null;
     }
 
     private boolean hasText(String value) {
