@@ -31,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
                 "spring.datasource.url=jdbc:h2:mem:xnlp-test;MODE=MySQL;DB_CLOSE_DELAY=-1",
                 "spring.datasource.username=sa",
                 "spring.datasource.password=",
-                "spring.sql.init.mode=always",
+                "spring.sql.init.mode=never",
                 "spring.ai.model.chat=none",
                 "spring.ai.openai.api-key=test-key"
         })

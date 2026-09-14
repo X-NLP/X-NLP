@@ -24,7 +24,7 @@ Designed for both research and enterprise production environments.
 - **现代 Web 工作台**：左侧工作区导航、响应式布局、NLP 工作台、数据集/评测/画布和 `AI Assistant` 页面。
 - **Spring AI 2.0.1**：服务端通过 Spring AI 的 `ChatModel` 抽象接入 Ollama 与 OpenAI-compatible provider，业务层不直接依赖厂商 SDK；对外提供 `GET /api/v1/ai/status` 与 `POST /api/v1/ai/chat`。
 - **工程能力**：统一 prompt 约束、请求观测、模型注册、数据集、评测、指标与对比链路；Pipeline Canvas 已可调用后端 pipeline trace，记录每个节点的输入、输出、状态和耗时。评测支持异步队列、逐条进度持久化、取消和模型/数据集/状态过滤。
-- **数据库可切换**：使用 Spring Boot 的 `spring.datasource` profile 配置，默认 MySQL，也提供 PostgreSQL 和 H2 文件数据库配置；新库表结构由可移植的 `schema.sql` 初始化，数据访问层继续保持 repository 抽象。
+- **数据库可切换**：使用 Spring Boot 的 `spring.datasource` profile 配置，默认 MySQL，也提供 PostgreSQL 和 H2 文件数据库配置；数据库通过版本化迁移（`db/migration/V*__*.sql`）创建和升级，HikariCP 连接池参数可由环境变量调优，数据访问层继续保持 repository 抽象。
 
 ### 启动前端
 
@@ -56,6 +56,22 @@ DB_USERNAME=xnlp DB_PASSWORD=change-me OLLAMA_CHAT_MODEL=qwen2.5:7b \
 docker compose down
 ```
 
+
+
+### Kubernetes / Helm 部署
+
+仓库提供可直接渲染和安装的 Helm Chart：
+
+```bash
+helm lint deploy/helm/xnlp
+helm upgrade --install xnlp deploy/helm/xnlp \
+  --set server.database.url='jdbc:postgresql://postgres:5432/xnlp' \
+  --set server.database.username=xnlp \
+  --set server.database.password='change-me' \
+  --set server.env.profile=postgres
+```
+
+Chart 默认部署 Spring Boot 服务和 React/Nginx 工作台，包含健康探针、H2/废弃物证据 PVC、可选 Ingress，以及通过 Secret 注入数据库、OpenAI 和 API Key 配置。生产环境建议使用外部 MySQL/PostgreSQL、Ingress TLS 和显式资源 requests/limits。
 
 ### 选择数据库
 

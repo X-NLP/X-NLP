@@ -1,0 +1,87 @@
+replicaCount: 1
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+server:
+  image:
+    repository: ghcr.io/x-nlp/xnlp-server
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8760
+  resources: {}
+  env:
+    profile: h2
+    port: 8760
+    aiModelChat: ollama
+    ollamaBaseUrl: http://ollama:11434
+    ollamaChatModel: llama3.1
+    dbPoolMaxSize: "10"
+    dbPoolMinIdle: "2"
+  database:
+    url: jdbc:h2:file:/opt/xnlp/data/xnlp;MODE=MySQL;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE
+    username: sa
+    password: ""
+  security:
+    enabled: false
+    headerName: X-API-Key
+    apiKeys: ""
+  openai:
+    apiKey: ""
+    baseUrl: https://api.openai.com
+    chatModel: gpt-4o-mini
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+frontend:
+  enabled: true
+  image:
+    repository: ghcr.io/x-nlp/xnlp-frontend
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+  resources: {}
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: xnlp.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+
+resources: {}

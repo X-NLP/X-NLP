@@ -9,9 +9,17 @@ spring:
     default: mysql
   sql:
     init:
-      mode: always
-      schema-locations: classpath:schema.sql
-      continue-on-error: false
+      # Versioned migrations own schema creation and upgrades.
+      mode: never
+  datasource:
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:30000}
+      validation-timeout: ${DB_POOL_VALIDATION_TIMEOUT_MS:5000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT_MS:600000}
+      max-lifetime: ${DB_POOL_MAX_LIFETIME_MS:1800000}
+      leak-detection-threshold: ${DB_POOL_LEAK_DETECTION_MS:0}
   ai:
     # Spring AI 2.x uses one active ChatModel provider per application context.
     # Switch between providers without code changes: SPRING_AI_MODEL_CHAT=openai|ollama.
@@ -68,6 +76,10 @@ xnlp:
     max-workers: ${XNLP_MAX_WORKERS:4}
     request-timeout-seconds: ${XNLP_REQUEST_TIMEOUT_SECONDS:60}
     max-batch-size: ${XNLP_MAX_BATCH_SIZE:32}
+  database:
+    migration:
+      enabled: ${XNLP_DB_MIGRATION_ENABLED:true}
+      validate-checksums: ${XNLP_DB_MIGRATION_VALIDATE_CHECKSUMS:true}
   security:
     enabled: ${XNLP_SECURITY_ENABLED:false}
     header-name: ${XNLP_SECURITY_HEADER:X-API-Key}

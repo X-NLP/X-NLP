@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "xnlp.fullname" . }}-server
+  labels:
+    {{- include "xnlp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "xnlp.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: server
+  template:
+    metadata:
+      labels:
+        {{- include "xnlp.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: server
+      {{- with .Values.server.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "xnlp.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: server
+          image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}"
+          imagePullPolicy: {{ .Values.server.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8760
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: {{ .Values.server.env.profile | quote }}
+            - name: XNLP_PORT
+              value: {{ .Values.server.env.port | quote }}
+            - name: DB_URL
+              value: {{ .Values.server.database.url | quote }}
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "xnlp.fullname" . }}-server
+                  key: DB_USERNAME
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "xnlp.fullname" . }}-server
+                  key: DB_PASSWORD
+            - name: SPRING_AI_MODEL_CHAT
+              value: {{ .Values.server.env.aiModelChat | quote }}
+            - name: OLLAMA_BASE_URL
+              value: {{ .Values.server.env.ollamaBaseUrl | quote }}
+            - name: OLLAMA_CHAT_MODEL
+              value: {{ .Values.server.env.ollamaChatModel | quote }}
+            - name: OPENAI_BASE_URL
+              value: {{ .Values.server.openai.baseUrl | quote }}
+            - name: OPENAI_CHAT_MODEL
+              value: {{ .Values.server.openai.chatModel | quote }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "xnlp.fullname" . }}-server
+                  key: OPENAI_API_KEY
+            - name: XNLP_SECURITY_ENABLED
+              value: {{ .Values.server.security.enabled | quote }}
+            - name: XNLP_SECURITY_HEADER
+              value: {{ .Values.server.security.headerName | quote }}
+            - name: XNLP_SECURITY_API_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "xnlp.fullname" . }}-server
+                  key: XNLP_SECURITY_API_KEYS
+            - name: DB_POOL_MAX_SIZE
+              value: {{ .Values.server.env.dbPoolMaxSize | quote }}
+            - name: DB_POOL_MIN_IDLE
+              value: {{ .Values.server.env.dbPoolMinIdle | quote }}
+            - name: WASTE_UPLOAD_DIR
+              value: /opt/xnlp/data/waste-uploads
+          volumeMounts:
+            - name: server-data
+              mountPath: /opt/xnlp/data
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.server.resources | nindent 12 }}
+      volumes:
+        - name: server-data
+          {{- if .Values.server.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "xnlp.fullname" . }}-server-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.server.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.server.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.server.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -806,7 +806,14 @@ proxy: { '/api': { target: 'http://localhost:8760', changeOrigin: true } }
 - OAuth2/JWT provider 仍可在需要统一身份平台时接入
 
 **Task 5.2** — 多数据库增强：数据库迁移版本化与运行时连接池调优
+- ✅ 使用 `xnlp_schema_history` 记录有序迁移版本、描述、SHA-256 checksum、执行耗时
+- ✅ 新部署和已有旧版数据库均可通过兼容迁移启动，已覆盖评测进度和过磅 trip 字段升级
+- ✅ 支持 `XNLP_DB_MIGRATION_ENABLED`、checksum 校验开关和 HikariCP 连接池环境变量
+
 **Task 5.3** — K8s Helm Chart
+- ✅ 提供 `deploy/helm/xnlp` Chart，包含 server/frontend Deployment、Service、健康探针、PVC、Secret 和可选 Ingress
+- ✅ 支持通过 values 切换 H2/MySQL/PostgreSQL、Spring AI provider、资源、节点调度与 TLS
+
 **Task 5.4** — 多租户数据隔离
 
 ---
@@ -822,7 +829,7 @@ proxy: { '/api': { target: 'http://localhost:8760', changeOrigin: true } }
 ### 10.2 数据库切换
 
 - 默认 profile 为 `mysql`，可通过 `SPRING_PROFILES_ACTIVE=postgres` 或 `SPRING_PROFILES_ACTIVE=h2` 直接切换。
-- 连接信息使用 `DB_URL`、`DB_USERNAME`、`DB_PASSWORD` 环境变量覆盖；`schema.sql` 仅负责新数据库的便携式表结构初始化；生产环境已有旧表时，应使用对应数据库的迁移流程补齐新增评测进度字段。
+- 连接信息使用 `DB_URL`、`DB_USERNAME`、`DB_PASSWORD` 环境变量覆盖；版本化迁移目录 `db/migration` 负责新数据库初始化和已有数据库升级；迁移历史记录在 `xnlp_schema_history`，生产环境可通过环境变量关闭自动执行或关闭 checksum 校验（仅限受控运维场景）。连接池由 Spring Boot HikariCP 自动配置，并支持 `DB_POOL_*` 环境变量调优。
 
 ### 10.3 Maven 本地仓库
 

@@ -1,0 +1,21 @@
+{{- if .Values.frontend.enabled }}
+# The bundled Nginx image proxies API traffic to the Compose-compatible
+# hostname "server". Keep a stable in-namespace alias for the chart too.
+apiVersion: v1
+kind: Service
+metadata:
+  name: server
+  labels:
+    {{- include "xnlp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server-alias
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "xnlp.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+  ports:
+    - name: http
+      port: 8760
+      targetPort: http
+      protocol: TCP
+{{- end }}
