@@ -116,7 +116,12 @@ curl -i -X POST http://localhost:8760/api/v1/evaluations \
   -H 'Content-Type: application/json' \
   -d '{"modelName":"ollama-default","datasetId":"<dataset-id>","taskType":"SENTIMENT_ANALYSIS"}'
 
-# 轮询状态和进度
+# 订阅实时状态和进度（SSE；-N 禁止 curl 缓冲）
+curl -N \
+  -H 'Accept: text/event-stream' \
+  http://localhost:8760/api/v1/evaluations/<run-id>/events
+
+# 轮询状态和进度（SSE 不可用时的降级方式）
 curl http://localhost:8760/api/v1/evaluations/<run-id>
 
 # 请求取消（worker 在样本边界安全停止）

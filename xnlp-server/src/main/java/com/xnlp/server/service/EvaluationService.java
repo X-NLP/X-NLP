@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.Instant;
 import java.util.*;
@@ -31,16 +32,19 @@ public class EvaluationService {
     private final EvaluationRunRepository runRepository;
     private final MetricsCalculator calculator;
     private final TaskExecutor evaluationTaskExecutor;
+    private final EvaluationProgressPublisher progressPublisher;
 
     public EvaluationService(ModelRegistry registry, DatasetService datasetService,
                              EvaluationRunRepository runRepository,
                              MetricsCalculator calculator,
-                             TaskExecutor evaluationTaskExecutor) {
+                             TaskExecutor evaluationTaskExecutor,
+                             EvaluationProgressPublisher progressPublisher) {
         this.registry = registry;
         this.datasetService = datasetService;
         this.runRepository = runRepository;
         this.calculator = calculator;
         this.evaluationTaskExecutor = evaluationTaskExecutor;
+        this.progressPublisher = progressPublisher;
     }
 
     public List<EvaluationRun> listRuns() {
@@ -59,6 +63,14 @@ public class EvaluationService {
         return runRepository.findById(id);
     }
 
+    /** Opens a resumable event stream whose first event is the latest persisted snapshot. */
+    public SseEmitter streamProgress(String id) {
+        if (getRun(id).isEmpty()) {
+            throw new NoSuchElementException("Evaluation run not found: " + id);
+        }
+        return progressPublisher.subscribe(id, () -> getRun(id));
+    }
+
     /** Creates and queues a run, returning before model inference begins. */
     public EvaluationRun startEvaluation(String modelName, String datasetId, NLPTaskType taskType) {
         EvaluationRequest request = prepareRequest(modelName, datasetId, taskType);
@@ -71,7 +83,7 @@ public class EvaluationService {
             run.setErrorMessage("Evaluation queue is unavailable: " + rejected.getMessage());
             run.setCompletedAt(Instant.now());
             run.setElapsedSeconds(0);
-            runRepository.save(run);
+            saveAndPublish(run);
             throw rejected;
         }
         return run;
@@ -94,7 +106,7 @@ public class EvaluationService {
         if (!TERMINAL_STATUSES.contains(run.getStatus())) {
             run.setCancelRequested(true);
             run.setStatus("cancelling");
-            runRepository.save(run);
+            saveAndPublish(run);
         }
         return run;
     }
@@ -125,7 +137,7 @@ public class EvaluationService {
         run.setProcessedEntries(0);
         run.setProgressPercent(run.getTotalEntries() == 0 ? 100 : 0);
         run.setCancelRequested(false);
-        runRepository.save(run);
+        saveAndPublish(run);
         return new EvaluationRequest(run, modelName, datasetId, effectiveTask);
     }
 
@@ -146,7 +158,7 @@ public class EvaluationService {
                 return;
             }
             run.setStatus("running");
-            runRepository.save(run);
+            saveAndPublish(run);
 
             List<Map.Entry<String, String>> predictions = new ArrayList<>();
             for (int i = 0; i < entries.size(); i++) {
@@ -188,7 +200,7 @@ public class EvaluationService {
         run.setStatus("cancelled");
         run.setCompletedAt(Instant.now());
         run.setElapsedSeconds((System.nanoTime() - t0) / 1_000_000_000.0);
-        runRepository.save(run);
+        saveAndPublish(run);
         log.info("Evaluation cancelled: runId={} progress={}/{}",
                 run.getId(), run.getProcessedEntries(), run.getTotalEntries());
     }
@@ -202,7 +214,12 @@ public class EvaluationService {
         runRepository.findById(runId).ifPresent(latest -> {
             if (latest.isCancelRequested()) run.setCancelRequested(true);
         });
+        saveAndPublish(run);
+    }
+
+    private void saveAndPublish(EvaluationRun run) {
         runRepository.save(run);
+        progressPublisher.publish(run);
     }
 
     private static boolean matches(String actual, String expected) {

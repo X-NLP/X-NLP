@@ -259,7 +259,7 @@ mvn test -Dmaven.repo.local=/tmp/m2 -pl xnlp-core # 仅 core
 | 功能 | 优先级 | 说明 |
 |------|--------|------|
 | NLP Playground 页面 | P1 | ✅ 已实现 `/nlp` 工作台与内置能力交互 |
-| 评测进度展示 | P1 | ✅ 轮询进度条、状态过滤与取消按钮；SSE/运行日志后续增强 |
+| 评测进度展示 | P1 | ✅ 详情页 SSE 实时进度、10 秒轮询降级、状态过滤与取消按钮；运行日志后续增强 |
 | 数据集条目分页 | P1 | ✅ 后端分页 + 前端分页控件，默认每页 20 条 |
 | JSON 文件拖拽导入 | P1 | ✅ 支持 `.json` 文件选择与拖拽上传创建数据集 |
 | 搜索/筛选 | P2 | ✅ 数据集支持关键词与任务类型筛选，评测记录支持模型/数据集/状态搜索 |
@@ -754,14 +754,15 @@ proxy: { '/api': { target: 'http://localhost:8760', changeOrigin: true } }
 - ✅ `POST /api/v1/evaluations` 返回 `202 Accepted`、runId 和 `Location`，后端通过有界 `ThreadPoolTaskExecutor` 异步执行
 - ✅ `GET /api/v1/evaluations/{id}` 查询 `queued/running/cancelling/completed/failed/cancelled` 状态和进度
 - ✅ `POST /api/v1/evaluations/{id}/cancel` 请求取消，worker 在样本边界安全停止
-- SSE 流式推送暂未实现，前端使用 2 秒轮询
+- ✅ `GET /api/v1/evaluations/{id}/events` 提供评测进度 SSE，首个事件发送最新持久化快照，终态后关闭连接；前端详情页订阅，10 秒轮询作为降级路径
 
 **Task 2.3** — 评测批量对比
 - ✅ 前端 Compare 页面支持按模型/数据集筛选
 - ✅ 后端支持过滤参数 `?modelName=...&datasetName=...&status=...`
 
 **Task 2.4** — 前端评测进度
-- ✅ Evaluation 页面添加 run status 轮询 (setInterval 2s)
+- ✅ Evaluation 页面订阅选中运行的 SSE 进度流
+- ✅ SSE 断开或代理不支持时通过 10 秒轮询刷新
 - ✅ 显示进度条 (当前条目/总条目) 和取消按钮
 
 ### Phase 3 — 前端交互增强 (P1)
@@ -771,7 +772,7 @@ proxy: { '/api': { target: 'http://localhost:8760', changeOrigin: true } }
 - Datasets 已支持 JSON 文件选择/拖拽导入及条目分页。
 - Compare 已支持多指标雷达图与柱状图对比。
 
-后续增强项：评测进度的 SSE/WebSocket 实时推送、运行日志流式推送、持久化 pipeline trace 和真实生产模型运行时接入。
+后续增强项：运行日志流式推送、持久化 pipeline trace 和真实生产模型运行时接入。
 
 ### Phase 4 — 基础设施 (P2, 预计 2-3天)
 > 目标：生产就绪的基础设施

@@ -34,6 +34,50 @@ async function requestText(path: string, options?: RequestInit): Promise<string>
   return res.text();
 }
 
+function subscribeToJsonEvents<T>(
+  path: string,
+  onEvent: (value: T) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  const controller = new AbortController();
+
+  void (async () => {
+    try {
+      const response = await fetch(`${BASE}${path}`, {
+        headers: headers({ headers: { Accept: 'text/event-stream' } }),
+        signal: controller.signal,
+      });
+      if (!response.ok || !response.body) {
+        throw new Error(`${response.status}: ${await response.text()}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (!controller.signal.aborted) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || '';
+        for (const event of events) {
+          const data = event.split('\n')
+            .filter(line => line.startsWith('data:'))
+            .map(line => line.slice(5).trimStart())
+            .join('\n');
+          if (data) onEvent(JSON.parse(data) as T);
+        }
+      }
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        onError?.(error instanceof Error ? error : new Error(String(error)));
+      }
+    }
+  })();
+
+  return () => controller.abort();
+}
+
 // ---- Models ----
 export const modelsApi = {
   list: () => request<any[]>('/models'),
@@ -87,6 +131,8 @@ export const evaluationsApi = {
       body: JSON.stringify({ modelName, datasetId, taskType }),
     }),
   cancel: (id: string) => request<any>(`/evaluations/${id}/cancel`, { method: 'POST' }),
+  subscribe: <T>(id: string, onEvent: (run: T) => void, onError?: (error: Error) => void) =>
+    subscribeToJsonEvents<T>(`/evaluations/${id}/events`, onEvent, onError),
   compare: (ids: string[]) => {
     const qs = ids.map(id => `ids=${encodeURIComponent(id)}`).join('&');
     return request<any>(`/evaluations/compare?${qs}`);

@@ -71,9 +71,24 @@ export default function Evaluation() {
   const hasActiveRuns = evaluations.some(run => !TERMINAL.has(run.status))
   useEffect(() => {
     if (!hasActiveRuns) return
-    const timer = window.setInterval(() => { void loadRuns() }, 2000)
+    const timer = window.setInterval(() => { void loadRuns() }, 10000)
     return () => window.clearInterval(timer)
   }, [hasActiveRuns, loadRuns])
+
+  // Subscribe to the selected active run for low-latency progress updates.
+  // The periodic refresh remains as a reconnect/fallback path.
+  useEffect(() => {
+    if (!selectedRun || TERMINAL.has(selectedRun.status)) return
+    const stop = evaluationsApi.subscribe<EvaluationRun>(
+      selectedRun.id,
+      run => {
+        setSelectedRun(run)
+        setEvaluations(current => current.map(item => item.id === run.id ? run : item))
+      },
+      () => { /* polling fallback keeps the page resilient to proxy timeouts */ },
+    )
+    return stop
+  }, [selectedRun?.id, selectedRun?.status])
 
   useEffect(() => {
     if (datasetId) {
