@@ -110,7 +110,13 @@ public class DatabaseMigrationRunner {
                         3,
                         "waste-weighing-trip-number",
                         checksum(3, "waste-weighing-trip-number", "trip_no"),
-                        this::ensureWasteWeighingColumns)
+                        this::ensureWasteWeighingColumns),
+                new MigrationDefinition(
+                        4,
+                        "multi-tenant-isolation",
+                        checksum(4, "multi-tenant-isolation",
+                                "tenant_id|model_config|datasets|dataset_entries|evaluation_runs|waste_vehicles|waste_applications|waste_audits|waste_weighings"),
+                        this::ensureTenantColumns)
         );
     }
 
@@ -184,6 +190,19 @@ public class DatabaseMigrationRunner {
     private void ensureWasteWeighingColumns() {
         ensureColumns("waste_weighings", List.of(
                 new ColumnDefinition("trip_no", "INTEGER NOT NULL DEFAULT 1")));
+    }
+
+    private void ensureTenantColumns() {
+        List<String> tables = List.of(
+                "model_config", "datasets", "dataset_entries", "evaluation_runs",
+                "waste_vehicles", "waste_applications", "waste_audits", "waste_weighings");
+        for (String table : tables) {
+            ensureColumns(table, List.of(
+                    new ColumnDefinition("tenant_id", "VARCHAR(64) DEFAULT 'default'")));
+            jdbc.update("UPDATE " + table
+                    + " SET tenant_id = ? WHERE tenant_id IS NULL OR tenant_id = ''",
+                    com.xnlp.server.tenant.TenantContext.DEFAULT_TENANT_ID);
+        }
     }
 
     private void ensureColumns(String table, List<ColumnDefinition> columns) {

@@ -816,6 +816,11 @@ proxy: { '/api': { target: 'http://localhost:8760', changeOrigin: true } }
 - ✅ 支持通过 values 切换 H2/MySQL/PostgreSQL、Spring AI provider、资源、节点调度与 TLS
 
 **Task 5.4** — 多租户数据隔离
+- ✅ API Key 支持 `tenant-id -> key` 映射；认证成功后租户从主体派生，不能由请求头越权覆盖
+- ✅ 未开启安全时支持 `X-Tenant-ID` 本地开发切换，租户 ID 经过格式校验，默认租户为 `default`
+- ✅ JDBC 的模型配置、数据集、评测运行和工程废弃物数据均带 tenant predicate；file/memory profile 通过租户目录和作用域 key 隔离
+- ✅ ModelRegistry 将 Spring AI provider runtime 作为全局共享资源，将租户加载的模型运行时按当前租户隔离
+- ✅ V4 兼容迁移为业务表补充 `tenant_id`，历史数据自动回填到 `default`
 
 ---
 
