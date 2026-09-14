@@ -1,5 +1,6 @@
 const BASE = '/api/v1/waste'
 const API_KEY = import.meta.env.VITE_XNLP_API_KEY?.trim();
+const TENANT_ID = import.meta.env.VITE_XNLP_TENANT_ID?.trim();
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const isMultipart = options?.body instanceof FormData
@@ -8,6 +9,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     headers: {
       ...(isMultipart ? {} : { 'Content-Type': 'application/json' }),
       ...(API_KEY ? { 'X-API-Key': API_KEY } : {}),
+      ...(TENANT_ID ? { 'X-Tenant-ID': TENANT_ID } : {}),
       ...(options?.headers as Record<string, string> || {}),
     },
   })

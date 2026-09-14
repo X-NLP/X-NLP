@@ -1,10 +1,14 @@
 const BASE = '/api/v1';
 const API_KEY = import.meta.env.VITE_XNLP_API_KEY?.trim();
+const TENANT_ID = import.meta.env.VITE_XNLP_TENANT_ID?.trim();
+
+const segment = (value: string) => encodeURIComponent(value);
 
 function headers(options?: RequestInit): Record<string, string> {
   return {
     'Content-Type': 'application/json',
     ...(API_KEY ? { 'X-API-Key': API_KEY } : {}),
+    ...(TENANT_ID ? { 'X-Tenant-ID': TENANT_ID } : {}),
     ...(options?.headers as Record<string, string> || {}),
   };
 }
@@ -81,23 +85,23 @@ function subscribeToJsonEvents<T>(
 // ---- Models ----
 export const modelsApi = {
   list: () => request<any[]>('/models'),
-  get: (name: string) => request<any>(`/models/${name}`),
+  get: (name: string) => request<any>(`/models/${segment(name)}`),
   create: (model: any) => request<any>('/models', { method: 'POST', body: JSON.stringify(model) }),
-  delete: (name: string) => request<void>(`/models/${name}`, { method: 'DELETE' }),
-  activate: (name: string) => request<any>(`/models/${name}/activate`, { method: 'POST' }),
-  unload: (name: string) => request<void>(`/models/${name}/unload`, { method: 'POST' }),
+  delete: (name: string) => request<void>(`/models/${segment(name)}`, { method: 'DELETE' }),
+  activate: (name: string) => request<any>(`/models/${segment(name)}/activate`, { method: 'POST' }),
+  unload: (name: string) => request<void>(`/models/${segment(name)}/unload`, { method: 'POST' }),
   capabilities: () => request<any>('/models/capabilities'),
   test: (name: string, payload: any) =>
-    request<any>(`/models/${name}/test`, { method: 'POST', body: JSON.stringify(payload) }),
+    request<any>(`/models/${segment(name)}/test`, { method: 'POST', body: JSON.stringify(payload) }),
   predict: (name: string, text: string) =>
-    request<any>(`/models/${name}/predict`, { method: 'POST', body: JSON.stringify({ text }) }),
+    request<any>(`/models/${segment(name)}/predict`, { method: 'POST', body: JSON.stringify({ text }) }),
   batchPredict: (name: string, requests: Array<{ text: string; modelName?: string }>) =>
-    request<any>(`/models/${name}/batch-predict`, {
+    request<any>(`/models/${segment(name)}/batch-predict`, {
       method: 'POST',
       body: JSON.stringify({ requests }),
     }),
   benchmark: (modelName: string, params?: Record<string, any>) =>
-    request<any>(`/benchmark/${modelName}`, { method: 'POST', body: JSON.stringify(params || {}) }),
+    request<any>(`/benchmark/${segment(modelName)}`, { method: 'POST', body: JSON.stringify(params || {}) }),
 };
 
 // ---- Datasets ----
