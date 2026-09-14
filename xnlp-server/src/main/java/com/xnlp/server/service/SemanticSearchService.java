@@ -37,8 +37,8 @@ public class SemanticSearchService {
         requireText(text, "text");
         requireText(textPair, "textPair");
         EmbeddingModel model = embeddingModel();
-        float[] queryVector = model.embed(text.strip());
-        float[] candidateVector = model.embed(textPair.strip());
+        float[] queryVector = requireVector(model.embed(text.strip()), "query");
+        float[] candidateVector = requireVector(model.embed(textPair.strip()), "candidate");
 
         Map<String, Object> result = new LinkedHashMap<>();
         double score = cosineSimilarity(queryVector, candidateVector);
@@ -68,8 +68,17 @@ public class SemanticSearchService {
                 .filter(entry -> entry.getInput() != null && !entry.getInput().isBlank())
                 .toList();
         EmbeddingModel model = embeddingModel();
-        float[] queryVector = model.embed(query.strip());
-        List<float[]> entryVectors = model.embed(entries.stream().map(EvaluationEntry::getInput).toList());
+        float[] queryVector = requireVector(model.embed(query.strip()), "query");
+        List<float[]> entryVectors = entries.isEmpty()
+                ? List.of()
+                : model.embed(entries.stream().map(EvaluationEntry::getInput).toList());
+        if (entryVectors == null || entryVectors.size() != entries.size()) {
+            throw new IllegalStateException("Embedding provider returned an unexpected number of vectors: expected "
+                    + entries.size() + ", got " + (entryVectors == null ? 0 : entryVectors.size()));
+        }
+        for (int index = 0; index < entryVectors.size(); index++) {
+            requireVector(entryVectors.get(index), "dataset entry " + index);
+        }
 
         List<Map<String, Object>> results = java.util.stream.IntStream.range(0, entries.size())
                 .mapToObj(index -> {
@@ -109,6 +118,13 @@ public class SemanticSearchService {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(name + " must not be blank");
         }
+    }
+
+    private static float[] requireVector(float[] vector, String name) {
+        if (vector == null || vector.length == 0) {
+            throw new IllegalStateException("Embedding provider returned an empty vector for " + name);
+        }
+        return vector;
     }
 
     static double cosineSimilarity(float[] left, float[] right) {

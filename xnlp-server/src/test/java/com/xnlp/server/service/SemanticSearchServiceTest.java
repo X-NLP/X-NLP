@@ -52,6 +52,42 @@ class SemanticSearchServiceTest {
     }
 
     @Test
+    void searchDataset_rejectsUnexpectedVectorCount() {
+        EmbeddingModel model = mock(EmbeddingModel.class);
+        when(model.embed("query")).thenReturn(new float[]{1, 0});
+        when(model.embed(List.of("closest", "farther")))
+                .thenReturn(List.of(new float[]{1, 0}));
+        EvaluationDataset dataset = new EvaluationDataset();
+        dataset.setId("dataset-1");
+        dataset.setEntries(List.of(
+                new EvaluationEntry("entry-1", "closest", "yes"),
+                new EvaluationEntry("entry-2", "farther", "no")));
+        DatasetService datasets = mock(DatasetService.class);
+        when(datasets.get("dataset-1")).thenReturn(Optional.of(dataset));
+
+        assertThatThrownBy(() -> new SemanticSearchService(providerOf(model), datasets)
+                .searchDataset("dataset-1", "query", 2))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("unexpected number of vectors");
+    }
+
+    @Test
+    void searchDataset_returnsEmptyResultsForDatasetWithoutInputEntries() {
+        EmbeddingModel model = mock(EmbeddingModel.class);
+        when(model.embed("query")).thenReturn(new float[]{1, 0});
+        EvaluationDataset dataset = new EvaluationDataset();
+        dataset.setId("dataset-1");
+        dataset.setEntries(List.of(new EvaluationEntry("entry-1", "", "yes")));
+        DatasetService datasets = mock(DatasetService.class);
+        when(datasets.get("dataset-1")).thenReturn(Optional.of(dataset));
+
+        Map<String, Object> response = new SemanticSearchService(providerOf(model), datasets)
+                .searchDataset("dataset-1", "query", 5);
+
+        assertThat(response.get("results")).asList().isEmpty();
+    }
+
+    @Test
     void searchDataset_rejectsInvalidTopK() {
         DatasetService datasets = mock(DatasetService.class);
         SemanticSearchService service = new SemanticSearchService(providerOf(mock(EmbeddingModel.class)), datasets);
