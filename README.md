@@ -107,6 +107,34 @@ curl -X POST http://localhost:8760/api/v1/pipelines/execute \
 GET /api/v1/pipelines/capabilities
 ```
 
+### Java SDK 与 CLI
+
+`xnlp-client` 提供基于 JDK `HttpClient` 的类型化 Java SDK，支持 API Key、租户、超时、自定义 HTTP 客户端和 Jackson 配置；覆盖模型资产、运行时模型、批量推理、数据集、异步评测、评测对比、SSE 进度以及 NLP/Pipeline/AI 扩展接口。
+
+```java
+try (XNLPClient client = XNLPClient.builder("http://localhost:8760")
+        .apiKey(System.getenv("XNLP_API_KEY"))
+        .tenantId(System.getenv().getOrDefault("XNLP_TENANT_ID", "default"))
+        .build()) {
+    System.out.println(client.health());
+    client.listModels().forEach(model -> System.out.println(model.getName()));
+}
+```
+
+CLI 由同一个 SDK 驱动，避免命令行和 REST 行为分叉：
+
+```bash
+java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar \
+  --server http://localhost:8760 \
+  --api-key "$XNLP_API_KEY" \
+  --tenant "$XNLP_TENANT_ID" health
+java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar models
+java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar dataset-list
+java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar evaluation-status <run-id>
+```
+
+非 2xx 响应会转换为带 HTTP 状态码和服务端错误信息的 SDK 异常；CLI 以简洁错误信息和退出码 `2` 结束。
+
 ### 异步评测 API
 
 评测提交不会阻塞 HTTP 请求，接口立即返回 `202 Accepted` 和 `Location`：
