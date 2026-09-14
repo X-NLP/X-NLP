@@ -249,10 +249,10 @@ mvn test -Dmaven.repo.local=/tmp/m2 -pl xnlp-core # 仅 core
 | 批量推理端点 | P1 | ✅ `POST /api/v1/models/{name}/batch-predict`，有界批量、顺序执行、逐项错误返回 |
 | 异步评测 | P1 | ✅ 有界线程池、进度持久化、取消接口和状态过滤已实现 |
 | 评测持久化 | P1 | ✅ 默认使用 Spring JDBC 写入 evaluation_runs；`memory` profile 仅用于临时实验 |
-| 模型热加载/卸载 | P1 | 从应用配置动态加载模型 |
+| 模型热加载/卸载 | P1 | ✅ 支持运行时 activate/unload，模型档案与运行时状态分离 |
 | 用户认证/授权 | P2 | ✅ 已提供可选 API Key + Spring Security；OAuth2/JWT 可作为后续 provider 扩展 |
-| SDK 完善 | P2 | `xnlp-client` Java SDK |
-| CLI 完善 | P2 | `xnlp-cli` 子命令 |
+| SDK 完善 | P2 | ✅ `xnlp-client` Java SDK 覆盖健康、模型、推理、数据集、评测、SSE 与扩展 API |
+| CLI 完善 | P2 | ✅ `xnlp-cli` 覆盖 health/models/capabilities/load/activate/unload/delete/predict/dataset/evaluation 工作流 |
 
 ### 3.3 前端待实现
 
@@ -816,11 +816,12 @@ proxy: { '/api': { target: 'http://localhost:8760', changeOrigin: true } }
 - ✅ 支持通过 values 切换 H2/MySQL/PostgreSQL、Spring AI provider、资源、节点调度与 TLS
 
 **Task 5.4** — 多租户数据隔离
-- ✅ API Key 支持 `tenant-id -> key` 映射；认证成功后租户从主体派生，不能由请求头越权覆盖
+- ✅ 通过 `X-Tenant-ID` 与 API Key tenant 映射确定请求租户，安全模式下认证租户优先于请求头
 - ✅ 未开启安全时支持 `X-Tenant-ID` 本地开发切换，租户 ID 经过格式校验，默认租户为 `default`
-- ✅ JDBC 的模型配置、数据集、评测运行和工程废弃物数据均带 tenant predicate；file/memory profile 通过租户目录和作用域 key 隔离
+- ✅ 模型档案、数据集、评测运行、运行时模型注册和工程废弃物业务数据均按租户隔离
+- ✅ JDBC、file、memory 三种存储实现保持一致隔离语义；file 使用租户目录，memory 使用作用域 key
 - ✅ ModelRegistry 将 Spring AI provider runtime 作为全局共享资源，将租户加载的模型运行时按当前租户隔离
-- ✅ V4 兼容迁移为业务表补充 `tenant_id`，历史数据自动回填到 `default`
+- ✅ V4 兼容迁移为业务表补充 `tenant_id`，历史数据自动回填到 `default`；`TenantIsolationIntegrationTest` 覆盖跨租户不可见和安全租户绑定场景
 
 ---
 
