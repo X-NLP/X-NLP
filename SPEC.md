@@ -35,7 +35,7 @@ NLP 当前处理能力参考 HanLP 常见功能体系，优先覆盖以下能力
 | 语义角色标注 | 谓词和论元角色识别 | 内置 demo runtime，真实模型 SPI 已预留 |
 | 文本分类 | 单标签/多标签分类 | 内置 demo runtime，评测类型已有 |
 | 情感分析 | 情感极性分类 | 内置 demo runtime，评测类型已有 |
-| 文本相似度/语义检索 | 依赖嵌入模型和向量检索 | 内置 demo runtime，真实向量检索链路待实现 |
+| 文本相似度/语义检索 | 依赖嵌入模型和向量检索 | ✅ Spring AI EmbeddingModel + 数据集 Top-K 语义搜索；未配置时回退 demo |
 | 排序 | query-document rerank | 模型资产类型已有，标准协议测试已有 |
 
 ### 大语言模型的定位

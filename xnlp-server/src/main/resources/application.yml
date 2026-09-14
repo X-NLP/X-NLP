@@ -25,14 +25,19 @@ spring:
     # Switch between providers without code changes: SPRING_AI_MODEL_CHAT=openai|ollama.
     model:
       chat: ${SPRING_AI_MODEL_CHAT:ollama}
+      embedding: ${SPRING_AI_MODEL_EMBEDDING:none}
     openai:
       api-key: ${OPENAI_API_KEY:}
       base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      embedding:
+        model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
       chat:
         model: ${OPENAI_CHAT_MODEL:gpt-4o-mini}
         temperature: ${OPENAI_TEMPERATURE:0.2}
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      embedding:
+        model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
       chat:
         model: ${OLLAMA_CHAT_MODEL:llama3.1}
         options:

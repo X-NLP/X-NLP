@@ -31,10 +31,13 @@ public class AIAssistantService {
 
     private final ObjectProvider<ChatModel> chatModels;
     private final ModelRegistry registry;
+    private final SemanticSearchService semanticSearchService;
 
-    public AIAssistantService(ObjectProvider<ChatModel> chatModels, ModelRegistry registry) {
+    public AIAssistantService(ObjectProvider<ChatModel> chatModels, ModelRegistry registry,
+                              SemanticSearchService semanticSearchService) {
         this.chatModels = chatModels;
         this.registry = registry;
+        this.semanticSearchService = semanticSearchService;
     }
 
     public Map<String, Object> status() {
@@ -42,6 +45,7 @@ public class AIAssistantService {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("available", model != null);
         result.put("provider", model == null ? null : providerName(model));
+        result.put("embeddingAvailable", semanticSearchService.isAvailable());
         result.put("models", registry.listModels().stream().map(info -> info.getName()).toList());
         result.put("checkedAt", Instant.now().toString());
         return result;

@@ -108,6 +108,11 @@ export const modelsApi = {
 export const datasetsApi = {
   list: () => request<any[]>('/datasets'),
   get: (id: string) => request<any>(`/datasets/${id}`),
+  semanticSearch: (id: string, query: string, topK = 5) =>
+    request<any>(`/datasets/${id}/semantic-search`, {
+      method: 'POST',
+      body: JSON.stringify({ query, topK }),
+    }),
   create: (dataset: any) => request<any>('/datasets', { method: 'POST', body: JSON.stringify(dataset) }),
   update: (id: string, dataset: any) =>
     request<any>(`/datasets/${id}`, { method: 'PUT', body: JSON.stringify(dataset) }),
@@ -155,6 +160,11 @@ export const nlpApi = {
   tasks: () => request<any[]>('/nlp/tasks'),
   analyze: (payload: any) =>
     request<any>('/nlp/analyze', { method: 'POST', body: JSON.stringify(payload) }),
+  semanticSimilarity: (text: string, textPair: string) =>
+    request<any>('/nlp/semantic-similarity', {
+      method: 'POST',
+      body: JSON.stringify({ text, textPair }),
+    }),
   classify: (modelName: string, text: string, categories: string[]) =>
     request<any>('/nlp/classify', { method: 'POST', body: JSON.stringify({ modelName, text, categories }) }),
   sentiment: (modelName: string, text: string) =>

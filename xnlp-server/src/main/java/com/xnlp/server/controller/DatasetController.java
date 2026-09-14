@@ -3,20 +3,29 @@ package com.xnlp.server.controller;
 import com.xnlp.core.eval.EvaluationDataset;
 import com.xnlp.core.eval.EvaluationEntry;
 import com.xnlp.server.service.DatasetService;
+import com.xnlp.server.service.SemanticSearchService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/datasets")
+@Validated
 public class DatasetController {
 
     private final DatasetService datasetService;
+    private final SemanticSearchService semanticSearchService;
 
-    public DatasetController(DatasetService datasetService) {
+    public DatasetController(DatasetService datasetService, SemanticSearchService semanticSearchService) {
         this.datasetService = datasetService;
+        this.semanticSearchService = semanticSearchService;
     }
 
     @GetMapping
@@ -57,6 +66,12 @@ public class DatasetController {
                 "total", ds.getEntryCount());
     }
 
+    @PostMapping("/{id}/semantic-search")
+    public Map<String, Object> semanticSearch(@PathVariable String id,
+                                               @Valid @RequestBody SemanticSearchRequest request) {
+        return semanticSearchService.searchDataset(id, request.query(), request.topK());
+    }
+
     @GetMapping("/{id}/export")
     public String exportJson(@PathVariable String id) {
         return datasetService.exportJson(id);
@@ -65,5 +80,12 @@ public class DatasetController {
     @GetMapping("/count")
     public Map<String, Integer> count() {
         return Map.of("count", datasetService.count());
+    }
+
+    public record SemanticSearchRequest(@NotBlank String query,
+                                        @Min(1) @Max(100) int topK) {
+        public SemanticSearchRequest {
+            if (topK == 0) topK = 5;
+        }
     }
 }

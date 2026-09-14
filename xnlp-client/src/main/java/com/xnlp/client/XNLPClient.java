@@ -282,6 +282,21 @@ public class XNLPClient implements AutoCloseable {
         return post("/api/v1/nlp/analyze", request, MAP);
     }
 
+    public Map<String, Object> semanticSimilarity(String text, String textPair) {
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("text", requireText(text, "text"));
+        request.put("textPair", requireText(textPair, "textPair"));
+        return post("/api/v1/nlp/semantic-similarity", request, MAP);
+    }
+
+    public Map<String, Object> semanticSearch(String datasetId, String query, int topK) {
+        if (topK < 1 || topK > 100) throw new IllegalArgumentException("topK must be between 1 and 100");
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("query", requireText(query, "query"));
+        request.put("topK", topK);
+        return post(path("/api/v1/datasets", datasetId) + "/semantic-search", request, MAP);
+    }
+
     public Map<String, Object> nlp(String operation, Map<String, Object> request) {
         return post("/api/v1/nlp/" + requireText(operation, "operation"), request, MAP);
     }
