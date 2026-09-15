@@ -12,3 +12,4 @@ run() {
 run npm run build --prefix xnlp-frontend
 run mvn test -pl xnlp-core -Dmaven.repo.local=/tmp/m2
 run mvn test -pl xnlp-server -am -Dmaven.repo.local=/tmp/m2
+run env XNLP_MAVEN_ARGS="-Dmaven.repo.local=/tmp/m2" tests/e2e/run-h2.sh

@@ -1,0 +1,34 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${XNLP_E2E_DB_NAME:-xnlp_e2e}
+      MYSQL_USER: ${XNLP_E2E_DB_USERNAME:-xnlp_e2e}
+      MYSQL_PASSWORD: ${XNLP_E2E_DB_PASSWORD:-xnlp_e2e}
+      MYSQL_ROOT_PASSWORD: ${XNLP_E2E_MYSQL_ROOT_PASSWORD:-xnlp_e2e_root}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    ports:
+      - "127.0.0.1:${XNLP_E2E_MYSQL_PORT:-13306}:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+    tmpfs:
+      - /var/lib/mysql
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${XNLP_E2E_DB_NAME:-xnlp_e2e}
+      POSTGRES_USER: ${XNLP_E2E_DB_USERNAME:-xnlp_e2e}
+      POSTGRES_PASSWORD: ${XNLP_E2E_DB_PASSWORD:-xnlp_e2e}
+    ports:
+      - "127.0.0.1:${XNLP_E2E_POSTGRES_PORT:-15432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+    tmpfs:
+      - /var/lib/postgresql/data

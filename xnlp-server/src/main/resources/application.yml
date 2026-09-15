@@ -93,7 +93,6 @@ xnlp:
     api-keys: ${XNLP_SECURITY_API_KEYS:}
     # Optional tenant -> API key map. Environment binding example:
     # XNLP_SECURITY_API_KEY_TENANTS_TENANT_A=secret-a
-    api-key-tenants: {}
   models:
     - name: ollama-default
       version: latest

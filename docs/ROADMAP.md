@@ -2,7 +2,7 @@
 
 > 审计日期：2026-09-15
 > 当前分支：`codex/release-0.3`
-> 审计基线提交：`e8dd3d6`
+> 审计基线提交：`c941e70`
 > 本文只记录当前工作区中可以由源码、构建结果或测试结果证明的状态；“已实现”不等于“生产环境已配置真实 provider”。
 
 ## 1. 当前产品定位
@@ -37,12 +37,12 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 
 | 验证项 | 结果 | 说明 |
 |---|---|---|
-| Maven 全量构建与测试 | ✅ `BUILD SUCCESS` | `mvn -s ~/.m2/settings-aliyun.xml -Dmaven.repo.local=/tmp/m2 verify`；53 tests，0 failures，0 errors，0 skipped |
+| Maven 全量构建与测试 | ✅ `BUILD SUCCESS` | `mvn -s ~/.m2/settings-aliyun.xml -Dmaven.repo.local=/tmp/m2 verify`；全部模块通过，0 failures，0 errors |
 | 前端生产构建 | ✅ 成功 | `npm run build`；TypeScript 编译与 Vite 打包均通过 |
 | 真实 Chat provider | ⚠️ 未在本次审计中验证 | 需要有效的 OpenAI API Key 或可访问的 Ollama 服务 |
 | 真实 Embedding provider | ⚠️ 未在本次审计中验证 | 需要配置 embedding provider；未配置时不能把 demo runtime 当成生产语义检索 |
-| MySQL / PostgreSQL 容器矩阵 | ⚠️ 未验证 | 当前有 profile、驱动和 Compose 配置，但还缺少本次审计中的真实数据库矩阵运行记录 |
-| 外部 E2E | ⚠️ 未完成 | `tests/` 目前没有完整的可执行外部 E2E 脚本 |
+| MySQL / PostgreSQL 容器矩阵 | ⚠️ 环境阻塞 | 已提供 `docker/compose.db-matrix.yml` 与 `tests/e2e/run-db-matrix.sh`；当前开发机没有 `docker` 命令，尚无真实容器运行证据 |
+| H2 外部 E2E | ✅ 成功 | `tests/e2e/run-h2.sh` 使用隔离数据库和确定性 mock provider，完整合同回归已通过并接入 GitHub Actions |
 
 > Maven 测试需要在允许嵌入式服务器绑定随机端口的环境运行。受限沙箱中出现的 `SocketException: Operation not permitted` 是环境限制；在允许本地端口的环境重新执行后通过。
 
@@ -69,7 +69,7 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 4. **Model Playground 与 Benchmark 页面（已完成核心闭环）**
    - Playground 已支持模型选择、非流式预测、Provider 诊断、参数编辑、响应与错误元数据。
    - Benchmark 已支持参数边界、并发执行、P50/P95/P99、吞吐量、成功率、失败诊断、历史记录和结果对比。
-   - 未完成：浏览器自动化回归，以及首版流式输出/token 使用量等增强能力。
+   - Playwright 已覆盖 Playground 成功、稳定错误合同、空状态和重复提交保护；首版流式输出/token 使用量仍待增强。
 
 5. **模型详情与运行时操作（Release 0.3 已完成）**
    - Models 页面已分离配置档案与 `/models/runtime` 可调用实例，显示 provider、协议、模型版本、runtime 类型和加载时间，并支持 activate/unload/test 反馈。
@@ -115,7 +115,7 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 - R0.3-3：Model Playground（已完成，含 Playwright 成功/失败/空状态回归）；
 - R0.3-4：Benchmark 页面与 SDK/CLI 对齐（已完成）；
 - R0.3-5：模型详情、激活、卸载和运行时状态（已完成）；
-- R0.3-6：外部 E2E 基础脚本（待 T-07）。
+- R0.3-6：外部 E2E 基础脚本（H2 已完成；MySQL/PostgreSQL runner 已就绪但受本机 Docker 缺失阻塞）。
 
 **完成标准**：新用户使用 H2 + Ollama 或 OpenAI-compatible provider，能够完成“配置/检查 provider → 选择模型 → 预测 → 查看错误/耗时 → benchmark”，并有自动化测试证明。
 
@@ -158,4 +158,4 @@ Release 0.3 的候选 WBS、输入/输出/依赖和验收门禁见 [`RELEASE-0.3
 
 推荐执行顺序：**B + D → A + C → E**。
 
-当前已选择 B + D，并按 `codex/release-0.3` 主线实施；T-04 与 T-08 已完成，下一步实施 T-07 外部 E2E 与数据库矩阵。
+当前已选择 B + D，并按 `codex/release-0.3` 主线实施；T-01～T-06、T-08 已完成，T-07 的 H2 外部 E2E 已通过并接入 CI，MySQL/PostgreSQL 等待具备 Docker 的环境执行真实矩阵。

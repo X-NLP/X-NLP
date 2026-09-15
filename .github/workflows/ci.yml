@@ -33,6 +33,11 @@ jobs:
       - name: Verify backend
         run: mvn -B -ntp verify
 
+      - name: Run H2 external E2E
+        env:
+          XNLP_E2E_SKIP_BUILD: 'true'
+        run: tests/e2e/run-h2.sh
+
       - name: Build frontend
         run: npm ci --prefix xnlp-frontend && npm run build --prefix xnlp-frontend
 

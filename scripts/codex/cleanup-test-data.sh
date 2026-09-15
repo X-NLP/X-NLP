@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL="${XNLP_API_BASE:-http://127.0.0.1:8080}"
+BASE_URL="${XNLP_API_BASE:-http://127.0.0.1:8760}"
 APPLY="false"
 PREFIX_REGEX='^(ui-test-|ui-reg-|codex-test-|debug-)'
 

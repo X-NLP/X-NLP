@@ -91,6 +91,27 @@ mvn -pl xnlp-server -am package -DskipTests && \
 SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.1.0.jar
 ```
 
+### Release 0.3 外部 E2E 与数据库矩阵
+
+H2 基线会构建服务端、创建隔离的临时数据库、启动确定性的 OpenAI-compatible mock provider，验证健康检查、Provider 诊断、模型配置/激活/预测、Benchmark、Dataset CRUD、稳定错误合同与测试数据清理：
+
+```bash
+./tests/e2e/run-h2.sh
+```
+
+脚本默认使用 `127.0.0.1:18760` 和 `127.0.0.1:18880`，可通过 `XNLP_E2E_API_PORT`、`XNLP_E2E_PROVIDER_PORT` 覆盖。已有构建产物时可设置 `XNLP_E2E_SKIP_BUILD=true`。GitHub Actions 的 `verify` job 会将 H2 外部 E2E 作为必跑步骤。
+
+MySQL/PostgreSQL 使用临时容器执行同一套合同测试，不依赖开发数据库，也不会持久化测试卷：
+
+```bash
+./tests/e2e/run-db-matrix.sh mysql
+./tests/e2e/run-db-matrix.sh postgres
+# 或顺序执行两种数据库
+./tests/e2e/run-db-matrix.sh all
+```
+
+需要 Docker Compose。数据库名称、测试账号、密码和映射端口可分别通过 `XNLP_E2E_DB_NAME`、`XNLP_E2E_DB_USERNAME`、`XNLP_E2E_DB_PASSWORD`、`XNLP_E2E_MYSQL_PORT`、`XNLP_E2E_POSTGRES_PORT` 覆盖；不要在共享或生产数据库上运行 E2E。
+
 ### Spring AI Embedding 语义检索
 
 在配置 embedding provider 后，工作台的 `STS` 能力会优先使用 Spring AI `EmbeddingModel`，并可直接对评测数据集执行按租户隔离的 Top-K 语义搜索：
