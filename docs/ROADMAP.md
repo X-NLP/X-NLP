@@ -140,14 +140,14 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 
 ## 5. 本轮规划决策点
 
-Release 0.3 的候选 WBS、输入/输出/依赖和验收门禁见 [`RELEASE-0.3-PLAN.md`](RELEASE-0.3-PLAN.md)。
+Release 0.3 的执行记录见 [`RELEASE-0.3-PLAN.md`](RELEASE-0.3-PLAN.md)；Release 0.4 的接口合同、数据变更、WBS 与验收门禁见 [`RELEASE-0.4-PLAN.md`](RELEASE-0.4-PLAN.md)。
 
-当前执行 **R0.3（API 工程化 + Provider 诊断 + Playground/Benchmark）**，理由是：
+Release 0.3 的本地实现已收口；当前进入 **R0.4（真实 NLP Runtime + 可持久化 RAG）**，默认先实施 T-01～T-03，理由是：
 
-- 现有后端核心能力已较完整，前端缺口集中且可以快速形成可演示闭环；
-- 先统一接口合同，后续真实 NLP、RAG、企业安全都能复用；
-- Provider 诊断能直接解决“服务能启动但不能推理”的最大体验问题；
-- 完成后可用外部 E2E 作为后续每个版本的回归基线。
+- Release 0.3 已建立稳定 API/error contract、Provider 诊断和外部 E2E 基线；
+- 当前语义搜索仍是临时 embedding + 应用内 Top-K，服务重启后没有可复用索引；
+- 先完成项目级 Vector Store SPI 和可移植 JDBC 实现，可继续满足 H2/MySQL/PostgreSQL 切换要求；
+- 文档导入、增量索引和检索合同稳定后，Rerank、RAG Chat、Knowledge UI 与评测可以复用同一底座。
 
 可选的下一步方向：
 
@@ -159,4 +159,4 @@ Release 0.3 的候选 WBS、输入/输出/依赖和验收门禁见 [`RELEASE-0.3
 
 推荐执行顺序：**B + D → A + C → E**。
 
-当前已选择 B + D，并按 `codex/release-0.3` 主线实施；T-01～T-06、T-08 已完成，T-07 的 H2 外部 E2E 已通过，MySQL/PostgreSQL 矩阵已接入 CI，等待远端运行形成真实验证证据。
+Release 0.3 已按 B + D 完成本地实施；当前已创建 `codex/release-0.4` 版本主线，并按默认方案进入 T-01 RAG 合同、T-02 Vector Store SPI、T-03 文档增量索引。Release 0.3 的 MySQL/PostgreSQL、Helm 仍需推送后由远端 CI 形成最终验证证据。
