@@ -24,7 +24,11 @@ public record RagRequest(
         @Size(max = 190, message = "conversationId must not exceed 190 characters")
         String conversationId,
         @Size(max = 20_000, message = "systemPrompt must not exceed 20000 characters")
-        String systemPrompt) {
+        String systemPrompt,
+        InsufficientContextPolicy insufficientContextPolicy,
+        @Min(value = 100, message = "timeoutMs must be at least 100")
+        @Max(value = 120_000, message = "timeoutMs must not exceed 120000")
+        Long timeoutMs) {
 
     public RagRequest {
         if (topK == null) {
@@ -33,10 +37,28 @@ public record RagRequest(
         if (maxContextChunks == null) {
             maxContextChunks = Math.min(topK, 8);
         }
+        if (insufficientContextPolicy == null) {
+            insufficientContextPolicy = InsufficientContextPolicy.REJECT;
+        }
+    }
+
+    public RagRequest(
+            String message,
+            Integer topK,
+            Double minScore,
+            Integer maxContextChunks,
+            String conversationId,
+            String systemPrompt) {
+        this(message, topK, minScore, maxContextChunks, conversationId, systemPrompt, null, null);
     }
 
     @jakarta.validation.constraints.AssertTrue(message = "maxContextChunks must not exceed topK")
     public boolean isContextLimitValid() {
         return maxContextChunks == null || topK == null || maxContextChunks <= topK;
+    }
+
+    public enum InsufficientContextPolicy {
+        REJECT,
+        ANSWER_WITH_LOW_CONFIDENCE
     }
 }

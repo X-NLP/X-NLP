@@ -1,8 +1,8 @@
 # X-NLP 产品路线图与实现审计
 
 > 审计日期：2026-09-15
-> 当前分支：`codex/release-0.3`
-> 审计基线：`codex/release-0.3` 本地版本主线（以本文审计日期的工作树和 Git 历史为准）
+> 当前分支：`codex/release-0.4-t-05-rag-chat`
+> 审计基线：Release 0.4 T-05 本地实现（以本文审计日期的工作树和 Git 历史为准）
 > 本文只记录当前工作区中可以由源码、构建结果或测试结果证明的状态；“已实现”不等于“生产环境已配置真实 provider”。
 
 ## 1. 当前产品定位
@@ -26,6 +26,7 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 | 模型资产 | 模型档案 CRUD、能力目录、激活、卸载、测试、运行时列表 | `xnlp-server/src/main/java/com/xnlp/server/controller/ModelController.java`、`ModelCatalogService.java` |
 | Chat AI | Spring AI ChatModel；OpenAI-compatible 与 Ollama 配置切换 | `xnlp-server/src/main/resources/application.yml`、`SpringAIRuntimeBridge.java` |
 | Embedding AI | 语义相似度、数据集 Top-K 语义搜索、provider 响应校验 | `SemanticSearchService.java`、`NLPTaskController.java`、`DatasetController.java` |
+| 可持久化 RAG | 知识库/文档导入、确定性切分、增量 embedding、JDBC 向量存储、过滤检索、可选 rerank、可信引用 RAG Chat | `KnowledgeIngestionService.java`、`JdbcKnowledgeVectorStore.java`、`RetrievalService.java`、`RagChatService.java` |
 | NLP 组件 | TOK、POS、NER、DEP、SDP、SRL、CON、AMR、KEYPHRASE、摘要、纠错、分类、情感、STS、TST 等能力目录与 demo runtime | `xnlp-server/src/main/java/com/xnlp/server/component/impl/`、`CapabilityRegistry.java` |
 | Pipeline | 有序节点执行、节点状态、节点结果、失败后跳过、traceId 与耗时 | `PipelineTraceService.java`、`PipelineController.java`、`xnlp-core/src/main/java/com/xnlp/core/api/` |
 | 评测 | 异步队列、进度持久化、取消、SSE、指标计算、历史过滤、评测对比 | `EvaluationService.java`、`EvaluationController.java`、`EvaluationRunEntity.java` |
@@ -122,11 +123,12 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 
 ### Release 0.4：真实 NLP 与 RAG
 
-- R0.4-1：落地首个真实 NLP runtime；
-- R0.4-2：向量存储 SPI 与第一种持久化实现；
-- R0.4-3：文档切分、批量导入、增量更新；
-- R0.4-4：Rerank 协议适配与检索链路；
-- R0.4-5：Semantic Search 页面与检索评测。
+- R0.4-1：落地首个真实 NLP runtime（下一任务 T-06）；
+- R0.4-2：向量存储 SPI 与第一种持久化实现（已完成）；
+- R0.4-3：文档切分、批量导入、增量更新（已完成）；
+- R0.4-4：Rerank 协议适配与检索链路（已完成）；
+- R0.4-5：RAG Chat 与可信引用（已完成）；
+- R0.4-6：Knowledge UI 与检索评测（待实施）。
 
 **完成标准**：数据集/文档导入后可重复检索，重启服务后向量仍可用，更新和删除能同步，检索结果可以被评测。
 
@@ -159,4 +161,4 @@ Release 0.3 的本地实现已收口；当前进入 **R0.4（真实 NLP Runtime 
 
 推荐执行顺序：**B + D → A + C → E**。
 
-Release 0.3 已按 B + D 完成本地实施；当前已创建 `codex/release-0.4` 版本主线，T-01 RAG 合同、T-02 可移植 JDBC Vector Store、T-03 文档导入与增量索引、T-04 Retrieval 与 Rerank 已于 2026-09-15 完成本地实现与 `mvn verify`，形成“导入 → 切分 → embedding → 持久化 → 过滤检索 → 可选 rerank”的可观测闭环。下一步按版本任务分支实施 T-05 RAG Chat 与可信引用。Release 0.3 的 MySQL/PostgreSQL、Helm，以及 Release 0.4 当前增量仍需推送后由远端 CI 形成最终验证证据。
+Release 0.3 已按 B + D 完成本地实施；Release 0.4 的 T-01～T-05 已于 2026-09-15 完成本地实现与 `mvn verify`，形成“导入 → 切分 → embedding → 持久化 → 过滤检索 → 可选 rerank → grounded RAG → canonical citation”的可观测闭环。T-05 目标测试 16 条通过、Quality Gate `PASS`（0 findings），完整 server 测试为 83 条。下一步按版本任务分支实施 T-06 首个真实 NLP Runtime，再进入 T-07 Knowledge UI。Release 0.3 的 MySQL/PostgreSQL、Helm，以及 Release 0.4 当前增量仍需推送后由远端 CI 形成最终验证证据。

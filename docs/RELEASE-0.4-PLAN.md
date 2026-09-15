@@ -151,7 +151,7 @@ codex/release-0.4-t-09-release-gates
 | T-02 | Vector Store SPI 与 JDBC 实现 | 可移植 schema、repository、cosine Top-K、租户隔离 | T-01 | 已完成（2026-09-15） |
 | T-03 | 文档导入与增量索引 | chunker、checksum、embedding、异步 job、增删改同步 | T-02 | 已完成（2026-09-15） |
 | T-04 | Retrieval 与 Rerank | 检索 API、过滤、reranker SPI/provider adapter、链路观测 | T-03 | 已完成（2026-09-15） |
-| T-05 | RAG Chat 与引用 | context assembler、ChatClient、citation 校验、错误与超时 | T-04 | 待实施 |
+| T-05 | RAG Chat 与引用 | context assembler、ChatClient、citation 校验、错误与超时 | T-04 | 已完成（2026-09-15） |
 | T-06 | 首个真实 NLP Runtime | `NlpRuntime` SPI、ONNX Runtime Java 适配、模型版本/checksum/释放 | T-01 | 待实施 |
 | T-07 | Knowledge UI | 知识库、文档、索引任务、语义搜索、RAG 调试页面 | T-03～T-05 | 待实施 |
 | T-08 | 检索评测与 E2E | Recall@K/MRR/nDCG、样本结果、H2 E2E、数据库矩阵 | T-04、T-07 | 待实施 |
@@ -236,6 +236,17 @@ codex/release-0.4-t-09-release-gates
 - 无足够上下文时按请求策略拒答或明确标记低置信；
 - 引用只能指向返回的 chunk；
 - 支持请求级超时和取消，错误合同与 Release 0.3 一致。
+
+### T-05 实施记录（2026-09-15）
+
+- 新增 `POST /api/v1/knowledge-bases/{knowledgeBaseId}/rag`，复用 T-04 `RetrievalService`，通过 Spring AI `ChatModel` / `ChatClient` 完成检索增强生成；
+- 上下文按 `[S1]`、`[S2]` 稳定编号，受 chunk 数量和字符预算双重限制；来源字段与正文执行 XML 转义，并在自定义 system prompt 之后追加不可覆盖的 grounding/citation 规则；
+- citation 只从 canonical `RetrievalMatch` 映射，未知标签会被移除，重复标签按首次引用顺序去重，返回的引用继续受 `RagAnswer` 检索结果合同校验；
+- 无检索结果或预算内无法容纳任何来源时，统一按 `REJECT` / `ANSWER_WITH_LOW_CONFIDENCE` 策略处理，避免空上下文被误标为高置信；
+- 新增有界 RAG executor、请求级超时、取消和饱和保护；provider 空响应、异常和元数据解析失败均映射为稳定且不携带原始敏感 cause 的错误；
+- 返回 token usage、模型/provider、总耗时和 traceId，并通过 `xnlp.rag.chat` observation 接入现有可观测链路；
+- 目标测试共 16 条通过；Quality Gate 为 `PASS`（0 findings）；`mvn verify` 于 2026-09-15 在允许 RANDOM_PORT 绑定的本地环境通过，server 共 83 条测试，core/server/client/cli 全部 `BUILD SUCCESS`；
+- 下一任务按版本规划进入 T-06：首个真实 NLP Runtime（ONNX Runtime 方向）。
 
 ### T-06 首个真实 NLP Runtime
 

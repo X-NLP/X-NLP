@@ -11,6 +11,7 @@ import java.util.Map;
 public record RagAnswer(
         String answer,
         List<Citation> citations,
+        boolean lowConfidence,
         RetrievalResult retrieval,
         String model,
         String provider,
@@ -38,6 +39,18 @@ public record RagAnswer(
         } else if (!citations.isEmpty()) {
             throw new IllegalArgumentException("citations require a retrieval result");
         }
+    }
+
+    public RagAnswer(
+            String answer,
+            List<Citation> citations,
+            RetrievalResult retrieval,
+            String model,
+            String provider,
+            Map<String, Object> usage,
+            long elapsedMs,
+            String traceId) {
+        this(answer, citations, false, retrieval, model, provider, usage, elapsedMs, traceId);
     }
 
     private record CitationSource(String documentId, String chunkId) {

@@ -48,11 +48,25 @@ class ApiContractDtoTest {
         assertThat(search.rerankTopN()).isEqualTo(5);
         assertThat(validator.validate(rag)).isEmpty();
         assertThat(rag.maxContextChunks()).isEqualTo(3);
+        assertThat(rag.insufficientContextPolicy())
+                .isEqualTo(RagRequest.InsufficientContextPolicy.REJECT);
+        assertThat(rag.timeoutMs()).isNull();
+
+        RagRequest lowConfidence = new RagRequest(
+                "summarize", 3, null, 2, "conversation", null,
+                RagRequest.InsufficientContextPolicy.ANSWER_WITH_LOW_CONFIDENCE, 5_000L);
+        assertThat(validator.validate(lowConfidence)).isEmpty();
+        assertThat(lowConfidence.timeoutMs()).isEqualTo(5_000L);
 
         KnowledgeSearchRequest invalid = new KnowledgeSearchRequest(
                 "query", 2, null, null, true, 3);
         assertThat(validator.validate(invalid)).extracting(v -> v.getPropertyPath().toString())
                 .contains("rerankTopNValid");
+
+        RagRequest invalidRag = new RagRequest(
+                "query", 2, null, 3, null, null, null, 99L);
+        assertThat(validator.validate(invalidRag)).extracting(v -> v.getPropertyPath().toString())
+                .contains("contextLimitValid", "timeoutMs");
     }
 
     @Test

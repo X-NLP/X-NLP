@@ -86,4 +86,23 @@ class RagContractsTest {
         assertThat(error.getErrorCode().kind()).isEqualTo(RagErrorCode.Kind.UNPROCESSABLE);
         assertThat(error.getDetail()).containsEntry("actual", 768);
     }
+    @Test
+    void ragAnswer_exposesLowConfidenceAndKeepsLegacyConstructorCompatibility() {
+        RetrievalMatch match = new RetrievalMatch(
+                "doc-1", "chunk-1", "Guide", "retrieved text", null,
+                0.8, null, Map.of());
+        RetrievalResult retrieval = new RetrievalResult(
+                "question", List.of(match), "embed-v1", null, 12, "trace-1");
+
+        RagAnswer lowConfidence = new RagAnswer(
+                "ungrounded answer", List.of(), true, retrieval,
+                "chat-v1", "mock", Map.of(), 20, "trace-1");
+        RagAnswer compatible = new RagAnswer(
+                "grounded answer", List.of(), retrieval,
+                "chat-v1", "mock", Map.of(), 20, "trace-1");
+
+        assertThat(lowConfidence.lowConfidence()).isTrue();
+        assertThat(compatible.lowConfidence()).isFalse();
+    }
+
 }
