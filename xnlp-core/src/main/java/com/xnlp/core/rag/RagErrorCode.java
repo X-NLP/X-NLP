@@ -13,6 +13,7 @@ public enum RagErrorCode {
     REINDEX_IN_PROGRESS("reindex_in_progress", Kind.CONFLICT),
     CONTENT_TOO_LARGE("content_too_large", Kind.INVALID_REQUEST),
     VECTOR_DIMENSION_MISMATCH("vector_dimension_mismatch", Kind.UNPROCESSABLE),
+    VECTOR_STORE_CAPACITY_EXCEEDED("vector_store_capacity_exceeded", Kind.UNAVAILABLE),
     PROVIDER_UNCONFIGURED("provider_unconfigured", Kind.UNAVAILABLE),
     RERANKER_UNAVAILABLE("reranker_unavailable", Kind.UNAVAILABLE),
     INSUFFICIENT_CONTEXT("insufficient_context", Kind.UNPROCESSABLE),

@@ -3,6 +3,7 @@ package com.xnlp.server.config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
@@ -43,6 +44,7 @@ public class DatabaseMigrationRunner {
     private static final Logger log = LoggerFactory.getLogger(DatabaseMigrationRunner.class);
     private static final String HISTORY_TABLE = "xnlp_schema_history";
     private static final String BASELINE_RESOURCE = "db/migration/V1__baseline.sql";
+    private static final String RAG_STORAGE_RESOURCE = "db/migration/V5__rag-storage.sql";
 
     private final JdbcTemplate jdbc;
     private final DataSource dataSource;
@@ -116,7 +118,16 @@ public class DatabaseMigrationRunner {
                         "multi-tenant-isolation",
                         checksum(4, "multi-tenant-isolation",
                                 "tenant_id|model_config|datasets|dataset_entries|evaluation_runs|waste_vehicles|waste_applications|waste_audits|waste_weighings"),
-                        this::ensureTenantColumns)
+                        this::ensureTenantColumns),
+                new MigrationDefinition(
+                        5,
+                        "rag-storage",
+                        checksum(5, "rag-storage", readResource(RAG_STORAGE_RESOURCE)
+                                + "|knowledge_documents_kb:tenant_id,knowledge_base_id,updated_at"
+                                + "|knowledge_chunks_document:tenant_id,knowledge_base_id,document_id,seq"
+                                + "|knowledge_embeddings_search:tenant_id,knowledge_base_id,embedding_model"
+                                + "|ingestion_jobs_kb:tenant_id,knowledge_base_id,created_at"),
+                        this::createRagStorage)
         );
     }
 
@@ -175,6 +186,68 @@ public class DatabaseMigrationRunner {
         } catch (Exception ex) {
             throw new IllegalStateException("Migration V" + migration.version() + "__" + migration.description() + " failed", ex);
         }
+    }
+
+    private void createRagStorage() {
+        String script = readResource(RAG_STORAGE_RESOURCE)
+                .replace("__LARGE_TEXT__", largeTextType());
+        new ResourceDatabasePopulator(new ByteArrayResource(script.getBytes(StandardCharsets.UTF_8)))
+                .execute(dataSource);
+        ensureIndex("knowledge_documents", "knowledge_documents_kb", """
+                CREATE INDEX knowledge_documents_kb
+                ON knowledge_documents (tenant_id, knowledge_base_id, updated_at)
+                """);
+        ensureIndex("knowledge_chunks", "knowledge_chunks_document", """
+                CREATE INDEX knowledge_chunks_document
+                ON knowledge_chunks (tenant_id, knowledge_base_id, document_id, seq)
+                """);
+        ensureIndex("knowledge_embeddings", "knowledge_embeddings_search", """
+                CREATE INDEX knowledge_embeddings_search
+                ON knowledge_embeddings (tenant_id, knowledge_base_id, embedding_model)
+                """);
+        ensureIndex("ingestion_jobs", "ingestion_jobs_kb", """
+                CREATE INDEX ingestion_jobs_kb
+                ON ingestion_jobs (tenant_id, knowledge_base_id, created_at)
+                """);
+    }
+
+    private String largeTextType() {
+        try (Connection connection = dataSource.getConnection()) {
+            String product = connection.getMetaData().getDatabaseProductName();
+            return product != null && product.toLowerCase(java.util.Locale.ROOT).contains("mysql")
+                    ? "LONGTEXT" : "TEXT";
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed to detect database text capabilities", ex);
+        }
+    }
+
+    private void ensureIndex(String table, String indexName, String createSql) {
+        try (Connection connection = dataSource.getConnection()) {
+            DatabaseMetaData metadata = connection.getMetaData();
+            if (hasIndex(metadata, connection, table, indexName)) {
+                return;
+            }
+            jdbc.execute(createSql);
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed to create index " + indexName, ex);
+        }
+    }
+
+    private boolean hasIndex(DatabaseMetaData metadata, Connection connection, String table, String indexName)
+            throws SQLException {
+        String catalog = connection.getCatalog();
+        String schema = connection.getSchema();
+        for (String tablePattern : List.of(table, table.toUpperCase(), table.toLowerCase())) {
+            try (ResultSet indexes = metadata.getIndexInfo(catalog, schema, tablePattern, false, false)) {
+                while (indexes.next()) {
+                    String existing = indexes.getString("INDEX_NAME");
+                    if (existing != null && existing.equalsIgnoreCase(indexName)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private void ensureEvaluationRunColumns() {

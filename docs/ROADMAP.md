@@ -159,4 +159,4 @@ Release 0.3 的本地实现已收口；当前进入 **R0.4（真实 NLP Runtime 
 
 推荐执行顺序：**B + D → A + C → E**。
 
-Release 0.3 已按 B + D 完成本地实施；当前已创建 `codex/release-0.4` 版本主线，T-01 RAG 合同已于 2026-09-15 完成本地实现与 `mvn verify`，下一步按默认方案实施 T-02 Vector Store SPI 与 T-03 文档增量索引。Release 0.3 的 MySQL/PostgreSQL、Helm 仍需推送后由远端 CI 形成最终验证证据。
+Release 0.3 已按 B + D 完成本地实施；当前已创建 `codex/release-0.4` 版本主线，T-01 RAG 合同和 T-02 可移植 JDBC Vector Store 已于 2026-09-15 完成本地实现与 `mvn verify`。下一步按版本任务分支实施 T-03 文档导入与增量索引，形成“导入 → 切分 → embedding → 持久化 → 更新/删除同步”的最小闭环。Release 0.3 的 MySQL/PostgreSQL、Helm 仍需推送后由远端 CI 形成最终验证证据。

@@ -148,7 +148,7 @@ codex/release-0.4-t-09-release-gates
 | 任务 | 内容 | 输出 | 依赖 | 状态 |
 |---|---|---|---|---|
 | T-01 | RAG 领域合同与 API DTO | core 模型、SPI 合同、DTO 校验、OpenAPI/error contract 测试 | Release 0.3 | 已完成（2026-09-15） |
-| T-02 | Vector Store SPI 与 JDBC 实现 | 可移植 schema、repository、cosine Top-K、租户隔离 | T-01 | 待实施 |
+| T-02 | Vector Store SPI 与 JDBC 实现 | 可移植 schema、repository、cosine Top-K、租户隔离 | T-01 | 已完成（2026-09-15） |
 | T-03 | 文档导入与增量索引 | chunker、checksum、embedding、异步 job、增删改同步 | T-02 | 待实施 |
 | T-04 | Retrieval 与 Rerank | 检索 API、过滤、reranker SPI/provider adapter、链路观测 | T-03 | 待实施 |
 | T-05 | RAG Chat 与引用 | context assembler、ChatClient、citation 校验、错误与超时 | T-04 | 待实施 |
@@ -182,6 +182,17 @@ codex/release-0.4-t-09-release-gates
 - 向量插入、按知识库删除、按文档删除、Top-K、minScore、metadata filter 有测试；
 - 维度不一致明确失败，不静默截断；
 - 所有 SQL 带租户条件；H2 集成测试证明租户隔离和服务重启后数据可读。
+
+### T-02 实施记录（2026-09-15）
+
+- 新增 `knowledge_bases`、`knowledge_documents`、`knowledge_chunks`、`knowledge_embeddings`、`ingestion_jobs` 五张 RAG 表；主键和关联查询均显式包含 `tenant_id`；
+- 数据库迁移按 JDBC product name 将大文本列适配为 MySQL `LONGTEXT` 或 H2/PostgreSQL `TEXT`，索引通过 metadata 判重后创建，避免绑定单一数据库方言；
+- 新增知识库、文档、chunk、导入任务 repository 合同，为 T-03 JDBC adapter 和异步索引编排提供稳定边界；
+- `JdbcKnowledgeVectorStore` 使用 JSON embedding 持久化、应用侧有界 cosine Top-K、稳定同分排序、`minScore` 和合并后的 document/chunk/vector metadata filter；
+- upsert 使用 update → insert → duplicate retry update，支持同一 `(tenant, chunk, model)` 幂等替换；搜索候选上限为 10,000，超限返回稳定错误码；
+- tenant ID 在 upsert/search/delete/count 入口统一规范化；持久化向量的声明维度、实际长度和有限数值在计算前校验；
+- H2 集成测试覆盖 Top-K、过滤、阈值、upsert 替换、删除、租户隔离、维度错误和数据库损坏防御；文件数据库测试覆盖关闭并重新打开后的向量可检索；
+- 目标测试共 6 条通过；`mvn verify` 于 2026-09-15 本地通过，core/server/client/cli 全部 `BUILD SUCCESS`。
 
 ### T-03 文档导入与增量索引
 
