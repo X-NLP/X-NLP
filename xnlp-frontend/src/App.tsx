@@ -9,6 +9,7 @@ const Compare = lazy(() => import('./pages/Compare'))
 const Datasets = lazy(() => import('./pages/Datasets'))
 const Evaluation = lazy(() => import('./pages/Evaluation'))
 const Models = lazy(() => import('./pages/Models'))
+const Knowledge = lazy(() => import('./pages/Knowledge'))
 const Playground = lazy(() => import('./pages/Playground'))
 const Benchmark = lazy(() => import('./pages/Benchmark'))
 const NlpWorkbench = lazy(() => import('./pages/NlpWorkbench'))
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="/benchmark" element={<Benchmark />} />
           <Route path="/nlp" element={<NlpWorkbench />} />
           <Route path="/datasets" element={<Datasets />} />
+          <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/evaluation" element={<Evaluation />} />
           <Route path="/canvas" element={<Canvas />} />
           <Route path="/compare" element={<Compare />} />

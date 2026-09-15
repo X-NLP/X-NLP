@@ -273,6 +273,15 @@ codex/release-0.4-t-09-release-gates
 - 沿用 Release 0.3 的设计系统、响应式布局和可访问交互；
 - Playwright 覆盖创建知识库、导入、检索、RAG 引用和 provider 未配置状态。
 
+### T-07 实施记录（2026-09-15）
+
+- `xnlp-frontend` 新增 `/knowledge` 工作台和侧边栏入口，复用 Release 0.3 的 surface、按钮、表格、状态色与响应式布局体系；
+- 知识库列表、创建表单、文本导入、索引状态自动轮询、文档级失败原因、空态、加载态、请求错误和部分失败状态形成完整 UI 生命周期；
+- 检索调试器直接调用既有 `/search` 合同，同时展示原始 retrieval score、可选 rerank score、embedding/reranker、延迟和 chunk 标识；
+- Grounded chat 直接调用既有 `/rag` 合同，展示模型、provider、低置信度、trace 和服务端校验后的 canonical citations；`provider_unconfigured` 映射为可操作配置提示且不隐藏检索能力；
+- API client 新增与后端 record 一致的 Knowledge/Retrieval/RAG TypeScript 合同，不新增前端依赖或后端接口；
+- Playwright 新增 5 条测试，覆盖创建知识库、导入、检索与重排分数、RAG 引用、provider 未配置、部分索引失败、切换知识库时丢弃过期异步结果和 390px 窄屏无页面级横向溢出；前端完整回归共 8 条测试；`mvn verify` 于 2026-09-15 通过，core/server/client/cli 共 154 条测试全部成功。
+
 ### T-08 检索评测与 E2E
 
 - 支持 Recall@K、MRR、nDCG 和 latency；
@@ -294,7 +303,7 @@ T-01 → T-02 → T-03 → T-04 → T-05 → T-07 → T-08 → T-09
           └──────────── T-06 可在 T-01 后并行 ────────────┘
 ```
 
-T-01～T-06 已形成“可持久化 RAG + 可替换真实 NLP Runtime”后端闭环；下一步实施 T-07 Knowledge UI，再通过 T-08/T-09 补齐检索评测、跨数据库 E2E 和发布门禁。
+T-01～T-07 已形成“可持久化 RAG + 可替换真实 NLP Runtime + Knowledge UI”的端到端闭环；下一步通过 T-08/T-09 补齐检索评测、跨数据库 E2E 和发布门禁。
 
 ## 9. 风险与缓解
 
