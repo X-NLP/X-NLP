@@ -1,10 +1,10 @@
-# X-NLP Release 0.3 实施计划（提案）
+# X-NLP Release 0.3 实施计划
 
-> 计划状态：待共同确认  
-> 计划日期：2026-09-15  
-> 基线分支：`codex/sdk-cli-workflows`
+> 计划状态：执行中（默认 B+D 路线）
+> 计划日期：2026-09-15
+> 基线分支：`codex/release-0.3`
 
-本文将 [`ROADMAP.md`](ROADMAP.md) 中建议的 Release 0.3 拆成可逐项验收的升级任务。本文是提案，不表示用户已经选择 B+D，也不授权在确认前破坏现有公共 API。
+本文将 [`ROADMAP.md`](ROADMAP.md) 中建议的 Release 0.3 拆成可逐项验收的升级任务。现已按默认 B+D 路线开始实施，采用兼容迁移策略，不一次性破坏现有公共 API。
 
 ## 1. 版本目标
 
@@ -29,16 +29,28 @@
 
 | 编号 | 任务 | 状态 | 依赖 |
 |---|---|---|---|
-| T-01 | 统一 API 错误合同 | 待确认 | 无 |
-| T-02 | 类型化请求、响应与校验 | 待确认 | T-01 |
-| T-03 | Provider 诊断与连接测试 | 待确认 | T-01、T-02 |
-| T-04 | Model Playground | 待确认 | T-02、T-03 |
-| T-05 | Benchmark 产品闭环 | 待确认 | T-02、T-03 |
-| T-06 | 模型详情与 Runtime 状态 | 待确认 | T-03 |
-| T-07 | 外部 E2E 与数据库矩阵 | 待确认 | T-04、T-05、T-06 |
-| T-08 | Java SDK / CLI 对齐 | 待确认 | T-01～T-06 |
+| T-01 | 统一 API 错误合同 | 已完成 | 无 |
+| T-02 | 类型化请求、响应与校验 | 进行中 | T-01 |
+| T-03 | Provider 诊断与连接测试 | 待开始 | T-01、T-02 |
+| T-04 | Model Playground | 待开始 | T-02、T-03 |
+| T-05 | Benchmark 产品闭环 | 待开始 | T-02、T-03 |
+| T-06 | 模型详情与 Runtime 状态 | 待开始 | T-03 |
+| T-07 | 外部 E2E 与数据库矩阵 | 待开始 | T-04、T-05、T-06 |
+| T-08 | Java SDK / CLI 对齐 | 待开始 | T-01～T-06 |
 
-## 4. 可执行任务
+## 4. 分支与提交命名
+
+Release 0.3 使用版本主线分支：`codex/release-0.3`。后续任务分支统一采用：
+
+```text
+codex/release-0.3/t-<编号>-<短名称>
+```
+
+例如：`codex/release-0.3/t-02-typed-contracts`。任务完成后合并回
+`codex/release-0.3`，提交信息继续遵循 Conventional Commits。版本主线只接收
+通过测试和验收门禁的任务提交。
+
+## 5. 可执行任务
 
 ### T-01 统一 API 错误合同
 
@@ -247,7 +259,7 @@
 - SDK/CLI 单元测试及 Maven 全量验证通过；
 - README 包含可复制运行示例。
 
-## 5. 推荐执行顺序
+## 6. 推荐执行顺序
 
 ```text
 T-01 → T-02 → T-03 → T-04/T-05/T-06 → T-07/T-08
@@ -263,9 +275,9 @@ T-04、T-05、T-06 可在合同稳定后并行；T-07 与 T-08 在主要 API 稳
 4. Playground 首版是否先交付非流式预测，把流式输出放到增量版本；
 5. MySQL/PostgreSQL 是本轮 CI 必跑，还是先提供可重复的手动 Compose 验证。
 
-**推荐默认值**：采用 B+D；诊断包含 Rerank 状态；DTO 采用兼容迁移；Playground 首版非流式；H2 CI 必跑，MySQL/PostgreSQL 先做可重复 Compose 验证。
+**当前默认值**：采用 B+D；诊断包含 Rerank 状态；DTO 采用兼容迁移；Playground 首版非流式；H2 CI 必跑，MySQL/PostgreSQL 先做可重复 Compose 验证。
 
-## 7. Release 0.3 完成门禁
+## 8. Release 0.3 完成门禁
 
 只有以下证据全部具备，Release 0.3 才能标记完成：
 
