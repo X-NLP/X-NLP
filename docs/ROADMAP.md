@@ -2,7 +2,7 @@
 
 > 审计日期：2026-09-15
 > 当前分支：`codex/release-0.3`
-> 审计基线提交：`c87a983`
+> 审计基线：`codex/release-0.3` 本地版本主线（以本文审计日期的工作树和 Git 历史为准）
 > 本文只记录当前工作区中可以由源码、构建结果或测试结果证明的状态；“已实现”不等于“生产环境已配置真实 provider”。
 
 ## 1. 当前产品定位
@@ -38,7 +38,7 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 | 验证项 | 结果 | 说明 |
 |---|---|---|
 | Maven 全量构建与测试 | ✅ `BUILD SUCCESS` | `mvn -s ~/.m2/settings-aliyun.xml -Dmaven.repo.local=/tmp/m2 verify`；全部模块通过，0 failures，0 errors |
-| 前端生产构建 | ✅ 成功 | `npm run build`；TypeScript 编译与 Vite 打包均通过 |
+| 前端生产构建与浏览器回归 | ✅ 本地成功 / ⏳ CI 待验证 | TypeScript 与 Vite 构建通过；Playwright Chromium 3 条回归通过，并已接入 GitHub Actions |
 | 真实 Chat provider | ⚠️ 未在本次审计中验证 | 需要有效的 OpenAI API Key 或可访问的 Ollama 服务 |
 | 真实 Embedding provider | ⚠️ 未在本次审计中验证 | 需要配置 embedding provider；未配置时不能把 demo runtime 当成生产语义检索 |
 | MySQL / PostgreSQL 容器矩阵 | ⏳ 待远端验证 | 已提供 Compose 与矩阵 runner，并接入 GitHub Actions 必跑门禁；当前开发机没有 `docker` 命令，需以远端 CI 结果形成真实容器证据 |
