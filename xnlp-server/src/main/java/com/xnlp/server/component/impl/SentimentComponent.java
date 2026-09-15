@@ -1,43 +1,47 @@
 package com.xnlp.server.component.impl;
 
-import com.xnlp.core.api.NlpComponent;
 import com.xnlp.core.api.NlpContext;
-import com.xnlp.core.api.ComponentResult;
 import com.xnlp.server.nlp.CapabilityRegistry;
+import com.xnlp.server.nlp.NlpComponentExecution;
+import com.xnlp.server.nlp.RuntimeAwareNlpComponent;
+import com.xnlp.server.runtime.onnx.SentimentRuntimeRouter;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
-import java.util.Set;
 
-/**
- * Sentiment analysis component (positive / negative / neutral).
- */
+/** Sentiment analysis component routed to builtin or ONNX runtime by configuration. */
 @Component
-public class SentimentComponent implements NlpComponent {
+public class SentimentComponent implements RuntimeAwareNlpComponent {
 
-    private static final Set<String> POSITIVE = Set.of("好", "优秀", "喜欢", "满意", "高兴", "成功", "提升",
-            "positive", "good", "great", "excellent", "love");
-    private static final Set<String> NEGATIVE = Set.of("差", "糟糕", "讨厌", "失败", "问题", "风险", "不好",
-            "negative", "bad", "poor", "fail", "risk");
+    private final SentimentRuntimeRouter runtimeRouter;
 
-    public SentimentComponent(CapabilityRegistry registry) { registry.register(this); }
+    public SentimentComponent(CapabilityRegistry registry, SentimentRuntimeRouter runtimeRouter) {
+        this.runtimeRouter = runtimeRouter;
+        registry.register(this);
+    }
 
-    @Override public String id() { return "SENTIMENT"; }
-    @Override public String displayName() { return "情感分析"; }
-    @Override public String description() {
+    @Override
+    public String id() {
+        return "SENTIMENT";
+    }
+
+    @Override
+    public String displayName() {
+        return "情感分析";
+    }
+
+    @Override
+    public String description() {
         return "Classify text sentiment as positive, negative, or neutral.";
     }
-    @Override public Map<String, String> parameterSchema() {
+
+    @Override
+    public Map<String, String> parameterSchema() {
         return Map.of("labels", "positive, negative, neutral");
     }
 
     @Override
-    public ComponentResult execute(NlpContext ctx) {
-        String text = ctx.getText().toLowerCase();
-        long pos = POSITIVE.stream().filter(text::contains).count();
-        long neg = NEGATIVE.stream().filter(text::contains).count();
-        String label = pos == neg ? "neutral" : pos > neg ? "positive" : "negative";
-        double score = "neutral".equals(label) ? 0.5 : 0.75;
-        return ComponentResult.of(id(), Map.of("label", label, "score", score));
+    public NlpComponentExecution executeWithRuntime(NlpContext context) {
+        return runtimeRouter.execute(context);
     }
 }

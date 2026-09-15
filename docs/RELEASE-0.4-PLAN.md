@@ -152,7 +152,7 @@ codex/release-0.4-t-09-release-gates
 | T-03 | 文档导入与增量索引 | chunker、checksum、embedding、异步 job、增删改同步 | T-02 | 已完成（2026-09-15） |
 | T-04 | Retrieval 与 Rerank | 检索 API、过滤、reranker SPI/provider adapter、链路观测 | T-03 | 已完成（2026-09-15） |
 | T-05 | RAG Chat 与引用 | context assembler、ChatClient、citation 校验、错误与超时 | T-04 | 已完成（2026-09-15） |
-| T-06 | 首个真实 NLP Runtime | `NlpRuntime` SPI、ONNX Runtime Java 适配、模型版本/checksum/释放 | T-01 | 待实施 |
+| T-06 | 首个真实 NLP Runtime | `NlpRuntime` SPI、ONNX Runtime Java 适配、模型版本/checksum/释放 | T-01 | 已完成（2026-09-15） |
 | T-07 | Knowledge UI | 知识库、文档、索引任务、语义搜索、RAG 调试页面 | T-03～T-05 | 待实施 |
 | T-08 | 检索评测与 E2E | Recall@K/MRR/nDCG、样本结果、H2 E2E、数据库矩阵 | T-04、T-07 | 待实施 |
 | T-09 | 发布门禁与版本对齐 | Maven/npm/Helm `0.4.0`、安全/性能门禁、升级文档 | T-01～T-08 | 待实施 |
@@ -255,6 +255,17 @@ codex/release-0.4-t-09-release-gates
 - 默认 Maven 测试使用小型 fixture 或 fake runtime，不在线下载大模型；
 - 至少一种现有 demo capability 可通过配置切换到真实 runtime。
 
+### T-06 实施记录（2026-09-15）
+
+- `xnlp-core` 新增 provider-neutral `NlpRuntime` SPI、不可变 runtime descriptor/result/status、生命周期状态和稳定错误码；
+- `xnlp-server` 接入 ONNX Runtime Java 1.29.0，模型通过外部路径挂载，并在创建 native session 前校验普通文件、大小、版本和 64 位 SHA-256；
+- 首个适配器实现 `SENTIMENT`：确定性 hashed unigram/bigram featurizer、固定 FLOAT tensor 合同、有界并发队列、执行超时、native terminate、重复加载/关闭幂等和资源释放；
+- `BUILTIN`、`AUTO`、`ONNX` 三种路由模式保持原 API 响应结构；AUTO 可带稳定 fallback reason，严格 ONNX 模式不静默回退；
+- Actuator health、Micrometer observation 和运行时元数据暴露 provider、模型版本/checksum、模式和耗时，统一异常处理映射到稳定 HTTP 状态与错误响应；
+- 默认测试使用仓库内 105-byte ONNX 官方 sigmoid fixture 与 fake runtime，不下载生产模型；fixture 仅验证 native load/execute，不代表生产情感模型；
+- Docker runtime 改用 glibc-based Eclipse Temurin 25 Noble，并启用 Java native access；当前本机未安装 Docker CLI，镜像构建留待远端 CI 验证；
+- T-06 增量合同/适配器测试共 31 条，覆盖加载、checksum、模型校验、真实 native 执行、超时、饱和、非法输出、路由、错误脱敏、Spring class-based AOP 代理和配置边界；Quality Gate 为 `PASS`（0 findings）；`mvn verify` 于 2026-09-15 本地通过：core 33、server 109、client 8、CLI 4 条测试全部成功。
+
 ### T-07 Knowledge UI
 
 - 页面覆盖 loading/empty/success/error/partial failure；
@@ -283,7 +294,7 @@ T-01 → T-02 → T-03 → T-04 → T-05 → T-07 → T-08 → T-09
           └──────────── T-06 可在 T-01 后并行 ────────────┘
 ```
 
-默认先实施 T-01/T-02/T-03，尽早形成“可持久化导入与检索”最小闭环；真实 ONNX Runtime 不阻塞 RAG 数据链路，但必须在 Release 0.4 发布前完成。
+T-01～T-06 已形成“可持久化 RAG + 可替换真实 NLP Runtime”后端闭环；下一步实施 T-07 Knowledge UI，再通过 T-08/T-09 补齐检索评测、跨数据库 E2E 和发布门禁。
 
 ## 9. 风险与缓解
 

@@ -85,6 +85,24 @@ xnlp:
     migration:
       enabled: ${XNLP_DB_MIGRATION_ENABLED:true}
       validate-checksums: ${XNLP_DB_MIGRATION_VALIDATE_CHECKSUMS:true}
+  nlp:
+    runtime:
+      sentiment-mode: ${XNLP_SENTIMENT_RUNTIME_MODE:BUILTIN}
+    onnx:
+      enabled: ${XNLP_ONNX_ENABLED:false}
+      runtime-name: ${XNLP_ONNX_RUNTIME_NAME:onnx-sentiment}
+      model-path: ${XNLP_ONNX_MODEL_PATH:}
+      model-version: ${XNLP_ONNX_MODEL_VERSION:}
+      model-sha256: ${XNLP_ONNX_MODEL_SHA256:}
+      input-name: ${XNLP_ONNX_INPUT_NAME:x}
+      output-name: ${XNLP_ONNX_OUTPUT_NAME:y}
+      timeout: ${XNLP_ONNX_TIMEOUT:2s}
+      max-model-bytes: ${XNLP_ONNX_MAX_MODEL_BYTES:268435456}
+      max-tensor-elements: ${XNLP_ONNX_MAX_TENSOR_ELEMENTS:1000000}
+      max-concurrency: ${XNLP_ONNX_MAX_CONCURRENCY:2}
+      queue-capacity: ${XNLP_ONNX_QUEUE_CAPACITY:16}
+      negative-threshold: ${XNLP_ONNX_NEGATIVE_THRESHOLD:0.45}
+      positive-threshold: ${XNLP_ONNX_POSITIVE_THRESHOLD:0.55}
   rag:
     ingestion:
       default-embedding-model: ${XNLP_DEFAULT_EMBEDDING_MODEL:configured-embedding-model}

@@ -3,6 +3,8 @@ package com.xnlp.server.config;
 import com.xnlp.core.errors.*;
 import com.xnlp.core.rag.RagContractException;
 import com.xnlp.core.rag.RagErrorCode;
+import com.xnlp.core.runtime.NlpRuntimeErrorCode;
+import com.xnlp.core.runtime.NlpRuntimeException;
 import com.xnlp.server.dto.ApiErrorResponse;
 import com.xnlp.server.waste.WasteWorkflowException;
 import io.micrometer.tracing.Span;
@@ -70,6 +72,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RagContractException.class)
     public ResponseEntity<ApiErrorResponse> handle(RagContractException e, HttpServletRequest request) {
         return error(statusFor(e.getErrorCode().kind()), e.getErrorCode().code(), e, request);
+    }
+
+    @ExceptionHandler(NlpRuntimeException.class)
+    public ResponseEntity<ApiErrorResponse> handle(NlpRuntimeException e, HttpServletRequest request) {
+        return error(statusFor(e.getErrorCode()), e.getErrorCode().code(), e, request);
     }
 
     @ExceptionHandler(XNLPException.class)
@@ -206,6 +213,16 @@ public class GlobalExceptionHandler {
             case UNPROCESSABLE -> HttpStatus.UNPROCESSABLE_CONTENT;
             case UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
             case TIMEOUT -> HttpStatus.GATEWAY_TIMEOUT;
+        };
+    }
+
+    private static HttpStatus statusFor(NlpRuntimeErrorCode code) {
+        return switch (code) {
+            case UNSUPPORTED_CAPABILITY -> HttpStatus.BAD_REQUEST;
+            case EXECUTION_TIMEOUT -> HttpStatus.GATEWAY_TIMEOUT;
+            case EXECUTION_FAILED -> HttpStatus.BAD_GATEWAY;
+            case CONFIGURATION, MODEL_NOT_FOUND, CHECKSUM_MISMATCH, MODEL_INVALID,
+                    NOT_READY, CLOSED, SATURATED -> HttpStatus.SERVICE_UNAVAILABLE;
         };
     }
 

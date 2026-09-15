@@ -1,8 +1,8 @@
 # X-NLP 产品路线图与实现审计
 
 > 审计日期：2026-09-15
-> 当前分支：`codex/release-0.4-t-05-rag-chat`
-> 审计基线：Release 0.4 T-05 本地实现（以本文审计日期的工作树和 Git 历史为准）
+> 当前分支：`codex/release-0.4-t-06-onnx-runtime`
+> 审计基线：Release 0.4 T-06 本地实现（以本文审计日期的工作树和 Git 历史为准）
 > 本文只记录当前工作区中可以由源码、构建结果或测试结果证明的状态；“已实现”不等于“生产环境已配置真实 provider”。
 
 ## 1. 当前产品定位
@@ -123,7 +123,7 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 
 ### Release 0.4：真实 NLP 与 RAG
 
-- R0.4-1：落地首个真实 NLP runtime（下一任务 T-06）；
+- R0.4-1：落地首个真实 NLP runtime（已完成：ONNX Runtime Java 1.29.0）；
 - R0.4-2：向量存储 SPI 与第一种持久化实现（已完成）；
 - R0.4-3：文档切分、批量导入、增量更新（已完成）；
 - R0.4-4：Rerank 协议适配与检索链路（已完成）；
@@ -161,4 +161,4 @@ Release 0.3 的本地实现已收口；当前进入 **R0.4（真实 NLP Runtime 
 
 推荐执行顺序：**B + D → A + C → E**。
 
-Release 0.3 已按 B + D 完成本地实施；Release 0.4 的 T-01～T-05 已于 2026-09-15 完成本地实现与 `mvn verify`，形成“导入 → 切分 → embedding → 持久化 → 过滤检索 → 可选 rerank → grounded RAG → canonical citation”的可观测闭环。T-05 目标测试 16 条通过、Quality Gate `PASS`（0 findings），完整 server 测试为 83 条。下一步按版本任务分支实施 T-06 首个真实 NLP Runtime，再进入 T-07 Knowledge UI。Release 0.3 的 MySQL/PostgreSQL、Helm，以及 Release 0.4 当前增量仍需推送后由远端 CI 形成最终验证证据。
+Release 0.3 已按 B + D 完成本地实施；Release 0.4 的 T-01～T-06 已于 2026-09-15 完成本地实现，形成“导入 → 切分 → embedding → 持久化 → 过滤检索 → 可选 rerank → grounded RAG → canonical citation”以及“外置模型 → checksum 校验 → ONNX native 执行 → 有界并发/超时 → runtime 诊断”的双闭环。T-06 使用 ONNX Runtime Java 1.29.0，增量测试覆盖 31 条，完整 `mvn verify` 已通过（core 33、server 109、client 8、CLI 4）；下一步进入 `codex/release-0.4-t-07-knowledge-ui`。Release 0.3 的 MySQL/PostgreSQL、Helm、容器镜像，以及 Release 0.4 当前增量仍需推送后由远端 CI 形成最终验证证据。

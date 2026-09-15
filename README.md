@@ -24,6 +24,7 @@ Designed for both research and enterprise production environments.
 - **现代 Web 工作台**：左侧工作区导航、响应式布局、NLP 工作台、数据集/评测/画布和 `AI Assistant` 页面。
 - **Spring AI 2.0.1**：服务端通过 Spring AI 的 `ChatModel` 抽象接入 Ollama 与 OpenAI-compatible provider，业务层不直接依赖厂商 SDK；对外提供 `GET /api/v1/ai/status` 与 `POST /api/v1/ai/chat`。
 - **工程能力**：统一 prompt 约束、请求观测、模型注册、数据集、评测、指标与对比链路；Pipeline Canvas 已可调用后端 pipeline trace，记录每个节点的输入、输出、状态和耗时。评测支持异步队列、逐条进度持久化、取消和模型/数据集/状态过滤。
+- **可替换 NLP Runtime**：内置能力可按配置切换到外置 ONNX Runtime；模型版本、SHA-256、固定 tensor 合同、有界并发、超时、健康检查和错误脱敏由服务统一管理。
 - **数据库可切换**：使用 Spring Boot 的 `spring.datasource` profile 配置，默认 MySQL，也提供 PostgreSQL 和 H2 文件数据库配置；数据库通过版本化迁移（`db/migration/V*__*.sql`）创建和升级，HikariCP 连接池参数可由环境变量调优，数据访问层继续保持 repository 抽象。
 
 ### 启动前端
@@ -130,6 +131,32 @@ curl -X POST http://localhost:8760/api/v1/datasets/<dataset-id>/semantic-search 
 ```
 
 未配置 embedding provider 时，STS 仍回退到内置 demo runtime；检索接口会返回明确的 provider 配置错误，不会伪造向量结果。
+
+### 配置外置 ONNX 情感 Runtime
+
+默认仍使用内置词典 demo。要为 `SENTIMENT` 启用严格 ONNX 模式，先构建服务并挂载符合合同的模型：
+
+```bash
+export XNLP_ONNX_ENABLED=true
+export XNLP_SENTIMENT_RUNTIME_MODE=ONNX
+export XNLP_ONNX_MODEL_PATH=/opt/xnlp/models/sentiment.onnx
+export XNLP_ONNX_MODEL_VERSION=v1
+export XNLP_ONNX_MODEL_SHA256=<64-char-sha256>
+export XNLP_ONNX_INPUT_NAME=x
+export XNLP_ONNX_OUTPUT_NAME=y
+
+SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.3.0.jar
+```
+
+`XNLP_SENTIMENT_RUNTIME_MODE` 支持：
+
+- `BUILTIN`：仅使用内置 demo；
+- `AUTO`：ONNX ready 时执行真实 runtime，否则回退并在响应 metadata 中给出稳定原因；
+- `ONNX`：严格使用 ONNX，未配置、加载失败或执行失败时返回稳定错误，不静默回退。
+
+当前最小模型合同为：一个固定正维度的 `FLOAT` input、一个至少包含一个值的 `FLOAT` output；output 第一个值必须是 `[0,1]` 的正向情感概率。服务使用确定性 hashed unigram/bigram featurizer 填充 input，因此生产模型必须按相同合同训练和导出。典型 Transformer 的多 `INT64` tokenizer input 模型不能直接加载到该适配器。模型不会打包进服务镜像，部署时应只读挂载并配置精确 SHA-256。
+
+ONNX Runtime 健康状态位于 Actuator health details；执行结果 metadata 包含实际 mode、runtime、provider、模型版本/checksum 和耗时。Java 25 启动参数需要 `--enable-native-access=ALL-UNNAMED`，仓库 Dockerfile 已默认配置。
 
 ### Pipeline Trace API
 
