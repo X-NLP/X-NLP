@@ -14,7 +14,7 @@
 
     <groupId>com.xnlp</groupId>
     <artifactId>xnlp-parent</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
     <packaging>pom</packaging>
 
     <name>X-NLP</name>

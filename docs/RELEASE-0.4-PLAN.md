@@ -155,7 +155,7 @@ codex/release-0.4-t-09-release-gates
 | T-06 | 首个真实 NLP Runtime | `NlpRuntime` SPI、ONNX Runtime Java 适配、模型版本/checksum/释放 | T-01 | 已完成（2026-09-15） |
 | T-07 | Knowledge UI | 知识库、文档、索引任务、语义搜索、RAG 调试页面 | T-03～T-05 | 已完成（2026-09-15） |
 | T-08 | 检索评测与 E2E | Recall@K/MRR/nDCG、样本结果、H2 E2E、数据库矩阵 | T-04、T-07 | 已完成（2026-09-15） |
-| T-09 | 发布门禁与版本对齐 | Maven/npm/Helm `0.4.0`、安全/性能门禁、升级文档 | T-01～T-08 | 待实施 |
+| T-09 | 发布门禁与版本对齐 | Maven/npm/Helm `0.4.0`、安全/性能门禁、升级文档 | T-01～T-08 | 已完成（2026-09-15，远端 CI 待执行） |
 
 ## 7. 每个任务的验收标准
 
@@ -305,6 +305,16 @@ codex/release-0.4-t-09-release-gates
 - Maven/npm/Helm/镜像标签统一为 `0.4.0`；
 - README 提供 H2 快速开始、真实 provider 配置、知识库导入、search 和 RAG curl 示例。
 
+### T-09 实施记录（2026-09-15）
+
+- Maven 父工程与四个子模块、npm package/lock、Helm Chart/appVersion、Helm 默认镜像 tag、server/frontend OCI image version 已统一为 `0.4.0`，并新增 `scripts/release/verify-version-alignment.py` 阻止版本漂移和旧 jar 路径回归；
+- GitHub Actions 已纳入版本一致性、`mvn verify`、H2 外部 E2E、MySQL/PostgreSQL 数据库矩阵、前端 build、Playwright、Helm lint、server/frontend 镜像构建，并通过 concurrency 与 job timeout 控制重复执行和挂起风险；
+- Trivy 文件系统漏洞与 secret 扫描使用 `v0.36.0` 对应的不可变 commit SHA，扫描构建后的 Maven artifact 与 npm lockfile，对 HIGH/CRITICAL 问题启用失败门禁；
+- Release 0.3 API E2E 增加可配置的 benchmark P95 门槛，默认上限为 `5000 ms`，并同时验证吞吐量为正；H2 外部 E2E 于 2026-09-15 本地通过，包含 Release 0.3 API 合同、性能门禁和 Release 0.4 检索评测闭环；
+- README 已补充 H2 + OpenAI-compatible provider 的 Release 0.4 快速开始、知识库创建/导入/索引轮询、search 与 RAG curl；新增 `docs/UPGRADE-0.4.md`，覆盖 V5/V6/V7 迁移、provider/embedding 切换、Helm 滚动升级、数据库快照级回滚和发布证据；
+- 本地验证完成：版本一致性检查、Python/shell 静态检查、`git diff --check`、前端生产构建、Playwright 8 条测试、H2 两套外部 E2E，以及 `mvn verify` 的 163 条测试全部通过；
+- 当前本机未安装 Docker、Helm 和 Trivy，因此 MySQL/PostgreSQL 容器矩阵、Helm lint、镜像构建和安全扫描由远端 GitHub Actions 给出最终发布证据；在远端 CI 通过前，不将 Release 0.4 DoD 标记为完成。
+
 ## 8. 推荐执行顺序
 
 ```text
@@ -312,7 +322,7 @@ T-01 → T-02 → T-03 → T-04 → T-05 → T-07 → T-08 → T-09
           └──────────── T-06 可在 T-01 后并行 ────────────┘
 ```
 
-T-01～T-08 已形成“可持久化 RAG + 可替换真实 NLP Runtime + Knowledge UI + 检索评测”的端到端闭环；下一步进入 T-09，完成版本对齐、CI 门禁、发布文档和回滚证据。
+T-01～T-09 的本地实现与本地可执行验证已完成；Release 0.4 已具备“可持久化 RAG + 可替换真实 NLP Runtime + Knowledge UI + 检索评测 + 发布门禁”的端到端闭环。下一步由远端 GitHub Actions 生成数据库矩阵、Helm、镜像和安全扫描证据，全部通过后再标记 Release 0.4 DoD 完成。
 
 ## 9. 风险与缓解
 

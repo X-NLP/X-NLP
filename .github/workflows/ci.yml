@@ -9,9 +9,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,17 +35,22 @@ jobs:
           cache: npm
           cache-dependency-path: xnlp-frontend/package-lock.json
 
+      - name: Verify 0.4.0 version alignment
+        run: python3 scripts/release/verify-version-alignment.py 0.4.0
+
       - name: Verify backend
         run: mvn -B -ntp verify
 
-      - name: Run H2 external E2E
+      - name: Run H2 external E2E and performance gate
         env:
           XNLP_E2E_SKIP_BUILD: 'true'
+          XNLP_E2E_MAX_BENCHMARK_P95_MS: '5000'
         run: tests/e2e/run-h2.sh
 
       - name: Run database profile E2E matrix
         env:
           XNLP_E2E_SKIP_BUILD: 'true'
+          XNLP_E2E_MAX_BENCHMARK_P95_MS: '5000'
         run: tests/e2e/run-db-matrix.sh all
 
       - name: Build frontend
@@ -59,7 +69,46 @@ jobs:
         run: helm lint deploy/helm/xnlp
 
       - name: Build server image
-        run: docker build --tag xnlp-server:ci .
+        run: docker build --build-arg XNLP_VERSION=0.4.0 --tag xnlp-server:0.4.0 .
 
       - name: Build frontend image
-        run: docker build --tag xnlp-frontend:ci ./xnlp-frontend
+        run: docker build --build-arg XNLP_VERSION=0.4.0 --tag xnlp-frontend:0.4.0 ./xnlp-frontend
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: xnlp-frontend/package-lock.json
+
+      - name: Build dependency artifacts for scanning
+        run: |
+          mvn -B -ntp -DskipTests package
+          npm ci --prefix xnlp-frontend
+
+      - name: Scan dependencies and repository secrets
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: '1'
+          format: table
+          skip-dirs: .git,xnlp-frontend/node_modules,xnlp-frontend/dist,data

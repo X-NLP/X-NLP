@@ -15,7 +15,10 @@ COPY xnlp-cli/src xnlp-cli/src
 RUN mvn -B -ntp -DskipTests package
 
 FROM eclipse-temurin:25-jre-noble
-LABEL maintainer="X-NLP Team"
+ARG XNLP_VERSION=0.4.0
+LABEL maintainer="X-NLP Team" \
+      org.opencontainers.image.title="X-NLP Server" \
+      org.opencontainers.image.version="${XNLP_VERSION}"
 
 RUN groupadd --system xnlp && useradd --system --gid xnlp --home-dir /opt/xnlp xnlp \
     && mkdir -p /opt/xnlp/models /opt/xnlp/data \

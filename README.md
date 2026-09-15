@@ -80,27 +80,100 @@ Chart 默认部署 Spring Boot 服务和 React/Nginx 工作台，包含健康探
 # 默认 MySQL
 mvn -pl xnlp-server -am package -DskipTests && \
 SPRING_PROFILES_ACTIVE=mysql DB_URL='jdbc:mysql://localhost:3306/xnlp' \
-  java -jar xnlp-server/target/xnlp-server-0.3.0.jar
+  java -jar xnlp-server/target/xnlp-server-0.4.0.jar
 
 # PostgreSQL
 mvn -pl xnlp-server -am package -DskipTests && \
 SPRING_PROFILES_ACTIVE=postgres DB_USERNAME=postgres DB_PASSWORD=postgres \
-  java -jar xnlp-server/target/xnlp-server-0.3.0.jar
+  java -jar xnlp-server/target/xnlp-server-0.4.0.jar
 
 # 本地 H2 文件库（无需安装数据库）
 mvn -pl xnlp-server -am package -DskipTests && \
-SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.3.0.jar
+SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.4.0.jar
 ```
 
-### Release 0.3 外部 E2E 与数据库矩阵
+### Release 0.4 H2 + Spring AI RAG 快速开始
 
-H2 基线会构建服务端、创建隔离的临时数据库、启动确定性的 OpenAI-compatible mock provider，验证健康检查、Provider 诊断、模型配置/激活/预测、Benchmark、Dataset CRUD、稳定错误合同与测试数据清理：
+以下示例使用 H2 文件库和 OpenAI-compatible provider，同时启用 `ChatModel` 与 `EmbeddingModel`。也可以将 provider 环境变量替换为 Ollama；未配置 embedding provider 时，知识库导入和检索会返回明确的 `provider_unconfigured`，不会生成伪向量。
+
+```bash
+mvn -pl xnlp-server -am package -DskipTests
+
+SPRING_PROFILES_ACTIVE=h2 \
+SPRING_AI_MODEL_CHAT=openai \
+SPRING_AI_MODEL_EMBEDDING=openai \
+OPENAI_API_KEY="$OPENAI_API_KEY" \
+OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://api.openai.com}" \
+OPENAI_CHAT_MODEL="${OPENAI_CHAT_MODEL:-gpt-4o-mini}" \
+OPENAI_EMBEDDING_MODEL="${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}" \
+java -jar xnlp-server/target/xnlp-server-0.4.0.jar
+```
+
+创建知识库并导入文本。导入是异步的，文档 `indexStatus` 变为 `INDEXED` 后即可检索：
+
+```bash
+BASE_URL=http://localhost:8760
+TENANT_ID=default
+
+KB_ID="$(curl -fsS -X POST "$BASE_URL/api/v1/knowledge-bases" \
+  -H "X-Tenant-ID: $TENANT_ID" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name":"Release 0.4 quickstart",
+    "description":"Portable Spring AI RAG knowledge base",
+    "embeddingModel":"text-embedding-3-small",
+    "chunkPolicy":{"maxCharacters":1000,"overlapCharacters":100,"separatorMode":"PARAGRAPH"}
+  }' | jq -r '.id')"
+
+DOC_ID="$(curl -fsS -X POST "$BASE_URL/api/v1/knowledge-bases/$KB_ID/documents" \
+  -H "X-Tenant-ID: $TENANT_ID" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "title":"Database portability",
+    "content":"X-NLP uses Spring Boot DataSource and JdbcTemplate so H2, MySQL and PostgreSQL share the same repository implementation.",
+    "sourceType":"TEXT",
+    "externalId":"quickstart-database-portability",
+    "metadata":{"topic":"database"}
+  }' | jq -r '.id')"
+
+until [[ "$(curl -fsS \
+  -H "X-Tenant-ID: $TENANT_ID" \
+  "$BASE_URL/api/v1/knowledge-bases/$KB_ID/documents/$DOC_ID" | jq -r '.indexStatus')" == "INDEXED" ]]; do
+  sleep 1
+done
+```
+
+执行语义检索和带可核验引用的 RAG 对话：
+
+```bash
+curl -fsS -X POST "$BASE_URL/api/v1/knowledge-bases/$KB_ID/search" \
+  -H "X-Tenant-ID: $TENANT_ID" \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"如何切换数据库？","topK":5,"minScore":0.1,"rerank":false}' | jq
+
+curl -fsS -X POST "$BASE_URL/api/v1/knowledge-bases/$KB_ID/rag" \
+  -H "X-Tenant-ID: $TENANT_ID" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "message":"X-NLP 的数据层如何切换数据库？",
+    "topK":5,
+    "maxContextChunks":3,
+    "insufficientContextPolicy":"REJECT",
+    "timeoutMs":30000
+  }' | jq
+```
+
+升级数据库、provider/embedding 模型切换和回滚步骤见 `docs/UPGRADE-0.4.md`。
+
+### Release 0.4 外部 E2E、性能门禁与数据库矩阵
+
+H2 基线会构建服务端、创建隔离的临时数据库并启动确定性的 OpenAI-compatible mock provider；随后以 Benchmark P95 上限作为稳定性能烟测，并验证健康检查、Provider 诊断、模型配置/激活/预测、Benchmark、Dataset CRUD、稳定错误合同与测试数据清理：
 
 ```bash
 ./tests/e2e/run-h2.sh
 ```
 
-脚本默认使用 `127.0.0.1:18760` 和 `127.0.0.1:18880`，可通过 `XNLP_E2E_API_PORT`、`XNLP_E2E_PROVIDER_PORT` 覆盖。已有构建产物时可设置 `XNLP_E2E_SKIP_BUILD=true`。GitHub Actions 的 `verify` job 会将 H2 外部 E2E 以及 MySQL/PostgreSQL 数据库矩阵作为必跑步骤。
+脚本默认使用 `127.0.0.1:18760` 和 `127.0.0.1:18880`，可通过 `XNLP_E2E_API_PORT`、`XNLP_E2E_PROVIDER_PORT` 覆盖。已有构建产物时可设置 `XNLP_E2E_SKIP_BUILD=true`；性能烟测默认要求 P95 不超过 5000ms，可通过 `XNLP_E2E_MAX_BENCHMARK_P95_MS` 收紧或按受控 CI 环境调整。GitHub Actions 的 `verify` job 会将版本一致性、H2 外部 E2E/性能门禁以及 MySQL/PostgreSQL 数据库矩阵作为必跑步骤；`security` job 使用 Trivy 阻断高危/严重依赖漏洞和仓库 secret。
 
 MySQL/PostgreSQL 使用临时容器执行同一套合同测试，不依赖开发数据库，也不会持久化测试卷：
 
@@ -119,7 +192,7 @@ MySQL/PostgreSQL 使用临时容器执行同一套合同测试，不依赖开发
 
 ```bash
 SPRING_AI_MODEL_EMBEDDING=ollama OLLAMA_EMBEDDING_MODEL=nomic-embed-text \
-  SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.3.0.jar
+  SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.4.0.jar
 
 curl -X POST http://localhost:8760/api/v1/nlp/semantic-similarity \
   -H 'Content-Type: application/json' \
@@ -145,7 +218,7 @@ export XNLP_ONNX_MODEL_SHA256=<64-char-sha256>
 export XNLP_ONNX_INPUT_NAME=x
 export XNLP_ONNX_OUTPUT_NAME=y
 
-SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.3.0.jar
+SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.4.0.jar
 ```
 
 `XNLP_SENTIMENT_RUNTIME_MODE` 支持：
@@ -194,18 +267,18 @@ try (XNLPClient client = XNLPClient.builder("http://localhost:8760")
 CLI 由同一个 SDK 驱动，避免命令行和 REST 行为分叉：
 
 ```bash
-java -jar xnlp-cli/target/xnlp-cli-0.3.0.jar \
+java -jar xnlp-cli/target/xnlp-cli-0.4.0.jar \
   --server http://localhost:8760 \
   --api-key "$XNLP_API_KEY" \
   --tenant "$XNLP_TENANT_ID" health
-java -jar xnlp-cli/target/xnlp-cli-0.3.0.jar models
-java -jar xnlp-cli/target/xnlp-cli-0.3.0.jar provider status
-java -jar xnlp-cli/target/xnlp-cli-0.3.0.jar provider probe
-java -jar xnlp-cli/target/xnlp-cli-0.3.0.jar benchmark \
+java -jar xnlp-cli/target/xnlp-cli-0.4.0.jar models
+java -jar xnlp-cli/target/xnlp-cli-0.4.0.jar provider status
+java -jar xnlp-cli/target/xnlp-cli-0.4.0.jar provider probe
+java -jar xnlp-cli/target/xnlp-cli-0.4.0.jar benchmark \
   --model ollama-default --requests 100 --concurrency 8 \
   --text "Explain retrieval-augmented generation."
-java -jar xnlp-cli/target/xnlp-cli-0.3.0.jar dataset-list
-java -jar xnlp-cli/target/xnlp-cli-0.3.0.jar evaluation-status
+java -jar xnlp-cli/target/xnlp-cli-0.4.0.jar dataset-list
+java -jar xnlp-cli/target/xnlp-cli-0.4.0.jar evaluation-status
 ```
 
 非 2xx 响应会转换为带 HTTP 状态码、稳定错误码、`requestId` 和 `traceId` 的 SDK 异常；CLI 输出相同诊断字段并以退出码 `2` 结束，不打印服务端堆栈。
@@ -254,12 +327,12 @@ mvn -pl xnlp-server -am package -DskipTests
 # Ollama（默认 provider）
 SPRING_AI_MODEL_CHAT=ollama OLLAMA_BASE_URL=http://localhost:11434 \
   OLLAMA_CHAT_MODEL=llama3.1 SPRING_PROFILES_ACTIVE=h2 \
-  java -jar xnlp-server/target/xnlp-server-0.3.0.jar
+  java -jar xnlp-server/target/xnlp-server-0.4.0.jar
 
 # OpenAI-compatible provider
 SPRING_AI_MODEL_CHAT=openai OPENAI_API_KEY=*** \
   OPENAI_BASE_URL=https://api.openai.com OPENAI_CHAT_MODEL=gpt-4o-mini \
-  SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.3.0.jar
+  SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.4.0.jar
 ```
 
 ### 可选 API Key 保护
@@ -270,7 +343,7 @@ SPRING_AI_MODEL_CHAT=openai OPENAI_API_KEY=*** \
 XNLP_SECURITY_ENABLED=true \
 XNLP_SECURITY_API_KEYS='replace-with-a-long-random-key,another-key' \
 SPRING_PROFILES_ACTIVE=h2 \
-java -jar xnlp-server/target/xnlp-server-0.3.0.jar
+java -jar xnlp-server/target/xnlp-server-0.4.0.jar
 ```
 
 开启后，以下运维入口仍可供探针和文档访问：`/health`、`/livez`、`/readyz`、`/startupz`、`/ok`、`/actuator/health`、Swagger/OpenAPI 资源；其余接口需要携带 `X-API-Key`，也兼容 `Authorization: Bearer <key>`。前端构建时可设置 `VITE_XNLP_API_KEY` 与 `VITE_XNLP_TENANT_ID`，工作台会自动为普通 API、SSE 和废弃物上传请求附加认证及租户 Header。

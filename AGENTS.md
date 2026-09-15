@@ -45,7 +45,7 @@ X-NLP/
 | `mvn clean verify` | Full build: compile + test + package all 4 modules |
 | `mvn test` | Run all tests (currently 37 tests, JUnit 5 + AssertJ) |
 | `mvn test -pl xnlp-server` | Run server-layer tests only |
-| `mvn -pl xnlp-server -am package -DskipTests && SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.3.0.jar` | Package and start a local H2-backed server on port 8760 |
+| `mvn -pl xnlp-server -am package -DskipTests && SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.4.0.jar` | Package and start a local H2-backed server on port 8760 |
 | `java -jar xnlp-cli/target/xnlp-cli-*.jar` | Run CLI (pass `-s` to set server URL) |
 | `docker build -t xnlp:latest .` | Build Docker image |
 
