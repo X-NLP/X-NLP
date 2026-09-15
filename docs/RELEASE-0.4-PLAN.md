@@ -149,7 +149,7 @@ codex/release-0.4-t-09-release-gates
 |---|---|---|---|---|
 | T-01 | RAG 领域合同与 API DTO | core 模型、SPI 合同、DTO 校验、OpenAPI/error contract 测试 | Release 0.3 | 已完成（2026-09-15） |
 | T-02 | Vector Store SPI 与 JDBC 实现 | 可移植 schema、repository、cosine Top-K、租户隔离 | T-01 | 已完成（2026-09-15） |
-| T-03 | 文档导入与增量索引 | chunker、checksum、embedding、异步 job、增删改同步 | T-02 | 待实施 |
+| T-03 | 文档导入与增量索引 | chunker、checksum、embedding、异步 job、增删改同步 | T-02 | 已完成（2026-09-15） |
 | T-04 | Retrieval 与 Rerank | 检索 API、过滤、reranker SPI/provider adapter、链路观测 | T-03 | 待实施 |
 | T-05 | RAG Chat 与引用 | context assembler、ChatClient、citation 校验、错误与超时 | T-04 | 待实施 |
 | T-06 | 首个真实 NLP Runtime | `NlpRuntime` SPI、ONNX Runtime Java 适配、模型版本/checksum/释放 | T-01 | 待实施 |
@@ -201,6 +201,16 @@ codex/release-0.4-t-09-release-gates
 - 删除文档同步删除 chunks/vectors；
 - chunk 边界可重复、最大尺寸可配置，并保留 source offset；
 - mock `EmbeddingModel` 下覆盖成功、部分失败、重试和取消。
+
+### T-03 实施记录（2026-09-15）
+
+- 新增知识库、文档与导入任务 REST API，支持 checksum/externalId 幂等、乐观版本更新、按文档和整库重建索引；
+- 新增确定性 `PARAGRAPH` / `SENTENCE` / `FIXED` chunker，保留精确 source offset、稳定 chunk ID 和 SHA-256 checksum；
+- 使用 Spring AI `EmbeddingModel` 进行有界批处理，支持有限向量校验、重试、部分失败、持久化取消和 provider 错误脱敏；
+- 新增有界 ingestion executor，并在异步任务中显式传播 tenant ID；文档、chunk、vector 的替换与删除由事务边界原子提交；
+- JDBC repository 与 V6 迁移补齐知识库、文档、chunk、ingestion job 持久化、取消标志及租户级唯一约束，继续复用 Spring Boot `DataSource` / `JdbcTemplate` 支持 H2、MySQL、PostgreSQL；
+- 文档版本 CAS 和索引状态 CAS 防止旧 worker 覆盖新版本或复活已删除文档；知识库状态会在并发更新产生的后继任务完成后恢复一致；
+- 目标测试共 11 条通过；`mvn verify` 于 2026-09-15 本地通过，core/server/client/cli 全部 `BUILD SUCCESS`。
 
 ### T-04 Retrieval 与 Rerank
 

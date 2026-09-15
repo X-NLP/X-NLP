@@ -127,7 +127,13 @@ public class DatabaseMigrationRunner {
                                 + "|knowledge_chunks_document:tenant_id,knowledge_base_id,document_id,seq"
                                 + "|knowledge_embeddings_search:tenant_id,knowledge_base_id,embedding_model"
                                 + "|ingestion_jobs_kb:tenant_id,knowledge_base_id,created_at"),
-                        this::createRagStorage)
+                        this::createRagStorage),
+                new MigrationDefinition(
+                        6,
+                        "ingestion-control-and-rag-constraints",
+                        checksum(6, "ingestion-control-and-rag-constraints",
+                                "ingestion_jobs.cancel_requested|knowledge_bases_name_unique|knowledge_documents_external_unique"),
+                        this::upgradeIngestionControl)
         );
     }
 
@@ -208,6 +214,19 @@ public class DatabaseMigrationRunner {
         ensureIndex("ingestion_jobs", "ingestion_jobs_kb", """
                 CREATE INDEX ingestion_jobs_kb
                 ON ingestion_jobs (tenant_id, knowledge_base_id, created_at)
+                """);
+    }
+
+    private void upgradeIngestionControl() {
+        ensureColumns("ingestion_jobs", List.of(
+                new ColumnDefinition("cancel_requested", "BOOLEAN NOT NULL DEFAULT FALSE")));
+        ensureIndex("knowledge_bases", "knowledge_bases_name_unique", """
+                CREATE UNIQUE INDEX knowledge_bases_name_unique
+                ON knowledge_bases (tenant_id, name)
+                """);
+        ensureIndex("knowledge_documents", "knowledge_documents_external_unique", """
+                CREATE UNIQUE INDEX knowledge_documents_external_unique
+                ON knowledge_documents (tenant_id, knowledge_base_id, external_id)
                 """);
     }
 

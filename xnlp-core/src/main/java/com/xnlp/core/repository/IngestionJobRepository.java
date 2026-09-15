@@ -13,4 +13,10 @@ public interface IngestionJobRepository {
     Optional<IngestionJob> findById(String tenantId, String id);
 
     IngestionJob save(String tenantId, IngestionJob job);
+
+    boolean requestCancellation(String tenantId, String id);
+
+    boolean isCancellationRequested(String tenantId, String id);
+
+    void deleteByKnowledgeBase(String tenantId, String knowledgeBaseId);
 }

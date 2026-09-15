@@ -85,6 +85,15 @@ xnlp:
     migration:
       enabled: ${XNLP_DB_MIGRATION_ENABLED:true}
       validate-checksums: ${XNLP_DB_MIGRATION_VALIDATE_CHECKSUMS:true}
+  rag:
+    ingestion:
+      default-embedding-model: ${XNLP_DEFAULT_EMBEDDING_MODEL:configured-embedding-model}
+      batch-size: ${XNLP_INGESTION_BATCH_SIZE:32}
+      max-retries: ${XNLP_INGESTION_MAX_RETRIES:2}
+      retry-backoff: ${XNLP_INGESTION_RETRY_BACKOFF:200ms}
+      core-pool-size: ${XNLP_INGESTION_CORE_POOL_SIZE:2}
+      max-pool-size: ${XNLP_INGESTION_MAX_POOL_SIZE:4}
+      queue-capacity: ${XNLP_INGESTION_QUEUE_CAPACITY:100}
   security:
     enabled: ${XNLP_SECURITY_ENABLED:false}
     header-name: ${XNLP_SECURITY_HEADER:X-API-Key}
