@@ -162,6 +162,14 @@ java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar evaluation-status
 
 非 2xx 响应会转换为带 HTTP 状态码、稳定错误码、`requestId` 和 `traceId` 的 SDK 异常；CLI 输出相同诊断字段并以退出码 `2` 结束，不打印服务端堆栈。
 
+浏览器回归使用 Playwright，并通过 API mock 覆盖 Playground 成功、Provider 失败和无模型空状态，不依赖真实外部 Provider：
+
+```bash
+cd xnlp-frontend
+npx playwright install chromium
+npm run test:e2e
+```
+
 ### 异步评测 API
 
 评测提交不会阻塞 HTTP 请求，接口立即返回 `202 Accepted` 和 `Location`：
