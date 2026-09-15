@@ -37,6 +37,7 @@
 | T-06 | 模型详情与 Runtime 状态 | 已完成 | T-03 |
 | T-07 | 外部 E2E 与数据库矩阵 | 实施中（H2 已通过，容器矩阵已接入 CI，待远端验证） | T-04、T-05、T-06 |
 | T-08 | Java SDK / CLI 对齐 | 已完成 | T-01～T-06 |
+| T-09 | Release 0.3 版本与发布元数据对齐 | 实现完成（Helm lint 待远端 CI） | T-01～T-08 |
 
 ## 4. 分支与提交命名
 
@@ -261,13 +262,38 @@ codex/release-0.3-t-<编号>-<短名称>
 - SDK/CLI 单元测试及 Maven 全量验证通过；
 - README 包含可复制运行示例。
 
+### T-09 Release 0.3 版本与发布元数据对齐
+
+**输入**
+
+- 已完成的 Release 0.3 功能、测试与部署配置；
+- Maven 多模块、前端 npm 包和 Helm Chart 当前版本元数据。
+
+**输出**
+
+- Maven 父工程与全部模块统一为 `0.3.0`；
+- 前端 package、Helm Chart/appVersion 和默认镜像标签统一为 `0.3.0`；
+- README、SOP 和辅助脚本中的可复制命令同步到 `0.3.0`。
+
+**依赖**
+
+- T-01～T-08。
+
+**验收标准**
+
+- Maven reactor 构建产物版本均为 `0.3.0`；
+- npm package 与 lockfile 版本一致；
+- `helm lint` 通过且 Chart/appVersion/默认镜像标签一致；
+- 仓库当前有效文档和脚本不再引用 `0.1.0` 产物；
+- Maven 全量验证、前端构建和浏览器回归通过。
+
 ## 6. 推荐执行顺序
 
 ```text
-T-01 → T-02 → T-03 → T-04/T-05/T-06 → T-07/T-08
+T-01 → T-02 → T-03 → T-04/T-05/T-06 → T-07/T-08 → T-09
 ```
 
-T-04、T-05、T-06 可在合同稳定后并行；T-07 与 T-08 在主要 API 稳定后并行补齐。
+T-04、T-05、T-06 可在合同稳定后并行；T-07 与 T-08 在主要 API 稳定后并行补齐，T-09 在版本发布前统一产物和部署元数据。
 
 ## 6. 需要共同确认的五个决策
 
@@ -289,6 +315,7 @@ T-04、T-05、T-06 可在合同稳定后并行；T-07 与 T-08 在主要 API 稳
 - T-06 已完成：`/models` 已将配置档案和 `/models/runtime` 返回的可调用实例分区展示，显示 provider、协议、模型版本、runtime 类型、加载时间，并提供 activate/unload/test 的反馈；刷新时状态重新从服务端读取，部分接口失败不会阻断其余信息展示。
 - T-07 实施中：已新增独立 H2 runner、确定性 OpenAI-compatible mock provider、Release 0.3 REST E2E、MySQL/PostgreSQL Compose 与矩阵 runner；H2 全链路已通过，数据库矩阵已接入 GitHub Actions 必跑门禁。当前开发机未安装 Docker（`docker: command not found`），因此本地尚无 MySQL/PostgreSQL 真实运行证据，待远端 CI 执行后记录结果；本地矩阵脚本在缺少 Docker 时会以退出码 3 明确报告环境阻塞。
 - T-08 已完成：Java SDK 已提供类型化 Provider diagnostics、Benchmark 请求和统一错误合同；CLI 已增加 `provider status`、`provider probe`、`benchmark`，并对非 2xx 响应输出错误码和 request/trace ID。
+- T-09 实现完成：Maven reactor、前端 package、Helm Chart/appVersion/镜像标签以及当前运行文档已统一到 `0.3.0`；Maven 全量验证、前端生产构建和 Playwright Chromium 回归均已通过。本地环境未安装 Helm，Chart 元数据静态检查通过，`helm lint` 待远端 CI 验证。
 
 验证记录：`xnlp-frontend/npm run build` 与 `xnlp-frontend/npm run test:e2e` 已通过；`mvn -s ~/.m2/settings-aliyun.xml -Dmaven.repo.local=/tmp/m2 verify` 已通过全部模块；`XNLP_E2E_SKIP_BUILD=true tests/e2e/run-h2.sh` 已在隔离 H2 数据库和本地 mock provider 下通过健康、Provider、模型、预测、Benchmark、Dataset CRUD、错误合同与清理验证。
 
@@ -306,3 +333,4 @@ T-04、T-05、T-06 可在合同稳定后并行；T-07 与 T-08 在主要 API 稳
 - Playground、Benchmark 可从空状态到达成功或失败终态；
 - SDK/CLI 与 REST 合同一致；
 - 文档明确区分 demo runtime、配置存在、连接可达与生产可用。
+- Maven、前端、Helm 与运行文档的发布版本统一为 `0.3.0`。

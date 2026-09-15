@@ -79,16 +79,16 @@ Chart 默认部署 Spring Boot 服务和 React/Nginx 工作台，包含健康探
 # 默认 MySQL
 mvn -pl xnlp-server -am package -DskipTests && \
 SPRING_PROFILES_ACTIVE=mysql DB_URL='jdbc:mysql://localhost:3306/xnlp' \
-  java -jar xnlp-server/target/xnlp-server-0.1.0.jar
+  java -jar xnlp-server/target/xnlp-server-0.3.0.jar
 
 # PostgreSQL
 mvn -pl xnlp-server -am package -DskipTests && \
 SPRING_PROFILES_ACTIVE=postgres DB_USERNAME=postgres DB_PASSWORD=postgres \
-  java -jar xnlp-server/target/xnlp-server-0.1.0.jar
+  java -jar xnlp-server/target/xnlp-server-0.3.0.jar
 
 # 本地 H2 文件库（无需安装数据库）
 mvn -pl xnlp-server -am package -DskipTests && \
-SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.1.0.jar
+SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.3.0.jar
 ```
 
 ### Release 0.3 外部 E2E 与数据库矩阵
@@ -118,7 +118,7 @@ MySQL/PostgreSQL 使用临时容器执行同一套合同测试，不依赖开发
 
 ```bash
 SPRING_AI_MODEL_EMBEDDING=ollama OLLAMA_EMBEDDING_MODEL=nomic-embed-text \
-  SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.1.0.jar
+  SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.3.0.jar
 
 curl -X POST http://localhost:8760/api/v1/nlp/semantic-similarity \
   -H 'Content-Type: application/json' \
@@ -167,18 +167,18 @@ try (XNLPClient client = XNLPClient.builder("http://localhost:8760")
 CLI 由同一个 SDK 驱动，避免命令行和 REST 行为分叉：
 
 ```bash
-java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar \
+java -jar xnlp-cli/target/xnlp-cli-0.3.0.jar \
   --server http://localhost:8760 \
   --api-key "$XNLP_API_KEY" \
   --tenant "$XNLP_TENANT_ID" health
-java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar models
-java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar provider status
-java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar provider probe
-java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar benchmark \
+java -jar xnlp-cli/target/xnlp-cli-0.3.0.jar models
+java -jar xnlp-cli/target/xnlp-cli-0.3.0.jar provider status
+java -jar xnlp-cli/target/xnlp-cli-0.3.0.jar provider probe
+java -jar xnlp-cli/target/xnlp-cli-0.3.0.jar benchmark \
   --model ollama-default --requests 100 --concurrency 8 \
   --text "Explain retrieval-augmented generation."
-java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar dataset-list
-java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar evaluation-status
+java -jar xnlp-cli/target/xnlp-cli-0.3.0.jar dataset-list
+java -jar xnlp-cli/target/xnlp-cli-0.3.0.jar evaluation-status
 ```
 
 非 2xx 响应会转换为带 HTTP 状态码、稳定错误码、`requestId` 和 `traceId` 的 SDK 异常；CLI 输出相同诊断字段并以退出码 `2` 结束，不打印服务端堆栈。
@@ -227,12 +227,12 @@ mvn -pl xnlp-server -am package -DskipTests
 # Ollama（默认 provider）
 SPRING_AI_MODEL_CHAT=ollama OLLAMA_BASE_URL=http://localhost:11434 \
   OLLAMA_CHAT_MODEL=llama3.1 SPRING_PROFILES_ACTIVE=h2 \
-  java -jar xnlp-server/target/xnlp-server-0.1.0.jar
+  java -jar xnlp-server/target/xnlp-server-0.3.0.jar
 
 # OpenAI-compatible provider
 SPRING_AI_MODEL_CHAT=openai OPENAI_API_KEY=*** \
   OPENAI_BASE_URL=https://api.openai.com OPENAI_CHAT_MODEL=gpt-4o-mini \
-  SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.1.0.jar
+  SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.3.0.jar
 ```
 
 ### 可选 API Key 保护
@@ -243,7 +243,7 @@ SPRING_AI_MODEL_CHAT=openai OPENAI_API_KEY=*** \
 XNLP_SECURITY_ENABLED=true \
 XNLP_SECURITY_API_KEYS='replace-with-a-long-random-key,another-key' \
 SPRING_PROFILES_ACTIVE=h2 \
-java -jar xnlp-server/target/xnlp-server-0.1.0.jar
+java -jar xnlp-server/target/xnlp-server-0.3.0.jar
 ```
 
 开启后，以下运维入口仍可供探针和文档访问：`/health`、`/livez`、`/readyz`、`/startupz`、`/ok`、`/actuator/health`、Swagger/OpenAPI 资源；其余接口需要携带 `X-API-Key`，也兼容 `Authorization: Bearer <key>`。前端构建时可设置 `VITE_XNLP_API_KEY` 与 `VITE_XNLP_TENANT_ID`，工作台会自动为普通 API、SSE 和废弃物上传请求附加认证及租户 Header。

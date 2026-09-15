@@ -116,6 +116,7 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 - R0.3-4：Benchmark 页面与 SDK/CLI 对齐（已完成）；
 - R0.3-5：模型详情、激活、卸载和运行时状态（已完成）；
 - R0.3-6：外部 E2E 基础脚本（H2 已完成；MySQL/PostgreSQL runner 已接入 CI，待远端验证）。
+- R0.3-7：Maven、前端和 Helm 发布元数据已统一为 `0.3.0`（实现完成，`helm lint` 待远端 CI）。
 
 **完成标准**：新用户使用 H2 + Ollama 或 OpenAI-compatible provider，能够完成“配置/检查 provider → 选择模型 → 预测 → 查看错误/耗时 → benchmark”，并有自动化测试证明。
 

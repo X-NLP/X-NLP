@@ -40,7 +40,7 @@ for endpoint in "${ENDPOINTS[@]}"; do
   echo "${status} ${endpoint} ${preview}"
 
   if [[ ! "$status" =~ ^2 ]]; then
-    echo "Smoke failed for ${url}. Start backend with: mvn -pl xnlp-server -am package -DskipTests -Dmaven.repo.local=/tmp/m2 && java -jar xnlp-server/target/xnlp-server-0.1.0.jar --server.port=8760" >&2
+    echo "Smoke failed for ${url}. Start backend with: mvn -pl xnlp-server -am package -DskipTests -Dmaven.repo.local=/tmp/m2 && java -jar xnlp-server/target/xnlp-server-0.3.0.jar --server.port=8760" >&2
     exit 1
   fi
 done

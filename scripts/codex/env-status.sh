@@ -20,7 +20,7 @@ fi
 echo
 echo "== Startup hints =="
 echo "Frontend: npm run dev --prefix xnlp-frontend"
-echo "Backend:  mvn -pl xnlp-server -am package -DskipTests -Dmaven.repo.local=/tmp/m2 && java -jar xnlp-server/target/xnlp-server-0.1.0.jar --server.port=8760"
+echo "Backend:  mvn -pl xnlp-server -am package -DskipTests -Dmaven.repo.local=/tmp/m2 && java -jar xnlp-server/target/xnlp-server-0.3.0.jar --server.port=8760"
 
 echo
 echo "== Tool versions =="
