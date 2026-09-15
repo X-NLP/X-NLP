@@ -38,6 +38,11 @@ jobs:
           XNLP_E2E_SKIP_BUILD: 'true'
         run: tests/e2e/run-h2.sh
 
+      - name: Run database profile E2E matrix
+        env:
+          XNLP_E2E_SKIP_BUILD: 'true'
+        run: tests/e2e/run-db-matrix.sh all
+
       - name: Build frontend
         run: npm ci --prefix xnlp-frontend && npm run build --prefix xnlp-frontend
 

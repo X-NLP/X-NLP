@@ -99,7 +99,7 @@ H2 基线会构建服务端、创建隔离的临时数据库、启动确定性�
 ./tests/e2e/run-h2.sh
 ```
 
-脚本默认使用 `127.0.0.1:18760` 和 `127.0.0.1:18880`，可通过 `XNLP_E2E_API_PORT`、`XNLP_E2E_PROVIDER_PORT` 覆盖。已有构建产物时可设置 `XNLP_E2E_SKIP_BUILD=true`。GitHub Actions 的 `verify` job 会将 H2 外部 E2E 作为必跑步骤。
+脚本默认使用 `127.0.0.1:18760` 和 `127.0.0.1:18880`，可通过 `XNLP_E2E_API_PORT`、`XNLP_E2E_PROVIDER_PORT` 覆盖。已有构建产物时可设置 `XNLP_E2E_SKIP_BUILD=true`。GitHub Actions 的 `verify` job 会将 H2 外部 E2E 以及 MySQL/PostgreSQL 数据库矩阵作为必跑步骤。
 
 MySQL/PostgreSQL 使用临时容器执行同一套合同测试，不依赖开发数据库，也不会持久化测试卷：
 

@@ -35,7 +35,7 @@
 | T-04 | Model Playground | 已完成 | T-02、T-03 |
 | T-05 | Benchmark 产品闭环 | 已完成 | T-02、T-03 |
 | T-06 | 模型详情与 Runtime 状态 | 已完成 | T-03 |
-| T-07 | 外部 E2E 与数据库矩阵 | 实施中（H2 已通过，容器环境阻塞） | T-04、T-05、T-06 |
+| T-07 | 外部 E2E 与数据库矩阵 | 实施中（H2 已通过，容器矩阵已接入 CI，待远端验证） | T-04、T-05、T-06 |
 | T-08 | Java SDK / CLI 对齐 | 已完成 | T-01～T-06 |
 
 ## 4. 分支与提交命名
@@ -287,7 +287,7 @@ T-04、T-05、T-06 可在合同稳定后并行；T-07 与 T-08 在主要 API 稳
 - T-04 已完成：`/playground` 支持聊天模型选择、非流式预测、Provider 诊断、参数编辑、响应与错误元数据展示；Playwright 覆盖成功、稳定错误合同和无模型空状态。
 - T-05 已完成：`/benchmark` 已支持参数校验、并发压测、P50/P95/P99、吞吐量、成功率、失败诊断、session 历史和结果对比；后端有确定性服务测试。
 - T-06 已完成：`/models` 已将配置档案和 `/models/runtime` 返回的可调用实例分区展示，显示 provider、协议、模型版本、runtime 类型、加载时间，并提供 activate/unload/test 的反馈；刷新时状态重新从服务端读取，部分接口失败不会阻断其余信息展示。
-- T-07 实施中：已新增独立 H2 runner、确定性 OpenAI-compatible mock provider、Release 0.3 REST E2E、MySQL/PostgreSQL Compose 与矩阵 runner；H2 全链路已通过。当前开发机未安装 Docker（`docker: command not found`），因此 MySQL/PostgreSQL 尚未真实运行，矩阵脚本会以退出码 3 明确报告环境阻塞。
+- T-07 实施中：已新增独立 H2 runner、确定性 OpenAI-compatible mock provider、Release 0.3 REST E2E、MySQL/PostgreSQL Compose 与矩阵 runner；H2 全链路已通过，数据库矩阵已接入 GitHub Actions 必跑门禁。当前开发机未安装 Docker（`docker: command not found`），因此本地尚无 MySQL/PostgreSQL 真实运行证据，待远端 CI 执行后记录结果；本地矩阵脚本在缺少 Docker 时会以退出码 3 明确报告环境阻塞。
 - T-08 已完成：Java SDK 已提供类型化 Provider diagnostics、Benchmark 请求和统一错误合同；CLI 已增加 `provider status`、`provider probe`、`benchmark`，并对非 2xx 响应输出错误码和 request/trace ID。
 
 验证记录：`xnlp-frontend/npm run build` 与 `xnlp-frontend/npm run test:e2e` 已通过；`mvn -s ~/.m2/settings-aliyun.xml -Dmaven.repo.local=/tmp/m2 verify` 已通过全部模块；`XNLP_E2E_SKIP_BUILD=true tests/e2e/run-h2.sh` 已在隔离 H2 数据库和本地 mock provider 下通过健康、Provider、模型、预测、Benchmark、Dataset CRUD、错误合同与清理验证。
