@@ -105,7 +105,7 @@ export const modelsApi = {
       method: 'POST',
       body: JSON.stringify({ requests }),
     }),
-  benchmark: (modelName: string, params?: Record<string, any>) =>
+  benchmark: (modelName: string, params?: { requests?: number; concurrency?: number; text?: string }) =>
     request<any>(`/benchmark/${segment(modelName)}`, { method: 'POST', body: JSON.stringify(params || {}) }),
 };
 
