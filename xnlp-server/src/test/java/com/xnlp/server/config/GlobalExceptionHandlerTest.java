@@ -1,5 +1,7 @@
 package com.xnlp.server.config;
 
+import com.xnlp.core.rag.RagContractException;
+import com.xnlp.core.rag.RagErrorCode;
 import com.xnlp.server.dto.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
@@ -47,6 +49,22 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().error()).isEqualTo("provider_unavailable");
         assertThat(response.getBody().requestId()).isNotBlank();
+    }
+
+    @Test
+    void ragContractFailure_mapsCoreClassificationToStableHttpResponse() {
+        when(noTracer.getIfAvailable()).thenReturn(null);
+        GlobalExceptionHandler handler = new GlobalExceptionHandler(noTracer());
+
+        ResponseEntity<ApiErrorResponse> response = handler.handle(
+                new RagContractException(RagErrorCode.KNOWLEDGE_BASE_NOT_FOUND,
+                        "Knowledge base not found: kb-1"),
+                requestWithId("req-rag"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().error()).isEqualTo("knowledge_base_not_found");
+        assertThat(response.getBody().requestId()).isEqualTo("req-rag");
     }
 
     @Test

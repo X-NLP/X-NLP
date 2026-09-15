@@ -147,7 +147,7 @@ codex/release-0.4-t-09-release-gates
 
 | 任务 | 内容 | 输出 | 依赖 | 状态 |
 |---|---|---|---|---|
-| T-01 | RAG 领域合同与 API DTO | core 模型、SPI 合同、DTO 校验、OpenAPI/error contract 测试 | Release 0.3 | 待实施 |
+| T-01 | RAG 领域合同与 API DTO | core 模型、SPI 合同、DTO 校验、OpenAPI/error contract 测试 | Release 0.3 | 已完成（2026-09-15） |
 | T-02 | Vector Store SPI 与 JDBC 实现 | 可移植 schema、repository、cosine Top-K、租户隔离 | T-01 | 待实施 |
 | T-03 | 文档导入与增量索引 | chunker、checksum、embedding、异步 job、增删改同步 | T-02 | 待实施 |
 | T-04 | Retrieval 与 Rerank | 检索 API、过滤、reranker SPI/provider adapter、链路观测 | T-03 | 待实施 |
@@ -165,6 +165,16 @@ codex/release-0.4-t-09-release-gates
 - DTO 对空文本、非法 Top-K、非法版本、超长内容做 Bean Validation；
 - 公共错误码进入统一异常映射；
 - core 公共 API 与 server DTO 单元测试通过，不需要数据库和真实 provider。
+
+### T-01 实施记录（2026-09-15）
+
+- `xnlp-core` 已新增知识库、文档、chunk、向量、检索、rerank、RAG 引用和异步导入任务合同；
+- `KnowledgeVectorStore` 与 `RetrievalReranker` 已形成 provider/数据库无关的项目级 SPI；
+- embedding/query vector 已校验维度和有限数值，集合与数组使用防御性复制；
+- server 已新增知识库、文档、检索、RAG、reindex 请求 DTO，覆盖默认值、长度、Top-K、版本和跨字段校验；
+- `RagErrorCode` 保持 core 与 HTTP 解耦，并由统一异常处理映射到 400/404/409/422/503/504；
+- citation 同时按 `documentId + chunkId` 校验，禁止引用检索结果之外的来源；
+- `mvn verify` 于 2026-09-15 本地通过，core/server/client/cli 全部 `BUILD SUCCESS`。
 
 ### T-02 Vector Store SPI 与 JDBC 实现
 

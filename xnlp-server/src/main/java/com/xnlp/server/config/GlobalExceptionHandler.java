@@ -1,6 +1,8 @@
 package com.xnlp.server.config;
 
 import com.xnlp.core.errors.*;
+import com.xnlp.core.rag.RagContractException;
+import com.xnlp.core.rag.RagErrorCode;
 import com.xnlp.server.dto.ApiErrorResponse;
 import com.xnlp.server.waste.WasteWorkflowException;
 import io.micrometer.tracing.Span;
@@ -63,6 +65,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(PredictionError.class)
     public ResponseEntity<ApiErrorResponse> handle(PredictionError e, HttpServletRequest request) {
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "prediction_error", e, request);
+    }
+
+    @ExceptionHandler(RagContractException.class)
+    public ResponseEntity<ApiErrorResponse> handle(RagContractException e, HttpServletRequest request) {
+        return error(statusFor(e.getErrorCode().kind()), e.getErrorCode().code(), e, request);
     }
 
     @ExceptionHandler(XNLPException.class)
@@ -189,6 +196,17 @@ public class GlobalExceptionHandler {
 
     private static String defaultMessage(String message) {
         return message == null || message.isBlank() ? "Invalid value" : message;
+    }
+
+    private static HttpStatus statusFor(RagErrorCode.Kind kind) {
+        return switch (kind) {
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case CONFLICT -> HttpStatus.CONFLICT;
+            case INVALID_REQUEST -> HttpStatus.BAD_REQUEST;
+            case UNPROCESSABLE -> HttpStatus.UNPROCESSABLE_CONTENT;
+            case UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
+            case TIMEOUT -> HttpStatus.GATEWAY_TIMEOUT;
+        };
     }
 
     private static String safeMessage(Exception e) {

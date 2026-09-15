@@ -39,6 +39,39 @@ class ApiContractDtoTest {
     }
 
     @Test
+    void ragRequests_applySafeDefaultsAndValidateCrossFieldLimits() {
+        KnowledgeSearchRequest search = new KnowledgeSearchRequest(
+                "how to deploy", 5, 0.25, Map.of("language", "en"), true, null);
+        RagRequest rag = new RagRequest("summarize", 3, null, null, null, null);
+
+        assertThat(validator.validate(search)).isEmpty();
+        assertThat(search.rerankTopN()).isEqualTo(5);
+        assertThat(validator.validate(rag)).isEmpty();
+        assertThat(rag.maxContextChunks()).isEqualTo(3);
+
+        KnowledgeSearchRequest invalid = new KnowledgeSearchRequest(
+                "query", 2, null, null, true, 3);
+        assertThat(validator.validate(invalid)).extracting(v -> v.getPropertyPath().toString())
+                .contains("rerankTopNValid");
+    }
+
+    @Test
+    void knowledgeDocumentAndChunkPolicy_rejectUnsafeInput() {
+        KnowledgeDocumentCreateRequest document = new KnowledgeDocumentCreateRequest(
+                "", "", null, null, null, null);
+        ChunkPolicyRequest chunkPolicy = new ChunkPolicyRequest(500, 500, null);
+        KnowledgeDocumentUpdateRequest update = new KnowledgeDocumentUpdateRequest(
+                null, null, null, 0L);
+
+        assertThat(validator.validate(document)).extracting(v -> v.getPropertyPath().toString())
+                .contains("title", "content", "sourceType");
+        assertThat(validator.validate(chunkPolicy)).extracting(v -> v.getPropertyPath().toString())
+                .contains("overlapValid");
+        assertThat(validator.validate(update)).extracting(v -> v.getPropertyPath().toString())
+                .contains("expectedVersion", "updatePresent");
+    }
+
+    @Test
     void pageResponse_exposesNavigationMetadataAndEntryCompatibilityAlias() {
         PageResponse<String> response = PageResponse.of(List.of("a"), 0, 1, 3);
 
