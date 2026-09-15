@@ -2,7 +2,7 @@
 
 > 审计日期：2026-09-15  
 > 当前分支：`codex/sdk-cli-workflows`  
-> 当前提交：`979a31c`  
+> 审计基线提交：`979a31c`
 > 本文只记录当前工作区中可以由源码、构建结果或测试结果证明的状态；“已实现”不等于“生产环境已配置真实 provider”。
 
 ## 1. 当前产品定位
@@ -138,6 +138,8 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 - 完整 SDK/CLI、Python/TypeScript SDK、Webhook、OpenAPI 客户端、插件模板和示例工程。
 
 ## 5. 本轮规划决策点
+
+Release 0.3 的候选 WBS、输入/输出/依赖和验收门禁见 [`RELEASE-0.3-PLAN.md`](RELEASE-0.3-PLAN.md)。
 
 建议优先选择 **R0.3（API 工程化 + Provider 诊断 + Playground/Benchmark）**，理由是：
 

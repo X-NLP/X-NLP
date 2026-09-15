@@ -1,0 +1,281 @@
+# X-NLP Release 0.3 实施计划（提案）
+
+> 计划状态：待共同确认  
+> 计划日期：2026-09-15  
+> 基线分支：`codex/sdk-cli-workflows`
+
+本文将 [`ROADMAP.md`](ROADMAP.md) 中建议的 Release 0.3 拆成可逐项验收的升级任务。本文是提案，不表示用户已经选择 B+D，也不授权在确认前破坏现有公共 API。
+
+## 1. 版本目标
+
+让新用户在 H2 环境中完成一条可解释的推理闭环：
+
+```text
+查看 Provider 状态 → 选择模型 → 执行预测 → 查看响应/耗时/错误 → 运行 Benchmark → 对比结果
+```
+
+同时建立后续真实 NLP、RAG 和企业安全都能复用的 REST 合同：参数校验、稳定错误码、requestId/traceId、分页结构和类型化 SDK。
+
+## 2. 实施原则
+
+1. 复用 Spring Boot 自动配置和 Spring AI 标准接口，不另造 Provider 生命周期；
+2. API 先兼容迁移，再删除旧合同，避免一次性破坏前端、SDK 和 CLI；
+3. 不向客户端返回 API Key、Authorization、数据库凭证或完整异常堆栈；
+4. 测试默认使用 H2 与内存模型，不把外部网络作为单元/集成测试前提；
+5. 明确区分“依赖已接入”“配置存在”“连接可达”“模型可调用”；
+6. 每个任务独立提交、独立验证，验证通过后再进入下一项。
+
+## 3. WBS 状态
+
+| 编号 | 任务 | 状态 | 依赖 |
+|---|---|---|---|
+| T-01 | 统一 API 错误合同 | 待确认 | 无 |
+| T-02 | 类型化请求、响应与校验 | 待确认 | T-01 |
+| T-03 | Provider 诊断与连接测试 | 待确认 | T-01、T-02 |
+| T-04 | Model Playground | 待确认 | T-02、T-03 |
+| T-05 | Benchmark 产品闭环 | 待确认 | T-02、T-03 |
+| T-06 | 模型详情与 Runtime 状态 | 待确认 | T-03 |
+| T-07 | 外部 E2E 与数据库矩阵 | 待确认 | T-04、T-05、T-06 |
+| T-08 | Java SDK / CLI 对齐 | 待确认 | T-01～T-06 |
+
+## 4. 可执行任务
+
+### T-01 统一 API 错误合同
+
+**输入**
+
+- 当前 `GlobalExceptionHandler`；
+- `XNLPException` 异常体系；
+- Controller 中的 `IllegalArgumentException`、`NoSuchElementException` 和裸 `RuntimeException`；
+- Micrometer tracing 上下文。
+
+**输出**
+
+- 类型化 `ApiErrorResponse`；
+- 稳定错误码目录；
+- 业务异常、校验异常、资源不存在、Provider 和数据库异常映射；
+- `requestId` / `traceId` 响应字段；
+- Controller 合同测试。
+
+**依赖**
+
+- 无。
+
+**验收标准**
+
+- 400、404、409、502/503、500 场景返回相同字段结构；
+- 校验失败包含字段级错误，不返回 Java 类名或堆栈；
+- 响应与日志均不泄露密钥；
+- `DatasetController` 不再抛裸 `RuntimeException`；
+- Maven 增量与全量测试通过。
+
+### T-02 类型化请求、响应与校验
+
+**输入**
+
+- `BenchmarkController`、`DatasetController`、`NLPTaskController`、`EvaluationController`、AI 接口；
+- 现有前端 API client、Java SDK 和 CLI 调用格式。
+
+**输出**
+
+- Benchmark、NLP、Dataset、Evaluation 核心请求/响应 DTO；
+- 统一分页响应；
+- 数量、并发、分页、topK、文本长度等约束；
+- OpenAPI 可见的字段和校验信息；
+- 兼容迁移说明。
+
+**依赖**
+
+- T-01。
+
+**验收标准**
+
+- 必填项缺失和越界值不会进入 service；
+- 核心 REST 响应不要求 SDK 通过 `Map<String,Object>` 解析；
+- 现有前端、SDK、CLI 调用全部通过编译或兼容测试；
+- OpenAPI schema 能表达字段类型和限制。
+
+### T-03 Provider 诊断与连接测试
+
+**输入**
+
+- Spring AI `ChatModel` / `EmbeddingModel` Bean；
+- OpenAI-compatible 和 Ollama 自动配置；
+- 模型配置档案和现有模型测试能力。
+
+**输出**
+
+- Chat、Embedding、Rerank 三类诊断结果；
+- `configured`、`reachable`、`usable` 分层状态；
+- provider、model、脱敏 endpoint、检查耗时、失败原因和建议动作；
+- 有超时限制的主动连接测试；
+- Dashboard/Models/Assistant 可消费的诊断接口。
+
+**依赖**
+
+- T-01、T-02。
+
+**验收标准**
+
+- 无 API Key、无 Ollama、模型不存在、网络失败分别有明确提示；
+- 诊断不输出 secret，不无限等待；
+- 未配置的 Rerank 明确为 unsupported/unconfigured，而不是伪装可用；
+- 自动化测试不依赖外部 Provider。
+
+### T-04 Model Playground
+
+**输入**
+
+- 模型列表、Runtime 列表、预测接口和 Provider 诊断接口；
+- 当前 React/Vite/Tailwind 工作台组件风格。
+
+**输出**
+
+- 模型选择、输入编辑、推理参数和单次预测页面；
+- 响应、耗时、模型、Provider、错误详情和 request/trace ID 展示；
+- Provider 不可用时的修复引导；
+- loading、空、成功、失败、重试状态。
+
+**依赖**
+
+- T-02、T-03。
+
+**验收标准**
+
+- 用户可从页面完成一次非流式预测；
+- 页面明确区分 demo runtime 与真实 Provider；
+- 不可用状态不会显示为普通推理失败；
+- TypeScript 和 Vite build 通过；
+- 至少有一条前端自动化回归覆盖成功和失败状态。
+
+### T-05 Benchmark 产品闭环
+
+**输入**
+
+- 当前 Benchmark service/controller；
+- 类型化模型和 Provider 状态；
+- 现有图表与工作台样式。
+
+**输出**
+
+- 模型、请求数、并发度和测试文本配置；
+- 运行状态与失败状态；
+- 平均延迟、P50/P95/P99、吞吐量、成功率和错误数；
+- 历史结果基础对比；
+- 类型化 SDK/CLI 可消费结果。
+
+**依赖**
+
+- T-02、T-03。
+
+**验收标准**
+
+- 参数在前后端均受边界限制；
+- Benchmark 失败保留稳定错误码和诊断信息；
+- 页面可完成发起、等待、结果展示和重试；
+- 结果计算有确定性测试。
+
+### T-06 模型详情与 Runtime 状态
+
+**输入**
+
+- 模型配置档案、Runtime 列表、activate/unload/test API；
+- Provider 诊断。
+
+**输出**
+
+- 配置档案与运行时实例分区展示；
+- Provider、协议、模型版本、runtime 类型、加载状态与最近测试结果；
+- activate、unload、test 操作反馈。
+
+**依赖**
+
+- T-03。
+
+**验收标准**
+
+- 用户不会把“已保存配置”误认为“模型已加载”；
+- 操作成功后状态刷新，失败时显示稳定错误码和建议；
+- 页面刷新后状态来自服务端，不依赖前端临时状态。
+
+### T-07 外部 E2E 与数据库矩阵
+
+**输入**
+
+- Release 0.3 的 REST 与前端闭环；
+- H2/MySQL/PostgreSQL profiles 和 Compose。
+
+**输出**
+
+- 健康、Provider、模型、预测、Benchmark、数据集和错误场景脚本；
+- H2 必跑基线；
+- MySQL/PostgreSQL Compose 回归；
+- 测试数据清理和运行说明。
+
+**依赖**
+
+- T-04、T-05、T-06。
+
+**验收标准**
+
+- 测试不依赖开发机已有 H2 文件；
+- 重复运行不会积累脏数据；
+- H2 在 CI 必跑；
+- MySQL/PostgreSQL 至少各有一次真实容器验证记录，未通过时记录具体阻塞而不是宣称支持已验证。
+
+### T-08 Java SDK / CLI 对齐
+
+**输入**
+
+- T-01～T-06 最终 REST 合同；
+- 当前 `XNLPClient` 和 Picocli 命令结构。
+
+**输出**
+
+- 类型化错误、Provider 状态、预测参数和 Benchmark 结果；
+- CLI `provider status`、`benchmark` 等命令；
+- 兼容旧命令的迁移说明。
+
+**依赖**
+
+- T-01～T-06。
+
+**验收标准**
+
+- SDK 核心新增能力不返回裸 Map；
+- CLI 对非 2xx 响应输出错误码和 request/trace ID；
+- SDK/CLI 单元测试及 Maven 全量验证通过；
+- README 包含可复制运行示例。
+
+## 5. 推荐执行顺序
+
+```text
+T-01 → T-02 → T-03 → T-04/T-05/T-06 → T-07/T-08
+```
+
+T-04、T-05、T-06 可在合同稳定后并行；T-07 与 T-08 在主要 API 稳定后并行补齐。
+
+## 6. 需要共同确认的五个决策
+
+1. 是否选择 Release 0.3 的 **B+D** 路线；
+2. Provider 诊断是否从首版就展示 Rerank 的未配置状态；
+3. 核心 API 是否允许从裸 Map 兼容迁移到稳定 DTO；
+4. Playground 首版是否先交付非流式预测，把流式输出放到增量版本；
+5. MySQL/PostgreSQL 是本轮 CI 必跑，还是先提供可重复的手动 Compose 验证。
+
+**推荐默认值**：采用 B+D；诊断包含 Rerank 状态；DTO 采用兼容迁移；Playground 首版非流式；H2 CI 必跑，MySQL/PostgreSQL 先做可重复 Compose 验证。
+
+## 7. Release 0.3 完成门禁
+
+只有以下证据全部具备，Release 0.3 才能标记完成：
+
+- Maven 全量测试通过；
+- 前端 TypeScript 与生产构建通过；
+- API 合同测试覆盖校验、错误码和 request/trace ID；
+- 内存模型覆盖成功路径，测试不依赖外部网络；
+- Provider 缺失和不可达场景有自动化测试；
+- H2 外部 E2E 通过；
+- MySQL/PostgreSQL 有真实容器验证证据或明确阻塞记录；
+- Playground、Benchmark 可从空状态到达成功或失败终态；
+- SDK/CLI 与 REST 合同一致；
+- 文档明确区分 demo runtime、配置存在、连接可达与生产可用。
