@@ -1,8 +1,8 @@
 # X-NLP 产品路线图与实现审计
 
-> 审计日期：2026-09-15  
-> 当前分支：`codex/sdk-cli-workflows`  
-> 审计基线提交：`979a31c`
+> 审计日期：2026-09-15
+> 当前分支：`codex/release-0.3`
+> 审计基线提交：`e8dd3d6`
 > 本文只记录当前工作区中可以由源码、构建结果或测试结果证明的状态；“已实现”不等于“生产环境已配置真实 provider”。
 
 ## 1. 当前产品定位
@@ -50,72 +50,72 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 
 ### P0：从“能跑”到“可用闭环”
 
-1. **Provider 运行时诊断与配置向导**
-   - 当前应用可以在没有真实 provider 时启动，但用户直到执行请求才发现不可用。
-   - 需要 provider 状态、配置缺失原因、连通性检查、模型可用性检查和前端引导。
-   - 验收：Dashboard/Models 显示 Chat、Embedding、Rerank 的 `configured / reachable / usable` 状态；错误信息可操作且不泄露 secret。
+1. **Provider 运行时诊断与配置向导（Release 0.3 已完成）**
+   - 已提供 Chat、Embedding、Rerank 的被动诊断与主动 Probe，并区分 `configured / reachable / usable`。
+   - 已覆盖 API Key 缺失、模型不可用、HTTP 错误、超时和未配置 Rerank；前端 Models/Playground 可展示修复线索。
+   - 后续仍可升级：增加真正的配置向导、按 provider 的字段校验和可选的安全凭据管理。
 
-2. **真实 NLP runtime 至少落地一个适配器**
-   - 当前 NLP 组件主要是内置 demo/启发式实现；真实 Java SPI 只是扩展边界。
+2. **真实 NLP runtime 至少落地一个适配器（未完成）**
+   - 当前 NLP 组件主要是内置 demo/启发式实现；真实 Java SPI 仍是扩展边界。
    - 需要选择并落地一个可复用的真实 runtime（优先 HanLP 或 ONNX/DJL 其中之一），包含模型加载、版本、资源释放、超时和测试。
    - 验收：至少一个能力在真实 runtime 下端到端运行，且 demo 与真实 runtime 可切换并可观察。
 
-3. **统一 API 合同**
-   - `EvaluationController`、`NLPTaskController`、`DatasetController` 仍有 `Map<String,Object>`、裸 `RuntimeException` 和不完整校验。
-   - 需要强类型 request/response DTO、统一错误码、字段校验、分页结构、request/trace ID 和 OpenAPI schema。
-   - 验收：错误响应结构稳定；非法输入、资源不存在、provider 不可用都有明确 HTTP 状态和错误码；SDK 可依合同消费。
+3. **统一 API 合同（Release 0.3 已完成核心范围）**
+   - 已覆盖统一错误响应、字段级校验、稳定错误码、requestId/traceId、分页及 Benchmark/NLP/Dataset/Evaluation 核心 DTO。
+   - 后续仍需把剩余 `Map<String,Object>` 响应迁移到公开 DTO，并同步 SDK、CLI 与 OpenAPI 生成客户端。
 
 ### P1：产品闭环与 RAG 能力
 
-4. **Model Playground 与 Benchmark 页面**
-   - 后端接口已存在，前端尚未形成完整的交互闭环。
-   - 需要输入编辑器、模型/参数选择、单次预测、批量/流式输出、耗时、token/错误详情、benchmark 参数与结果图表。
+4. **Model Playground 与 Benchmark 页面（进行中）**
+   - Playground 已支持模型选择、非流式预测、Provider 诊断、参数编辑、响应与错误元数据。
+   - Benchmark 已支持参数边界、并发执行、P50/P95/P99、吞吐量、成功率、失败诊断、历史记录和结果对比。
+   - 未完成：浏览器自动化回归，以及首版流式输出/token 使用量等增强能力。
 
-5. **模型详情与运行时操作**
-   - 前端应使用详情、runtime 列表、activate、unload、test 等已有 API，明确配置档案与运行时状态的差异。
+5. **模型详情与运行时操作（Release 0.3 已完成）**
+   - Models 页面已分离配置档案与 `/models/runtime` 可调用实例，显示 provider、协议、模型版本、runtime 类型和加载时间，并支持 activate/unload/test 反馈。
 
-6. **Dataset 编辑与样本级体验**
+6. **Dataset 编辑与样本级体验（未完成）**
    - 当前重点是创建、列表、分页、导出、删除；需要详情编辑、样本增删改、数据集版本和导入校验报告。
 
-7. **评测样本级结果与可恢复执行**
+7. **评测样本级结果与可恢复执行（未完成）**
    - 当前已持久化运行状态和聚合指标；还需要逐条预测结果、错误分类、重跑、断点恢复和指标插件 SPI。
 
-8. **持久化向量检索与 Rerank**
+8. **持久化向量检索与 Rerank（未完成）**
    - 当前语义搜索是运行时 embedding 后对数据集做 Top-K 计算，不是持久化向量库。
    - 需要向量存储抽象、文档切分、增量 embedding、删除同步、缓存、Top-K + rerank 组合，以及语义检索评测。
    - Rerank 还需要真实协议适配器和 API/pipeline 节点，而不只是模型类型白名单。
 
-9. **Pipeline DAG 与可审计运行记录**
+9. **Pipeline DAG 与可审计运行记录（未完成）**
    - 当前按请求顺序执行；需要依赖关系、分支/合并、节点级超时/重试、运行日志流、trace 持久化与下载。
 
 ### P2：企业生产化
 
-10. OAuth2/OIDC/JWT 与 RBAC（管理员、开发者、只读用户）；  
-11. API Key 生命周期、过期、撤销、轮换和审计；  
-12. 多租户配额、限流、熔断、并发与请求大小限制；  
-13. Secret 管理、备份恢复、迁移回滚和数据保留；  
-14. 对象存储适配器替代 WasteFlow 的本地文件存储；  
+10. OAuth2/OIDC/JWT 与 RBAC（管理员、开发者、只读用户）；
+11. API Key 生命周期、过期、撤销、轮换和审计；
+12. 多租户配额、限流、熔断、并发与请求大小限制；
+13. Secret 管理、备份恢复、迁移回滚和数据保留；
+14. 对象存储适配器替代 WasteFlow 的本地文件存储；
 15. MySQL/PostgreSQL 真实容器矩阵、镜像漏洞扫描、SBOM、签名和 registry 发布。
 
 ### P2：开发者生态
 
-16. 类型化 Java SDK 与 CLI 补齐 benchmark、pipeline、semantic search、compare 等命令；  
-17. Python/TypeScript SDK、Webhook、OpenAPI 生成客户端；  
-18. runtime/组件插件模板、示例工程、快速开始脚本和贡献者文档；  
+16. 类型化 Java SDK 与 CLI 补齐 Provider diagnostics、benchmark、pipeline、semantic search、compare 等命令；
+17. Python/TypeScript SDK、Webhook、OpenAPI 生成客户端；
+18. runtime/组件插件模板、示例工程、快速开始脚本和贡献者文档；
 19. 前端单元测试、组件测试、浏览器 E2E 和可访问性检查。
 
 ## 4. 建议的版本路线
 
-### Release 0.3：可用推理闭环（建议下一阶段）
+### Release 0.3：可用推理闭环（当前执行版本）
 
 **目标**：让第一次启动的用户能看懂系统状态，并从页面完成一次可解释的模型调用与基准测试。
 
-- R0.3-1：统一 API DTO、校验、错误码和 OpenAPI；
-- R0.3-2：Provider 状态诊断与连接测试；
-- R0.3-3：Model Playground；
-- R0.3-4：Benchmark 页面与 SDK/CLI 对齐；
-- R0.3-5：模型详情、激活、卸载和运行时状态；
-- R0.3-6：外部 E2E 基础脚本。
+- R0.3-1：统一 API DTO、校验、错误码和 OpenAPI（核心范围已完成）；
+- R0.3-2：Provider 状态诊断与连接测试（已完成）；
+- R0.3-3：Model Playground（进行中，待浏览器回归）；
+- R0.3-4：Benchmark 页面与 SDK/CLI 对齐（页面已完成，SDK/CLI 待 T-08）；
+- R0.3-5：模型详情、激活、卸载和运行时状态（已完成）；
+- R0.3-6：外部 E2E 基础脚本（待 T-07）。
 
 **完成标准**：新用户使用 H2 + Ollama 或 OpenAI-compatible provider，能够完成“配置/检查 provider → 选择模型 → 预测 → 查看错误/耗时 → benchmark”，并有自动化测试证明。
 
@@ -141,7 +141,7 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 
 Release 0.3 的候选 WBS、输入/输出/依赖和验收门禁见 [`RELEASE-0.3-PLAN.md`](RELEASE-0.3-PLAN.md)。
 
-建议优先选择 **R0.3（API 工程化 + Provider 诊断 + Playground/Benchmark）**，理由是：
+当前执行 **R0.3（API 工程化 + Provider 诊断 + Playground/Benchmark）**，理由是：
 
 - 现有后端核心能力已较完整，前端缺口集中且可以快速形成可演示闭环；
 - 先统一接口合同，后续真实 NLP、RAG、企业安全都能复用；
@@ -158,4 +158,4 @@ Release 0.3 的候选 WBS、输入/输出/依赖和验收门禁见 [`RELEASE-0.3
 
 推荐执行顺序：**B + D → A + C → E**。
 
-在用户确认前，本路线图不把 A/B/C/D/E 中任一方向视为已选定；下一轮可按用户选择拆成 WBS、明确接口和验收标准，再开始编码。
+当前已选择 B + D，并按 `codex/release-0.3` 主线实施；下一轮建议在 T-04 收尾后，从 T-07/T-08 中选择优先项，再拆分版本任务分支。
