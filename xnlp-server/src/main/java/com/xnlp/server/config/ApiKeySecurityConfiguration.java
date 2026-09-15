@@ -21,10 +21,13 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import com.xnlp.server.tenant.TenantContextFilter;
+import com.xnlp.server.dto.ApiErrorResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.UUID;
 import java.util.List;
 
 /**
@@ -45,9 +48,11 @@ public class ApiKeySecurityConfiguration {
     );
 
     private final SecurityProperties properties;
+    private final ObjectMapper objectMapper;
 
-    public ApiKeySecurityConfiguration(SecurityProperties properties) {
+    public ApiKeySecurityConfiguration(SecurityProperties properties, ObjectMapper objectMapper) {
         this.properties = properties;
+        this.objectMapper = objectMapper;
         properties.validate();
     }
 
@@ -91,32 +96,36 @@ public class ApiKeySecurityConfiguration {
                         .requestMatchers(PUBLIC_PATHS.toArray(String[]::new)).permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedEntryPoint()))
-                .addFilterBefore(new ApiKeyAuthenticationFilter(properties), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new ApiKeyAuthenticationFilter(properties, objectMapper), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
     private AuthenticationEntryPoint unauthorizedEntryPoint() {
         return (request, response, authenticationException) -> writeError(
-                response, HttpStatusCode.UNAUTHORIZED, "unauthorized", "A valid API key is required");
+                request, response, HttpStatusCode.UNAUTHORIZED, "unauthorized", "A valid API key is required");
     }
 
-    private static void writeError(HttpServletResponse response, int status, String error, String message)
-            throws IOException {
+    private void writeError(HttpServletRequest request, HttpServletResponse response, int status,
+                            String error, String message) throws IOException {
+        String requestId = request.getHeader("X-Request-ID");
+        if (requestId == null || requestId.isBlank()) {
+            requestId = UUID.randomUUID().toString();
+        }
         response.setStatus(status);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().write("{\"timestamp\":\"" + Instant.now()
-                + "\",\"status\":" + status
-                + ",\"error\":\"" + error
-                + "\",\"message\":\"" + message + "\"}");
+        objectMapper.writeValue(response.getWriter(), new ApiErrorResponse(
+                Instant.now(), status, error, message, null, null, requestId, null));
     }
 
     private static final class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
 
         private final SecurityProperties properties;
+        private final ObjectMapper objectMapper;
 
-        private ApiKeyAuthenticationFilter(SecurityProperties properties) {
+        private ApiKeyAuthenticationFilter(SecurityProperties properties, ObjectMapper objectMapper) {
             this.properties = properties;
+            this.objectMapper = objectMapper;
         }
 
         @Override
@@ -139,7 +148,7 @@ public class ApiKeySecurityConfiguration {
             }
 
             if (!properties.matches(candidate)) {
-                writeError(response, HttpStatusCode.UNAUTHORIZED, "unauthorized", "A valid API key is required");
+                writeError(request, response, HttpStatusCode.UNAUTHORIZED, "unauthorized", "A valid API key is required");
                 return;
             }
 
@@ -154,6 +163,19 @@ public class ApiKeySecurityConfiguration {
             } finally {
                 SecurityContextHolder.clearContext();
             }
+        }
+
+        private void writeError(HttpServletRequest request, HttpServletResponse response, int status,
+                                String error, String message) throws IOException {
+            String requestId = request.getHeader("X-Request-ID");
+            if (requestId == null || requestId.isBlank()) {
+                requestId = UUID.randomUUID().toString();
+            }
+            response.setStatus(status);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.setCharacterEncoding("UTF-8");
+            objectMapper.writeValue(response.getWriter(), new ApiErrorResponse(
+                    Instant.now(), status, error, message, null, null, requestId, null));
         }
 
         private static boolean matchesPath(String path, String configuredPath) {

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Map;
 
 @RestController
@@ -36,7 +37,7 @@ public class DatasetController {
     @GetMapping("/{id}")
     public EvaluationDataset get(@PathVariable String id) {
         return datasetService.get(id)
-                .orElseThrow(() -> new RuntimeException("Dataset not found: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Dataset not found: " + id));
     }
 
     @PostMapping
