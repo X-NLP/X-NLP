@@ -30,9 +30,9 @@
 | 编号 | 任务 | 状态 | 依赖 |
 |---|---|---|---|
 | T-01 | 统一 API 错误合同 | 已完成 | 无 |
-| T-02 | 类型化请求、响应与校验 | 进行中 | T-01 |
-| T-03 | Provider 诊断与连接测试 | 待开始 | T-01、T-02 |
-| T-04 | Model Playground | 待开始 | T-02、T-03 |
+| T-02 | 类型化请求、响应与校验 | 已完成 | T-01 |
+| T-03 | Provider 诊断与连接测试 | 已完成 | T-01、T-02 |
+| T-04 | Model Playground | 进行中 | T-02、T-03 |
 | T-05 | Benchmark 产品闭环 | 待开始 | T-02、T-03 |
 | T-06 | 模型详情与 Runtime 状态 | 待开始 | T-03 |
 | T-07 | 外部 E2E 与数据库矩阵 | 待开始 | T-04、T-05、T-06 |
@@ -276,6 +276,13 @@ T-04、T-05、T-06 可在合同稳定后并行；T-07 与 T-08 在主要 API 稳
 5. MySQL/PostgreSQL 是本轮 CI 必跑，还是先提供可重复的手动 Compose 验证。
 
 **当前默认值**：采用 B+D；诊断包含 Rerank 状态；DTO 采用兼容迁移；Playground 首版非流式；H2 CI 必跑，MySQL/PostgreSQL 先做可重复 Compose 验证。
+
+## 7.1 当前实施记录（2026-09-15）
+
+- T-02 已完成：Dataset、Evaluation、NLP 核心请求已迁移到类型化 DTO，并保留现有前端字段兼容。
+- T-03 已完成：新增被动诊断与主动 Provider Probe，区分 configured/reachable/usable，覆盖 API Key 缺失、HTTP 错误、超时和 Rerank 未配置。
+- T-04 已开始：新增 `/playground` 前端工作台，支持聊天模型选择、非流式预测、Provider 诊断、参数编辑、响应与错误元数据展示；下一步补充浏览器回归和 Benchmark 页面闭环。
+- 前端验证：`xnlp-frontend/npm run build` 已通过。
 
 ## 8. Release 0.3 完成门禁
 
