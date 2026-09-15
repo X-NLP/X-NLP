@@ -1,7 +1,8 @@
 ## X-NLP MVP 功能列表 & 规格说明
 
 > X-NLP 是一个 NLP 处理框架，目标是快速引入、组合、评测自然语言处理技术，并把处理过程和评测变化可视化。
-> 版本：MVP 0.2.0 | 更新：2026-09-14
+> 版本：MVP 0.2.0 | 更新：2026-09-15
+> 当前实现审计与下一阶段路线图：见 [`docs/ROADMAP.md`](docs/ROADMAP.md)。
 
 ---
 
@@ -67,7 +68,7 @@ xnlp-frontend     React 18 + Vite 5 + Tailwind 3 前端 (端口 5173, 已代理�
 依赖图: xnlp-cli -> xnlp-client -> xnlp-core <- xnlp-server
 ```
 
-**当前运行状态**：后端 Java (8760) + 前端 Vite (5173) 均已启动并可交互。
+**运行状态说明**：本文不假设后端或前端当前正在运行；请以实际启动命令、健康探针和前端构建结果为准。实现审计与验证结果见 [`docs/ROADMAP.md`](docs/ROADMAP.md)。
 
 ---
 

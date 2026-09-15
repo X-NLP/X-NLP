@@ -1,0 +1,159 @@
+# X-NLP 产品路线图与实现审计
+
+> 审计日期：2026-09-15  
+> 当前分支：`codex/sdk-cli-workflows`  
+> 当前提交：`6247fcf`  
+> 本文只记录当前工作区中可以由源码、构建结果或测试结果证明的状态；“已实现”不等于“生产环境已配置真实 provider”。
+
+## 1. 当前产品定位
+
+X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测、可观测的 NLP 工程工作台：
+
+1. 管理模型资产与运行时状态；
+2. 管理数据集、样本和期望输出；
+3. 通过统一能力组件组成 NLP pipeline；
+4. 对处理结果进行异步评测、追踪和对比；
+5. 通过 Spring AI 接入 ChatModel / EmbeddingModel 等标准模型能力；
+6. 通过 Spring Boot 的 DataSource 与 profile 切换存储实现。
+
+## 2. 当前实现快照
+
+### 2.1 已实现并已由源码确认的能力
+
+| 领域 | 已实现内容 | 证据位置 |
+|---|---|---|
+| Web 工作台 | React 18 + Vite + Tailwind；Dashboard、Models、Datasets、Evaluation、Compare、Canvas、AI Assistant、NLP Workbench、WasteFlow | `xnlp-frontend/src/App.tsx`、`xnlp-frontend/src/pages/` |
+| 模型资产 | 模型档案 CRUD、能力目录、激活、卸载、测试、运行时列表 | `xnlp-server/src/main/java/com/xnlp/server/controller/ModelController.java`、`ModelCatalogService.java` |
+| Chat AI | Spring AI ChatModel；OpenAI-compatible 与 Ollama 配置切换 | `xnlp-server/src/main/resources/application.yml`、`SpringAIRuntimeBridge.java` |
+| Embedding AI | 语义相似度、数据集 Top-K 语义搜索、provider 响应校验 | `SemanticSearchService.java`、`NLPTaskController.java`、`DatasetController.java` |
+| NLP 组件 | TOK、POS、NER、DEP、SDP、SRL、CON、AMR、KEYPHRASE、摘要、纠错、分类、情感、STS、TST 等能力目录与 demo runtime | `xnlp-server/src/main/java/com/xnlp/server/component/impl/`、`CapabilityRegistry.java` |
+| Pipeline | 有序节点执行、节点状态、节点结果、失败后跳过、traceId 与耗时 | `PipelineTraceService.java`、`PipelineController.java`、`xnlp-core/src/main/java/com/xnlp/core/api/` |
+| 评测 | 异步队列、进度持久化、取消、SSE、指标计算、历史过滤、评测对比 | `EvaluationService.java`、`EvaluationController.java`、`EvaluationRunEntity.java` |
+| 数据层 | Spring JDBC repository；H2、MySQL、PostgreSQL profile；memory/file 适配器；版本迁移与 checksum 校验 | `xnlp-server/src/main/java/com/xnlp/server/repository/`、`application-*.yml`、`DatabaseMigrationRunner.java` |
+| 工程能力 | API Key、租户隔离、健康探针、Actuator/Prometheus、Micrometer Tracing、结构化日志、Docker Compose、Helm、GitHub Actions | `config/`、`tenant/`、`docker-compose.yml`、`deploy/helm/`、`.github/workflows/ci.yml` |
+| SDK / CLI | Java SDK 覆盖模型、推理、数据集、评测、SSE、NLP/Pipeline/AI；Picocli 覆盖主要模型/数据集/评测工作流 | `xnlp-client/src/main/java/`、`xnlp-cli/src/main/java/` |
+
+### 2.2 当前验证结果
+
+| 验证项 | 结果 | 说明 |
+|---|---|---|
+| Maven 全量构建与测试 | ✅ `BUILD SUCCESS` | `mvn -s ~/.m2/settings-aliyun.xml -Dmaven.repo.local=/tmp/m2 verify`；53 tests，0 failures，0 errors，0 skipped |
+| 前端生产构建 | ✅ 成功 | `npm run build`；TypeScript 编译与 Vite 打包均通过 |
+| 真实 Chat provider | ⚠️ 未在本次审计中验证 | 需要有效的 OpenAI API Key 或可访问的 Ollama 服务 |
+| 真实 Embedding provider | ⚠️ 未在本次审计中验证 | 需要配置 embedding provider；未配置时不能把 demo runtime 当成生产语义检索 |
+| MySQL / PostgreSQL 容器矩阵 | ⚠️ 未验证 | 当前有 profile、驱动和 Compose 配置，但还缺少本次审计中的真实数据库矩阵运行记录 |
+| 外部 E2E | ⚠️ 未完成 | `tests/` 目前没有完整的可执行外部 E2E 脚本 |
+
+> Maven 测试需要在允许嵌入式服务器绑定随机端口的环境运行。受限沙箱中出现的 `SocketException: Operation not permitted` 是环境限制；在允许本地端口的环境重新执行后通过。
+
+## 3. 未实现或需要升级的内容
+
+### P0：从“能跑”到“可用闭环”
+
+1. **Provider 运行时诊断与配置向导**
+   - 当前应用可以在没有真实 provider 时启动，但用户直到执行请求才发现不可用。
+   - 需要 provider 状态、配置缺失原因、连通性检查、模型可用性检查和前端引导。
+   - 验收：Dashboard/Models 显示 Chat、Embedding、Rerank 的 `configured / reachable / usable` 状态；错误信息可操作且不泄露 secret。
+
+2. **真实 NLP runtime 至少落地一个适配器**
+   - 当前 NLP 组件主要是内置 demo/启发式实现；真实 Java SPI 只是扩展边界。
+   - 需要选择并落地一个可复用的真实 runtime（优先 HanLP 或 ONNX/DJL 其中之一），包含模型加载、版本、资源释放、超时和测试。
+   - 验收：至少一个能力在真实 runtime 下端到端运行，且 demo 与真实 runtime 可切换并可观察。
+
+3. **统一 API 合同**
+   - `EvaluationController`、`NLPTaskController`、`DatasetController` 仍有 `Map<String,Object>`、裸 `RuntimeException` 和不完整校验。
+   - 需要强类型 request/response DTO、统一错误码、字段校验、分页结构、request/trace ID 和 OpenAPI schema。
+   - 验收：错误响应结构稳定；非法输入、资源不存在、provider 不可用都有明确 HTTP 状态和错误码；SDK 可依合同消费。
+
+### P1：产品闭环与 RAG 能力
+
+4. **Model Playground 与 Benchmark 页面**
+   - 后端接口已存在，前端尚未形成完整的交互闭环。
+   - 需要输入编辑器、模型/参数选择、单次预测、批量/流式输出、耗时、token/错误详情、benchmark 参数与结果图表。
+
+5. **模型详情与运行时操作**
+   - 前端应使用详情、runtime 列表、activate、unload、test 等已有 API，明确配置档案与运行时状态的差异。
+
+6. **Dataset 编辑与样本级体验**
+   - 当前重点是创建、列表、分页、导出、删除；需要详情编辑、样本增删改、数据集版本和导入校验报告。
+
+7. **评测样本级结果与可恢复执行**
+   - 当前已持久化运行状态和聚合指标；还需要逐条预测结果、错误分类、重跑、断点恢复和指标插件 SPI。
+
+8. **持久化向量检索与 Rerank**
+   - 当前语义搜索是运行时 embedding 后对数据集做 Top-K 计算，不是持久化向量库。
+   - 需要向量存储抽象、文档切分、增量 embedding、删除同步、缓存、Top-K + rerank 组合，以及语义检索评测。
+   - Rerank 还需要真实协议适配器和 API/pipeline 节点，而不只是模型类型白名单。
+
+9. **Pipeline DAG 与可审计运行记录**
+   - 当前按请求顺序执行；需要依赖关系、分支/合并、节点级超时/重试、运行日志流、trace 持久化与下载。
+
+### P2：企业生产化
+
+10. OAuth2/OIDC/JWT 与 RBAC（管理员、开发者、只读用户）；  
+11. API Key 生命周期、过期、撤销、轮换和审计；  
+12. 多租户配额、限流、熔断、并发与请求大小限制；  
+13. Secret 管理、备份恢复、迁移回滚和数据保留；  
+14. 对象存储适配器替代 WasteFlow 的本地文件存储；  
+15. MySQL/PostgreSQL 真实容器矩阵、镜像漏洞扫描、SBOM、签名和 registry 发布。
+
+### P2：开发者生态
+
+16. 类型化 Java SDK 与 CLI 补齐 benchmark、pipeline、semantic search、compare 等命令；  
+17. Python/TypeScript SDK、Webhook、OpenAPI 生成客户端；  
+18. runtime/组件插件模板、示例工程、快速开始脚本和贡献者文档；  
+19. 前端单元测试、组件测试、浏览器 E2E 和可访问性检查。
+
+## 4. 建议的版本路线
+
+### Release 0.3：可用推理闭环（建议下一阶段）
+
+**目标**：让第一次启动的用户能看懂系统状态，并从页面完成一次可解释的模型调用与基准测试。
+
+- R0.3-1：统一 API DTO、校验、错误码和 OpenAPI；
+- R0.3-2：Provider 状态诊断与连接测试；
+- R0.3-3：Model Playground；
+- R0.3-4：Benchmark 页面与 SDK/CLI 对齐；
+- R0.3-5：模型详情、激活、卸载和运行时状态；
+- R0.3-6：外部 E2E 基础脚本。
+
+**完成标准**：新用户使用 H2 + Ollama 或 OpenAI-compatible provider，能够完成“配置/检查 provider → 选择模型 → 预测 → 查看错误/耗时 → benchmark”，并有自动化测试证明。
+
+### Release 0.4：真实 NLP 与 RAG
+
+- R0.4-1：落地首个真实 NLP runtime；
+- R0.4-2：向量存储 SPI 与第一种持久化实现；
+- R0.4-3：文档切分、批量导入、增量更新；
+- R0.4-4：Rerank 协议适配与检索链路；
+- R0.4-5：Semantic Search 页面与检索评测。
+
+**完成标准**：数据集/文档导入后可重复检索，重启服务后向量仍可用，更新和删除能同步，检索结果可以被评测。
+
+### Release 0.5：企业平台
+
+- OAuth2/OIDC/JWT、RBAC、审计、配额、限流、熔断、任务恢复、Secret、备份和生产对象存储。
+
+### Release 0.6：开发者生态
+
+- 完整 SDK/CLI、Python/TypeScript SDK、Webhook、OpenAPI 客户端、插件模板和示例工程。
+
+## 5. 本轮规划决策点
+
+建议优先选择 **R0.3（API 工程化 + Provider 诊断 + Playground/Benchmark）**，理由是：
+
+- 现有后端核心能力已较完整，前端缺口集中且可以快速形成可演示闭环；
+- 先统一接口合同，后续真实 NLP、RAG、企业安全都能复用；
+- Provider 诊断能直接解决“服务能启动但不能推理”的最大体验问题；
+- 完成后可用外部 E2E 作为后续每个版本的回归基线。
+
+可选的下一步方向：
+
+- **A：真实 NLP runtime**（优先 HanLP / ONNX-DJL 适配）；
+- **B：Model Playground + Benchmark + Provider 诊断**（推荐）；
+- **C：持久化向量检索 / RAG / Rerank**；
+- **D：API 合同、错误码和测试体系**；
+- **E：OAuth2 / RBAC 企业安全**。
+
+推荐执行顺序：**B + D → A + C → E**。
+
+在用户确认前，本路线图不把 A/B/C/D/E 中任一方向视为已选定；下一轮可按用户选择拆成 WBS、明确接口和验收标准，再开始编码。
