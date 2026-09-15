@@ -137,6 +137,9 @@ try (XNLPClient client = XNLPClient.builder("http://localhost:8760")
         .build()) {
     System.out.println(client.health());
     client.listModels().forEach(model -> System.out.println(model.getName()));
+    System.out.println(client.providerDiagnostics());
+    System.out.println(client.benchmark("ollama-default",
+            new BenchmarkRequest(100, 8, "Explain retrieval-augmented generation.")));
 }
 ```
 
@@ -148,11 +151,16 @@ java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar \
   --api-key "$XNLP_API_KEY" \
   --tenant "$XNLP_TENANT_ID" health
 java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar models
+java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar provider status
+java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar provider probe
+java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar benchmark \
+  --model ollama-default --requests 100 --concurrency 8 \
+  --text "Explain retrieval-augmented generation."
 java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar dataset-list
-java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar evaluation-status <run-id>
+java -jar xnlp-cli/target/xnlp-cli-0.1.0.jar evaluation-status
 ```
 
-非 2xx 响应会转换为带 HTTP 状态码和服务端错误信息的 SDK 异常；CLI 以简洁错误信息和退出码 `2` 结束。
+非 2xx 响应会转换为带 HTTP 状态码、稳定错误码、`requestId` 和 `traceId` 的 SDK 异常；CLI 输出相同诊断字段并以退出码 `2` 结束，不打印服务端堆栈。
 
 ### 异步评测 API
 

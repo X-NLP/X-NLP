@@ -36,19 +36,21 @@
 | T-05 | Benchmark 产品闭环 | 已完成 | T-02、T-03 |
 | T-06 | 模型详情与 Runtime 状态 | 已完成 | T-03 |
 | T-07 | 外部 E2E 与数据库矩阵 | 待开始 | T-04、T-05、T-06 |
-| T-08 | Java SDK / CLI 对齐 | 待开始 | T-01～T-06 |
+| T-08 | Java SDK / CLI 对齐 | 已完成 | T-01～T-06 |
 
 ## 4. 分支与提交命名
 
-Release 0.3 使用版本主线分支：`codex/release-0.3`。后续任务分支统一采用：
+Release 0.3 使用版本主线分支：`codex/release-0.3`。由于 Git 不能同时保存
+`codex/release-0.3` 与 `codex/release-0.3/...` 两级引用，任务分支采用扁平版本命名：
 
 ```text
-codex/release-0.3/t-<编号>-<短名称>
+codex/release-0.3-t-<编号>-<短名称>
 ```
 
-例如：`codex/release-0.3/t-02-typed-contracts`。任务完成后合并回
+例如：`codex/release-0.3-t-08-sdk-cli`。任务完成后合并回
 `codex/release-0.3`，提交信息继续遵循 Conventional Commits。版本主线只接收
-通过测试和验收门禁的任务提交。
+通过测试和验收门禁的任务提交。后续版本沿用 `codex/release-0.4`、
+`codex/release-0.5`、`codex/release-0.6` 及对应扁平任务分支。
 
 ## 5. 可执行任务
 
@@ -286,9 +288,9 @@ T-04、T-05、T-06 可在合同稳定后并行；T-07 与 T-08 在主要 API 稳
 - T-05 已完成：`/benchmark` 已支持参数校验、并发压测、P50/P95/P99、吞吐量、成功率、失败诊断、session 历史和结果对比；后端有确定性服务测试。
 - T-06 已完成：`/models` 已将配置档案和 `/models/runtime` 返回的可调用实例分区展示，显示 provider、协议、模型版本、runtime 类型、加载时间，并提供 activate/unload/test 的反馈；刷新时状态重新从服务端读取，部分接口失败不会阻断其余信息展示。
 - T-07 待开始：补充 H2 外部 E2E，并用 Docker Compose 对 MySQL/PostgreSQL 做真实矩阵验证。
-- T-08 待开始：补齐 Java SDK/CLI 对 Provider diagnostics、Benchmark 和统一错误合同的类型化支持。
+- T-08 已完成：Java SDK 已提供类型化 Provider diagnostics、Benchmark 请求和统一错误合同；CLI 已增加 `provider status`、`provider probe`、`benchmark`，并对非 2xx 响应输出错误码和 request/trace ID。
 
-前端验证：`xnlp-frontend/npm run build` 已通过；后端和全量 Maven 验证沿用第 8 节完成门禁要求。
+验证记录：`xnlp-frontend/npm run build` 已通过；`mvn -s ~/.m2/settings-aliyun.xml -Dmaven.repo.local=/tmp/m2 verify` 已通过全部模块。
 
 ## 8. Release 0.3 完成门禁
 
