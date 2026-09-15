@@ -45,6 +45,7 @@ public class DatabaseMigrationRunner {
     private static final String HISTORY_TABLE = "xnlp_schema_history";
     private static final String BASELINE_RESOURCE = "db/migration/V1__baseline.sql";
     private static final String RAG_STORAGE_RESOURCE = "db/migration/V5__rag-storage.sql";
+    private static final String RETRIEVAL_EVALUATION_RESOURCE = "db/migration/V7__retrieval-evaluation.sql";
 
     private final JdbcTemplate jdbc;
     private final DataSource dataSource;
@@ -133,7 +134,14 @@ public class DatabaseMigrationRunner {
                         "ingestion-control-and-rag-constraints",
                         checksum(6, "ingestion-control-and-rag-constraints",
                                 "ingestion_jobs.cancel_requested|knowledge_bases_name_unique|knowledge_documents_external_unique"),
-                        this::upgradeIngestionControl)
+                        this::upgradeIngestionControl),
+                new MigrationDefinition(
+                        7,
+                        "retrieval-evaluation",
+                        checksum(7, "retrieval-evaluation", readResource(RETRIEVAL_EVALUATION_RESOURCE)
+                                + "|retrieval_evaluation_runs_kb:tenant_id,knowledge_base_id,created_at"
+                                + "|retrieval_evaluation_samples_run:tenant_id,knowledge_base_id,run_id,seq"),
+                        this::createRetrievalEvaluationStorage)
         );
     }
 
@@ -214,6 +222,21 @@ public class DatabaseMigrationRunner {
         ensureIndex("ingestion_jobs", "ingestion_jobs_kb", """
                 CREATE INDEX ingestion_jobs_kb
                 ON ingestion_jobs (tenant_id, knowledge_base_id, created_at)
+                """);
+    }
+
+    private void createRetrievalEvaluationStorage() {
+        String script = readResource(RETRIEVAL_EVALUATION_RESOURCE)
+                .replace("__LARGE_TEXT__", largeTextType());
+        new ResourceDatabasePopulator(new ByteArrayResource(script.getBytes(StandardCharsets.UTF_8)))
+                .execute(dataSource);
+        ensureIndex("retrieval_evaluation_runs", "retrieval_evaluation_runs_kb", """
+                CREATE INDEX retrieval_evaluation_runs_kb
+                ON retrieval_evaluation_runs (tenant_id, knowledge_base_id, created_at)
+                """);
+        ensureIndex("retrieval_evaluation_samples", "retrieval_evaluation_samples_run", """
+                CREATE INDEX retrieval_evaluation_samples_run
+                ON retrieval_evaluation_samples (tenant_id, knowledge_base_id, run_id, seq)
                 """);
     }
 

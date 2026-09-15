@@ -11,6 +11,7 @@ import com.xnlp.core.rag.VectorRecord;
 import com.xnlp.core.repository.IngestionJobRepository;
 import com.xnlp.core.repository.KnowledgeBaseRepository;
 import com.xnlp.core.repository.KnowledgeDocumentRepository;
+import com.xnlp.core.repository.RetrievalEvaluationRepository;
 import com.xnlp.server.config.KnowledgeIngestionProperties;
 import com.xnlp.server.rag.DeterministicDocumentChunker;
 import com.xnlp.server.rag.DocumentChunker;
@@ -45,6 +46,7 @@ public class KnowledgeIngestionService {
     private final KnowledgeBaseRepository knowledgeBases;
     private final KnowledgeDocumentRepository documents;
     private final IngestionJobRepository jobs;
+    private final RetrievalEvaluationRepository retrievalEvaluations;
     private final DocumentChunker chunker;
     private final KnowledgeIndexWriter indexWriter;
     private final TaskExecutor taskExecutor;
@@ -55,6 +57,7 @@ public class KnowledgeIngestionService {
             KnowledgeBaseRepository knowledgeBases,
             KnowledgeDocumentRepository documents,
             IngestionJobRepository jobs,
+            RetrievalEvaluationRepository retrievalEvaluations,
             DocumentChunker chunker,
             KnowledgeIndexWriter indexWriter,
             @Qualifier("ingestionTaskExecutor") TaskExecutor taskExecutor,
@@ -63,6 +66,7 @@ public class KnowledgeIngestionService {
         this.knowledgeBases = knowledgeBases;
         this.documents = documents;
         this.jobs = jobs;
+        this.retrievalEvaluations = retrievalEvaluations;
         this.chunker = chunker;
         this.indexWriter = indexWriter;
         this.taskExecutor = taskExecutor;
@@ -152,6 +156,7 @@ public class KnowledgeIngestionService {
         String tenantId = TenantContext.currentTenantId();
         KnowledgeBase knowledgeBase = requireKnowledgeBase(tenantId, knowledgeBaseId);
         ensureNoActiveIngestion(tenantId, knowledgeBaseId);
+        ensureNoActiveRetrievalEvaluation(tenantId, knowledgeBaseId);
         if (knowledgeBase.documentCount() > 0 && !force) {
             throw new RagContractException(
                     RagErrorCode.KNOWLEDGE_BASE_NOT_EMPTY,
@@ -518,6 +523,14 @@ public class KnowledgeIngestionService {
                 .filter(document -> document.indexStatus() == KnowledgeDocument.IndexStatus.INDEXING)
                 .ifPresent(document -> indexWriter.updateDocumentIndexStatus(
                         tenantId, document, KnowledgeDocument.IndexStatus.FAILED, safeFailureMessage(failure)));
+    }
+
+    private void ensureNoActiveRetrievalEvaluation(String tenantId, String knowledgeBaseId) {
+        if (retrievalEvaluations.hasActiveRun(tenantId, knowledgeBaseId)) {
+            throw new RagContractException(
+                    RagErrorCode.RETRIEVAL_EVALUATION_IN_PROGRESS,
+                    "A retrieval evaluation is already running for this knowledge base");
+        }
     }
 
     private void ensureNoActiveIngestion(String tenantId, String knowledgeBaseId) {

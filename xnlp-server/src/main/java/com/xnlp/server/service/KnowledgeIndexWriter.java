@@ -11,6 +11,7 @@ import com.xnlp.core.repository.IngestionJobRepository;
 import com.xnlp.core.repository.KnowledgeBaseRepository;
 import com.xnlp.core.repository.KnowledgeChunkRepository;
 import com.xnlp.core.repository.KnowledgeDocumentRepository;
+import com.xnlp.core.repository.RetrievalEvaluationRepository;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,18 +29,21 @@ public class KnowledgeIndexWriter {
     private final KnowledgeChunkRepository chunks;
     private final KnowledgeVectorStore vectors;
     private final IngestionJobRepository jobs;
+    private final RetrievalEvaluationRepository retrievalEvaluations;
 
     public KnowledgeIndexWriter(
             KnowledgeBaseRepository knowledgeBases,
             KnowledgeDocumentRepository documents,
             KnowledgeChunkRepository chunks,
             KnowledgeVectorStore vectors,
-            IngestionJobRepository jobs) {
+            IngestionJobRepository jobs,
+            RetrievalEvaluationRepository retrievalEvaluations) {
         this.knowledgeBases = knowledgeBases;
         this.documents = documents;
         this.chunks = chunks;
         this.vectors = vectors;
         this.jobs = jobs;
+        this.retrievalEvaluations = retrievalEvaluations;
     }
 
     @Transactional
@@ -121,6 +125,7 @@ public class KnowledgeIndexWriter {
             documents.deleteById(tenantId, knowledgeBaseId, document.id());
         }
         jobs.deleteByKnowledgeBase(tenantId, knowledgeBaseId);
+        retrievalEvaluations.deleteByKnowledgeBase(tenantId, knowledgeBaseId);
         return knowledgeBases.deleteById(tenantId, knowledgeBaseId);
     }
 

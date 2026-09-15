@@ -153,8 +153,8 @@ codex/release-0.4-t-09-release-gates
 | T-04 | Retrieval 与 Rerank | 检索 API、过滤、reranker SPI/provider adapter、链路观测 | T-03 | 已完成（2026-09-15） |
 | T-05 | RAG Chat 与引用 | context assembler、ChatClient、citation 校验、错误与超时 | T-04 | 已完成（2026-09-15） |
 | T-06 | 首个真实 NLP Runtime | `NlpRuntime` SPI、ONNX Runtime Java 适配、模型版本/checksum/释放 | T-01 | 已完成（2026-09-15） |
-| T-07 | Knowledge UI | 知识库、文档、索引任务、语义搜索、RAG 调试页面 | T-03～T-05 | 待实施 |
-| T-08 | 检索评测与 E2E | Recall@K/MRR/nDCG、样本结果、H2 E2E、数据库矩阵 | T-04、T-07 | 待实施 |
+| T-07 | Knowledge UI | 知识库、文档、索引任务、语义搜索、RAG 调试页面 | T-03～T-05 | 已完成（2026-09-15） |
+| T-08 | 检索评测与 E2E | Recall@K/MRR/nDCG、样本结果、H2 E2E、数据库矩阵 | T-04、T-07 | 已完成（2026-09-15） |
 | T-09 | 发布门禁与版本对齐 | Maven/npm/Helm `0.4.0`、安全/性能门禁、升级文档 | T-01～T-08 | 待实施 |
 
 ## 7. 每个任务的验收标准
@@ -289,6 +289,15 @@ codex/release-0.4-t-09-release-gates
 - H2 外部 E2E 使用确定性 mock embedding/chat/rerank；
 - MySQL/PostgreSQL CI 执行同一合同套件。
 
+### T-08 实施记录（2026-09-15）
+
+- 新增知识库级异步检索评测 API，支持内联 samples 或复用持久化 dataset，创建接口返回 `202 + Location`，并提供 run 列表、详情和样本证据查询；
+- 指标按请求的明确 K 计算 Recall@K、MRR 与 binary-relevance nDCG@K，聚合平均延迟和 nearest-rank p95；即使阈值过滤导致返回不足 K 条，nDCG 的理想排序仍按 K 构造，避免指标虚高；
+- rerank 评测分别保存 raw 与 final ranking，样本级持久化 relevant chunk、score、rerank score、miss、排序变化、延迟和 traceId，便于定位低分与重排影响；
+- V7 迁移增加 run/sample 两张租户隔离表、查询索引和级联外键，继续使用 Spring Boot `DataSource` / `JdbcTemplate` 兼容 H2、MySQL、PostgreSQL；活跃评测期间拒绝删除知识库，终态评测随知识库强制删除清理，防止异步 worker 复活孤儿记录；
+- 外部 E2E mock provider 新增 OpenAI-compatible embedding 与 Jina-compatible rerank，H2 合同覆盖模型配置、文档导入、动态 chunk 标签、检索评测、聚合指标和样本证据；H2 E2E 于 2026-09-15 本地通过；
+- 目标测试共 10 条通过；`mvn verify` 于 2026-09-15 在允许 RANDOM_PORT 绑定的本地环境通过；MySQL/PostgreSQL 使用同一合同脚本，但当前本机未安装 Docker，数据库矩阵留给 CI 验证。
+
 ### T-09 发布门禁与版本对齐
 
 - `mvn verify`、前端 build、Playwright、H2 E2E、数据库矩阵、Helm lint 全部进入 CI；
@@ -303,7 +312,7 @@ T-01 → T-02 → T-03 → T-04 → T-05 → T-07 → T-08 → T-09
           └──────────── T-06 可在 T-01 后并行 ────────────┘
 ```
 
-T-01～T-07 已形成“可持久化 RAG + 可替换真实 NLP Runtime + Knowledge UI”的端到端闭环；下一步通过 T-08/T-09 补齐检索评测、跨数据库 E2E 和发布门禁。
+T-01～T-08 已形成“可持久化 RAG + 可替换真实 NLP Runtime + Knowledge UI + 检索评测”的端到端闭环；下一步进入 T-09，完成版本对齐、CI 门禁、发布文档和回滚证据。
 
 ## 9. 风险与缓解
 

@@ -106,10 +106,11 @@ DB_USERNAME="$DB_USERNAME_VALUE" \
 DB_PASSWORD="$DB_PASSWORD_VALUE" \
 XNLP_PORT="$API_PORT" \
 SPRING_AI_MODEL_CHAT=openai \
-SPRING_AI_MODEL_EMBEDDING=none \
+SPRING_AI_MODEL_EMBEDDING=openai \
 OPENAI_API_KEY=xnlp-e2e-placeholder \
 OPENAI_BASE_URL="http://127.0.0.1:${PROVIDER_PORT}" \
 OPENAI_CHAT_MODEL=xnlp-e2e-chat \
+OPENAI_EMBEDDING_MODEL=xnlp-e2e-embedding \
 OTEL_SAMPLING_PROBABILITY=0 \
 LOG_PATH="$WORK_DIR/logs" \
 java -jar "$JAR_FILE" >"$WORK_DIR/server.log" 2>&1 &
@@ -134,3 +135,6 @@ fi
 
 echo "Running Release 0.3 API E2E with ${PROFILE} at ${BASE_URL}"
 XNLP_API_BASE="$BASE_URL" tests/e2e/release-0.3-api.sh
+
+echo "Running Release 0.4 retrieval evaluation E2E with ${PROFILE} at ${BASE_URL}"
+XNLP_API_BASE="$BASE_URL" XNLP_PROVIDER_BASE="http://127.0.0.1:${PROVIDER_PORT}" tests/e2e/release-0.4-retrieval-evaluation.sh

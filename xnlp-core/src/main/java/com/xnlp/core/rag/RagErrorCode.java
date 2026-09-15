@@ -11,6 +11,7 @@ public enum RagErrorCode {
     KNOWLEDGE_BASE_NOT_EMPTY("knowledge_base_not_empty", Kind.CONFLICT),
     REINDEX_REQUIRED("reindex_required", Kind.CONFLICT),
     REINDEX_IN_PROGRESS("reindex_in_progress", Kind.CONFLICT),
+    RETRIEVAL_EVALUATION_IN_PROGRESS("retrieval_evaluation_in_progress", Kind.CONFLICT),
     CONTENT_TOO_LARGE("content_too_large", Kind.INVALID_REQUEST),
     VECTOR_DIMENSION_MISMATCH("vector_dimension_mismatch", Kind.UNPROCESSABLE),
     VECTOR_STORE_CAPACITY_EXCEEDED("vector_store_capacity_exceeded", Kind.UNAVAILABLE),
