@@ -3,6 +3,8 @@ package com.xnlp.server.controller;
 import com.xnlp.core.eval.EvaluationDataset;
 import com.xnlp.core.eval.EvaluationEntry;
 import com.xnlp.server.service.DatasetService;
+import com.xnlp.server.dto.DatasetRequest;
+import com.xnlp.server.dto.PageResponse;
 import com.xnlp.server.service.SemanticSearchService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -42,13 +44,14 @@ public class DatasetController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public EvaluationDataset create(@RequestBody EvaluationDataset dataset) {
-        return datasetService.create(dataset);
+    public EvaluationDataset create(@Valid @RequestBody DatasetRequest request) {
+        return datasetService.create(request.toModel());
     }
 
     @PutMapping("/{id}")
-    public EvaluationDataset update(@PathVariable String id, @RequestBody EvaluationDataset dataset) {
-        return datasetService.update(id, dataset);
+    public EvaluationDataset update(@PathVariable String id,
+                                    @Valid @RequestBody DatasetRequest request) {
+        return datasetService.update(id, request.toModel());
     }
 
     @DeleteMapping("/{id}")
@@ -58,13 +61,13 @@ public class DatasetController {
     }
 
     @GetMapping("/{id}/entries")
-    public Map<String, Object> entries(@PathVariable String id,
-                                       @RequestParam(defaultValue = "0") int page,
-                                       @RequestParam(defaultValue = "50") int size) {
+    public PageResponse<EvaluationEntry> entries(@PathVariable String id,
+                                                    @RequestParam(defaultValue = "0") @Min(0) int page,
+                                                    @RequestParam(defaultValue = "50") @Min(1) @Max(500) int size) {
         List<EvaluationEntry> entries = datasetService.getEntries(id, page, size);
-        EvaluationDataset ds = datasetService.get(id).orElseThrow();
-        return Map.of("entries", entries, "page", page, "size", size,
-                "total", ds.getEntryCount());
+        EvaluationDataset dataset = datasetService.get(id)
+                .orElseThrow(() -> new NoSuchElementException("Dataset not found: " + id));
+        return PageResponse.of(entries, page, size, dataset.getEntryCount());
     }
 
     @PostMapping("/{id}/semantic-search")

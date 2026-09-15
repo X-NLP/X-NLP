@@ -2,8 +2,12 @@ package com.xnlp.server.controller;
 
 import com.xnlp.core.eval.CompareResult;
 import com.xnlp.core.eval.EvaluationRun;
-import com.xnlp.core.eval.NLPTaskType;
 import com.xnlp.server.service.EvaluationService;
+import com.xnlp.server.dto.EvaluationCreateRequest;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -12,10 +16,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
-import java.util.Map;
+import java.util.NoSuchElementException;
 
 @RestController
 @RequestMapping("/api/v1/evaluations")
+@Validated
 public class EvaluationController {
 
     private final EvaluationService evaluationService;
@@ -32,19 +37,15 @@ public class EvaluationController {
     }
 
     @GetMapping("/{id}")
-    public EvaluationRun get(@PathVariable String id) {
+    public EvaluationRun get(@PathVariable @NotBlank String id) {
         return evaluationService.getRun(id)
-                .orElseThrow(() -> new RuntimeException("Evaluation run not found: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Evaluation run not found: " + id));
     }
 
     @PostMapping
-    public ResponseEntity<EvaluationRun> create(@RequestBody Map<String, Object> body) {
-        String modelName = (String) body.get("modelName");
-        String datasetId = (String) body.get("datasetId");
-        String taskTypeStr = (String) body.get("taskType");
-        NLPTaskType taskType = taskTypeStr != null && !taskTypeStr.isBlank()
-                ? NLPTaskType.valueOf(taskTypeStr) : null;
-        EvaluationRun run = evaluationService.startEvaluation(modelName, datasetId, taskType);
+    public ResponseEntity<EvaluationRun> create(@Valid @RequestBody EvaluationCreateRequest request) {
+        EvaluationRun run = evaluationService.startEvaluation(
+                request.modelName(), request.datasetId(), request.taskType());
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .header(HttpHeaders.LOCATION, "/api/v1/evaluations/" + run.getId())
                 .body(run);
@@ -61,7 +62,9 @@ public class EvaluationController {
     }
 
     @GetMapping("/compare")
-    public CompareResult compare(@RequestParam List<String> ids) {
+    public CompareResult compare(
+            @RequestParam @Size(min = 2, max = 20, message = "ids must contain between 2 and 20 values")
+            List<@NotBlank String> ids) {
         return evaluationService.compare(ids);
     }
 }
