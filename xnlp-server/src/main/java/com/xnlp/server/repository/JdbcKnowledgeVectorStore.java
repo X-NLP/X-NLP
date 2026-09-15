@@ -146,6 +146,7 @@ public class JdbcKnowledgeVectorStore implements KnowledgeVectorStore {
 
         return scored.stream()
                 .sorted(Comparator.comparingDouble(ScoredCandidate::score).reversed()
+                        .thenComparing(item -> item.candidate().documentId())
                         .thenComparing(item -> item.candidate().chunkId()))
                 .limit(request.topK())
                 .map(item -> new RetrievalMatch(

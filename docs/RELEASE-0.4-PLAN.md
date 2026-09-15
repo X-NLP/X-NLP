@@ -150,7 +150,7 @@ codex/release-0.4-t-09-release-gates
 | T-01 | RAG 领域合同与 API DTO | core 模型、SPI 合同、DTO 校验、OpenAPI/error contract 测试 | Release 0.3 | 已完成（2026-09-15） |
 | T-02 | Vector Store SPI 与 JDBC 实现 | 可移植 schema、repository、cosine Top-K、租户隔离 | T-01 | 已完成（2026-09-15） |
 | T-03 | 文档导入与增量索引 | chunker、checksum、embedding、异步 job、增删改同步 | T-02 | 已完成（2026-09-15） |
-| T-04 | Retrieval 与 Rerank | 检索 API、过滤、reranker SPI/provider adapter、链路观测 | T-03 | 待实施 |
+| T-04 | Retrieval 与 Rerank | 检索 API、过滤、reranker SPI/provider adapter、链路观测 | T-03 | 已完成（2026-09-15） |
 | T-05 | RAG Chat 与引用 | context assembler、ChatClient、citation 校验、错误与超时 | T-04 | 待实施 |
 | T-06 | 首个真实 NLP Runtime | `NlpRuntime` SPI、ONNX Runtime Java 适配、模型版本/checksum/释放 | T-01 | 待实施 |
 | T-07 | Knowledge UI | 知识库、文档、索引任务、语义搜索、RAG 调试页面 | T-03～T-05 | 待实施 |
@@ -218,6 +218,17 @@ codex/release-0.4-t-09-release-gates
 - rerank 未配置时可选择 fallback 或严格失败；
 - provider 错误不泄露 key、Authorization、数据库密码或堆栈；
 - 指标包含 embedding、vector search、rerank 分阶段耗时。
+
+### T-04 实施记录（2026-09-15）
+
+- 新增 `POST /api/v1/knowledge-bases/{knowledgeBaseId}/search`，复用既有检索 DTO 与 `RetrievalResult` 合同，显式传递 tenant ID、知识库 embedding 模型、Top-K、阈值和 metadata filter；
+- 使用 Spring AI `EmbeddingModel` 生成查询向量，提供有限数值校验、可配置重试/退避、线程中断恢复和不携带 provider 原始异常的稳定错误响应；
+- JDBC Vector Store 与服务层统一按有效分数降序、`documentId`、`chunkId` 排序，确保同分结果跨数据库与重复请求保持确定性；
+- 新增 Cohere/Jina 兼容的 HTTP reranker adapter，从租户级 `ModelConfigRepository` 读取协议、模型、端点和凭据，不回传 provider 响应正文；
+- rerank 支持 `FALLBACK` / `FAIL` 策略，并校验未知、重复、缺少分数的候选；返回内容按原始检索结果 canonicalize，禁止 provider 篡改标题、正文、来源和 metadata；
+- Micrometer 新增 embedding、vector search、rerank、total 四阶段耗时，并按 `success` / `error` 标记；fallback 会保留 rerank 失败指标并记录总链路成功；
+- H2 HTTP 集成测试覆盖持久化检索、metadata filter、稳定同分顺序、未配置 reranker fallback 和错误合同；单元测试覆盖租户传播、严格失败、脱敏、候选完整性及 Cohere/Jina 映射；
+- 目标测试共 14 条通过；Quality Gate 为 `PASS`（0 findings）；`mvn verify` 于 2026-09-15 在允许 RANDOM_PORT 绑定的本地环境通过，core/server/client/cli 全部 `BUILD SUCCESS`。
 
 ### T-05 RAG Chat 与引用
 

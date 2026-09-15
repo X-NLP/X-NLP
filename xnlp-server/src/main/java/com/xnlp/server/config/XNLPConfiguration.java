@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Configuration;
  * ModelRegistry supports Spring AI ChatModel integration but does not require it.
  */
 @Configuration
-@EnableConfigurationProperties(XNLPProperties.class)
+@EnableConfigurationProperties({XNLPProperties.class, RetrievalProperties.class})
 public class XNLPConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(XNLPConfiguration.class);
