@@ -34,7 +34,7 @@
 | T-03 | Provider 诊断与连接测试 | 已完成 | T-01、T-02 |
 | T-04 | Model Playground | 进行中 | T-02、T-03 |
 | T-05 | Benchmark 产品闭环 | 已完成 | T-02、T-03 |
-| T-06 | 模型详情与 Runtime 状态 | 待开始 | T-03 |
+| T-06 | 模型详情与 Runtime 状态 | 已完成 | T-03 |
 | T-07 | 外部 E2E 与数据库矩阵 | 待开始 | T-04、T-05、T-06 |
 | T-08 | Java SDK / CLI 对齐 | 待开始 | T-01～T-06 |
 
@@ -279,10 +279,16 @@ T-04、T-05、T-06 可在合同稳定后并行；T-07 与 T-08 在主要 API 稳
 
 ## 7.1 当前实施记录（2026-09-15）
 
-- T-02 已完成：Dataset、Evaluation、NLP 核心请求已迁移到类型化 DTO，并保留现有前端字段兼容。
+- T-01 已完成：统一 API 错误合同，覆盖字段级校验、稳定错误码、requestId/traceId 与敏感信息脱敏。
+- T-02 已完成：Dataset、Evaluation、NLP 与 Benchmark 核心请求已迁移到类型化 DTO，并保留现有前端字段兼容。
 - T-03 已完成：新增被动诊断与主动 Provider Probe，区分 configured/reachable/usable，覆盖 API Key 缺失、HTTP 错误、超时和 Rerank 未配置。
-- T-04 已开始：新增 `/playground` 前端工作台，支持聊天模型选择、非流式预测、Provider 诊断、参数编辑、响应与错误元数据展示；下一步补充浏览器回归和 Benchmark 页面闭环。
-- 前端验证：`xnlp-frontend/npm run build` 已通过。
+- T-04 进行中：`/playground` 已支持聊天模型选择、非流式预测、Provider 诊断、参数编辑、响应与错误元数据展示；仍需补浏览器自动化回归。
+- T-05 已完成：`/benchmark` 已支持参数校验、并发压测、P50/P95/P99、吞吐量、成功率、失败诊断、session 历史和结果对比；后端有确定性服务测试。
+- T-06 已完成：`/models` 已将配置档案和 `/models/runtime` 返回的可调用实例分区展示，显示 provider、协议、模型版本、runtime 类型、加载时间，并提供 activate/unload/test 的反馈；刷新时状态重新从服务端读取，部分接口失败不会阻断其余信息展示。
+- T-07 待开始：补充 H2 外部 E2E，并用 Docker Compose 对 MySQL/PostgreSQL 做真实矩阵验证。
+- T-08 待开始：补齐 Java SDK/CLI 对 Provider diagnostics、Benchmark 和统一错误合同的类型化支持。
+
+前端验证：`xnlp-frontend/npm run build` 已通过；后端和全量 Maven 验证沿用第 8 节完成门禁要求。
 
 ## 8. Release 0.3 完成门禁
 

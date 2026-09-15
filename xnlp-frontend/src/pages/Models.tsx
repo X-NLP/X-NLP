@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { modelsApi } from '../api/client'
-import { CheckCircle2, KeyRound, Play, Plus, ServerCog, Trash2, XCircle } from 'lucide-react'
+import { Activity, CheckCircle2, KeyRound, Loader2, Play, Plus, RefreshCw, ServerCog, Trash2, Unplug, XCircle } from 'lucide-react'
 
 const MODEL_TYPES = [
   'CHAT',
@@ -40,9 +40,20 @@ const ZERO_OUTPUT_TYPES = new Set([
 
 const CUSTOM_PROVIDER = { id: 'custom', name: 'Custom', source: 'CUSTOM', baseUrl: '', models: [] as any[] }
 
+function errorMessage(error: unknown) {
+  const raw = error instanceof Error ? error.message : String(error)
+  const body = raw.includes(': ') ? raw.slice(raw.indexOf(': ') + 2) : raw
+  try {
+    const parsed = JSON.parse(body)
+    return [parsed.message, parsed.error && `error=${parsed.error}`, parsed.requestId && `requestId=${parsed.requestId}`, parsed.traceId && `traceId=${parsed.traceId}`].filter(Boolean).join(' · ') || raw
+  } catch { return raw }
+}
+
 export default function Models() {
   const { t } = useTranslation()
   const [models, setModels] = useState<any[]>([])
+  const [runtimeModels, setRuntimeModels] = useState<any[]>([])
+  const [action, setAction] = useState('')
   const [capabilities, setCapabilities] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -82,13 +93,22 @@ export default function Models() {
   const isCustom = providerId === 'custom'
 
   const load = async () => {
-    try {
-      const [list, caps] = await Promise.all([modelsApi.list(), modelsApi.capabilities()])
-      setModels(list)
-      setCapabilities(caps)
-    } catch (e: any) {
-      setError(e.message)
-    }
+    setLoading(true)
+    setError('')
+    const results = await Promise.allSettled([
+      modelsApi.list(),
+      modelsApi.runtime(),
+      modelsApi.capabilities(),
+    ])
+    const [listResult, runtimeResult, capabilitiesResult] = results
+    const failures = results
+      .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+      .map(result => errorMessage(result.reason))
+
+    if (listResult.status === 'fulfilled') setModels(Array.isArray(listResult.value) ? listResult.value : [])
+    if (runtimeResult.status === 'fulfilled') setRuntimeModels(Array.isArray(runtimeResult.value) ? runtimeResult.value : [])
+    if (capabilitiesResult.status === 'fulfilled') setCapabilities(capabilitiesResult.value)
+    if (failures.length) setError(failures.join(' · '))
     setLoading(false)
   }
 
@@ -159,28 +179,43 @@ export default function Models() {
       setError(t('models.activateChatOnlyMessage'))
       return
     }
+    setAction(`activate:${model.name}`)
     try {
       await modelsApi.activate(model.name)
       await load()
     } catch (e: any) {
-      setError(e.message)
-    }
+      setError(errorMessage(e))
+    } finally { setAction('') }
+  }
+
+  const unload = async (model: any) => {
+    setError(''); setAction(`unload:${model.name}`)
+    try {
+      await modelsApi.unload(model.name)
+      await load()
+    } catch (e: any) {
+      setError(errorMessage(e))
+    } finally { setAction('') }
   }
 
   const test = async (model: any) => {
     setError(''); setTestResult(null)
     try {
       const result = await modelsApi.test(model.name, { input: testInput })
-      setTestResult({ model: model.name, result })
+      setTestResult({ model: model.name, result, testedAt: new Date().toISOString() })
     } catch (e: any) {
-      setError(e.message)
+      setError(errorMessage(e))
     }
   }
 
   const remove = async (model: any) => {
     if (!confirm(t('models.deleteConfirm', { name: model.name }))) return
-    await modelsApi.delete(model.name)
-    await load()
+    try {
+      await modelsApi.delete(model.name)
+      await load()
+    } catch (e: any) {
+      setError(errorMessage(e))
+    }
   }
 
   return (
@@ -197,6 +232,14 @@ export default function Models() {
       </div>
 
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+      <section className="surface mb-6 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><Activity className="h-4 w-4" /></div><div><h2 className="text-sm font-semibold text-slate-900">{t('models.runtimeTitle')}</h2><p className="text-xs text-slate-400">{t('models.runtimeSubtitle')}</p></div></div>
+          <button onClick={() => void load()} disabled={loading} className="button-secondary">{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} {t('models.refreshRuntime')}</button>
+        </div>
+        {runtimeModels.length === 0 ? <div className="px-5 py-8 text-sm text-slate-400">{t('models.noRuntime')}</div> : <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-3">{runtimeModels.map((model: any) => <div key={model.name} className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4"><div className="flex items-start justify-between gap-3"><div><div className="font-semibold text-slate-900">{model.name}</div><div className="mt-1 text-xs text-slate-500">{model.provider || '—'} / {model.modelName || '—'}</div></div><span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700">{t('models.loadedRuntime')}</span></div><div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-500"><div><span className="block text-slate-400">{t('models.protocol')}</span>{model.protocol || '—'}</div><div><span className="block text-slate-400">{t('models.modelVersion')}</span>{model.version || '—'}</div><div><span className="block text-slate-400">{t('models.runtimeType')}</span>{model.backend || model.type || '—'}</div><div><span className="block text-slate-400">{t('models.loadedAt')}</span>{model.loadedAt ? new Date(model.loadedAt).toLocaleString() : '—'}</div></div><button onClick={() => void unload(model)} disabled={action === `unload:${model.name}`} className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-rose-600 disabled:opacity-50">{action === `unload:${model.name}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unplug className="h-3.5 w-3.5" />}{t('models.unload')}</button></div>)}</div>}
+      </section>
 
       {showForm && (
         <div className="bg-white border rounded-lg p-5 mb-6">
@@ -288,16 +331,16 @@ export default function Models() {
                   <td className="px-4 py-3 text-gray-600 font-mono text-xs break-words">{m.protocol}</td>
                   <td className="px-4 py-3 text-gray-600 break-words">{m.provider} / {m.modelName || '-'}</td>
                   <td className="px-4 py-3">{m.apiKeySet ? <KeyRound className="w-4 h-4 text-emerald-600" /> : <XCircle className="w-4 h-4 text-gray-300" />}</td>
-                  <td className="px-4 py-3"><Status value={m.status} /></td>
+                  <td className="px-4 py-3"><Status value={runtimeModels.some(runtime => runtime.name === m.name) ? 'loaded' : 'configured'} /></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => activate(m)}
-                        disabled={m.type && m.type !== 'CHAT'}
+                        disabled={(m.type && m.type !== 'CHAT') || action === `activate:${m.name}`}
                         title={m.type && m.type !== 'CHAT' ? t('models.activateChatOnly') : t('models.activate')}
                         className="icon-btn disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-gray-400"
                       >
-                        <CheckCircle2 className="w-4 h-4" />
+                        {action === `activate:${m.name}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                       </button>
                       <button onClick={() => test(m)} title={t('models.test')} className="icon-btn"><Play className="w-4 h-4" /></button>
                       <button onClick={() => remove(m)} title={t('models.delete')} className="icon-btn danger"><Trash2 className="w-4 h-4" /></button>
@@ -313,7 +356,7 @@ export default function Models() {
       <div className="mt-6 bg-white border rounded-lg p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><ServerCog className="w-4 h-4" /> {t('models.protocolTestInput')}</h2>
         <textarea value={testInput} onChange={e => setTestInput(e.target.value)} rows={3} className="w-full min-w-0 border rounded-md px-3 py-2 text-sm" />
-        {testResult && <pre className="mt-4 bg-gray-950 text-gray-100 rounded-lg p-4 text-xs overflow-auto">{JSON.stringify(testResult, null, 2)}</pre>}
+        {testResult && <div className="mt-4"><div className="mb-2 text-xs font-semibold text-slate-500">{t('models.recentTest')} · {testResult.model}</div><pre className="bg-gray-950 text-gray-100 rounded-lg p-4 text-xs overflow-auto">{JSON.stringify(testResult, null, 2)}</pre></div>}
       </div>
     </div>
   )

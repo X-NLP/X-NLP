@@ -85,6 +85,7 @@ function subscribeToJsonEvents<T>(
 // ---- Models ----
 export const modelsApi = {
   list: () => request<any[]>('/models'),
+  runtime: () => request<any[]>('/models/runtime'),
   get: (name: string) => request<any>(`/models/${segment(name)}`),
   create: (model: any) => request<any>('/models', { method: 'POST', body: JSON.stringify(model) }),
   delete: (name: string) => request<void>(`/models/${segment(name)}`, { method: 'DELETE' }),
