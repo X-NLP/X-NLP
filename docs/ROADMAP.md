@@ -1,8 +1,8 @@
 # X-NLP 产品路线图与实现审计
 
 > 审计日期：2026-09-15
-> 当前分支：`codex/release-0.4-t-06-onnx-runtime`
-> 审计基线：Release 0.4 T-06 本地实现（以本文审计日期的工作树和 Git 历史为准）
+> 当前基线：Release 0.4 已合并到 `main`（PR #3，commit `620250d`）
+> 审计基线：Release 0.4 完整实现及合并后 CI 结果（以本文审计日期的工作树、Git 历史和 GitHub Actions 为准）
 > 本文只记录当前工作区中可以由源码、构建结果或测试结果证明的状态；“已实现”不等于“生产环境已配置真实 provider”。
 
 ## 1. 当前产品定位
@@ -56,10 +56,10 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
    - 已覆盖 API Key 缺失、模型不可用、HTTP 错误、超时和未配置 Rerank；前端 Models/Playground 可展示修复线索。
    - 后续仍可升级：增加真正的配置向导、按 provider 的字段校验和可选的安全凭据管理。
 
-2. **真实 NLP runtime 至少落地一个适配器（未完成）**
-   - 当前 NLP 组件主要是内置 demo/启发式实现；真实 Java SPI 仍是扩展边界。
-   - 需要选择并落地一个可复用的真实 runtime（优先 HanLP 或 ONNX/DJL 其中之一），包含模型加载、版本、资源释放、超时和测试。
-   - 验收：至少一个能力在真实 runtime 下端到端运行，且 demo 与真实 runtime 可切换并可观察。
+2. **真实 NLP runtime 至少落地一个适配器（Release 0.4 已完成）**
+   - 已落地 provider-neutral `NlpRuntime` SPI 与 ONNX Runtime Java 1.29.0 适配器，模型文件外置并校验版本与 SHA-256。
+   - 已覆盖加载、执行、有界并发、超时、关闭、重复加载和 checksum 错误，情感能力可在 demo 与 ONNX runtime 间配置切换。
+   - 后续可在同一 SPI 上增加 HanLP/DJL 或更多 ONNX 能力，不改变上层 API。
 
 3. **统一 API 合同（Release 0.3 已完成核心范围）**
    - 已覆盖统一错误响应、字段级校验、稳定错误码、requestId/traceId、分页及 Benchmark/NLP/Dataset/Evaluation 核心 DTO。
@@ -75,18 +75,18 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 5. **模型详情与运行时操作（Release 0.3 已完成）**
    - Models 页面已分离配置档案与 `/models/runtime` 可调用实例，显示 provider、协议、模型版本、runtime 类型和加载时间，并支持 activate/unload/test 反馈。
 
-6. **Dataset 编辑与样本级体验（未完成）**
+6. **Dataset 编辑与样本级体验（Release 0.5 规划）**
    - 当前重点是创建、列表、分页、导出、删除；需要详情编辑、样本增删改、数据集版本和导入校验报告。
 
-7. **评测样本级结果与可恢复执行（未完成）**
+7. **评测样本级结果与可恢复执行（Release 0.5 规划）**
    - 当前已持久化运行状态和聚合指标；还需要逐条预测结果、错误分类、重跑、断点恢复和指标插件 SPI。
 
-8. **持久化向量检索与 Rerank（未完成）**
-   - 当前语义搜索是运行时 embedding 后对数据集做 Top-K 计算，不是持久化向量库。
-   - 需要向量存储抽象、文档切分、增量 embedding、删除同步、缓存、Top-K + rerank 组合，以及语义检索评测。
-   - Rerank 还需要真实协议适配器和 API/pipeline 节点，而不只是模型类型白名单。
+8. **持久化向量检索与 Rerank（Release 0.4 已完成）**
+   - 已提供项目级 `KnowledgeVectorStore` SPI、可移植 JDBC 向量存储、确定性切分、增量 embedding、更新/删除同步和持久化 Top-K 检索。
+   - 已提供 Cohere/Jina 风格 rerank 协议适配与 fallback/strict 策略，并完成 Retrieval、RAG、Knowledge UI 和 Recall@K/MRR/nDCG 评测闭环。
+   - 后续优化方向是 pgvector 等高性能适配器、容量治理和更大规模性能基线，不改变默认跨数据库实现。
 
-9. **Pipeline DAG 与可审计运行记录（未完成）**
+9. **Pipeline DAG 与可审计运行记录（Release 0.5 规划）**
    - 当前按请求顺序执行；需要依赖关系、分支/合并、节点级超时/重试、运行日志流、trace 持久化与下载。
 
 ### P2：企业生产化
@@ -107,7 +107,7 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 
 ## 4. 建议的版本路线
 
-### Release 0.3：可用推理闭环（当前执行版本）
+### Release 0.3：可用推理闭环（已完成）
 
 **目标**：让第一次启动的用户能看懂系统状态，并从页面完成一次可解释的模型调用与基准测试。
 
@@ -116,8 +116,8 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 - R0.3-3：Model Playground（已完成，含 Playwright 成功/失败/空状态回归）；
 - R0.3-4：Benchmark 页面与 SDK/CLI 对齐（已完成）；
 - R0.3-5：模型详情、激活、卸载和运行时状态（已完成）；
-- R0.3-6：外部 E2E 基础脚本（H2 已完成；MySQL/PostgreSQL runner 已接入 CI，待远端验证）。
-- R0.3-7：Maven、前端和 Helm 发布元数据已统一为 `0.3.0`（实现完成，`helm lint` 待远端 CI）。
+- R0.3-6：外部 E2E 基础脚本（H2、MySQL、PostgreSQL runner 已接入 CI）。
+- R0.3-7：Maven、前端和 Helm 发布元数据已统一为 `0.3.0`。
 
 **完成标准**：新用户使用 H2 + Ollama 或 OpenAI-compatible provider，能够完成“配置/检查 provider → 选择模型 → 预测 → 查看错误/耗时 → benchmark”，并有自动化测试证明。
 
@@ -128,7 +128,7 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 - R0.4-3：文档切分、批量导入、增量更新（已完成）；
 - R0.4-4：Rerank 协议适配与检索链路（已完成）；
 - R0.4-5：RAG Chat 与可信引用（已完成）；
-- R0.4-6：Knowledge UI 与检索评测（待实施）。
+- R0.4-6：Knowledge UI 与检索评测（已完成）。
 
 **完成标准**：数据集/文档导入后可重复检索，重启服务后向量仍可用，更新和删除能同步，检索结果可以被评测。
 
@@ -140,25 +140,20 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 
 - 完整 SDK/CLI、Python/TypeScript SDK、Webhook、OpenAPI 客户端、插件模板和示例工程。
 
-## 5. 本轮规划决策点
+## 5. 当前执行决策
 
 Release 0.3 的执行记录见 [`RELEASE-0.3-PLAN.md`](RELEASE-0.3-PLAN.md)；Release 0.4 的接口合同、数据变更、WBS 与验收门禁见 [`RELEASE-0.4-PLAN.md`](RELEASE-0.4-PLAN.md)。
 
-Release 0.3 的本地实现已收口；当前进入 **R0.4（真实 NLP Runtime + 可持久化 RAG）**，默认先实施 T-01～T-03，理由是：
+Release 0.3 与 Release 0.4 已合并到 `main`。Release 0.4 的 T-01～T-09 已形成“导入 → 切分 → embedding → 持久化 → 过滤检索 → 可选 rerank → grounded RAG → canonical citation → Knowledge UI → 检索评测”的完整闭环，并落地 ONNX Runtime Java 1.29.0。
 
-- Release 0.3 已建立稳定 API/error contract、Provider 诊断和外部 E2E 基线；
-- 当前语义搜索仍是临时 embedding + 应用内 Top-K，服务重启后没有可复用索引；
-- 先完成项目级 Vector Store SPI 和可移植 JDBC 实现，可继续满足 H2/MySQL/PostgreSQL 切换要求；
-- 文档导入、增量索引和检索合同稳定后，Rerank、RAG Chat、Knowledge UI 与评测可以复用同一底座。
+合并后 CI 暴露 PostgreSQL V1 baseline 的 `DOUBLE` 方言错误，以及 Netty、Tomcat、PostgreSQL JDBC 的 HIGH/CRITICAL 漏洞。当前先在 `codex/release-0.4.1-ci-gates` 完成发布基线修复；远端 H2/MySQL/PostgreSQL、Helm、镜像与 Trivy 门禁通过后再启动 Release 0.5。
 
-可选的下一步方向：
+Release 0.5 默认按以下顺序实施：
 
-- **A：真实 NLP runtime**（优先 HanLP / ONNX-DJL 适配）；
-- **B：Model Playground + Benchmark + Provider 诊断**（推荐）；
-- **C：持久化向量检索 / RAG / Rerank**；
-- **D：API 合同、错误码和测试体系**；
-- **E：OAuth2 / RBAC 企业安全**。
-
-推荐执行顺序：**B + D → A + C → E**。
-
-Release 0.3 已按 B + D 完成本地实施；Release 0.4 的 T-01～T-06 已于 2026-09-15 完成本地实现，形成“导入 → 切分 → embedding → 持久化 → 过滤检索 → 可选 rerank → grounded RAG → canonical citation”以及“外置模型 → checksum 校验 → ONNX native 执行 → 有界并发/超时 → runtime 诊断”的双闭环。T-06 使用 ONNX Runtime Java 1.29.0，增量测试覆盖 31 条，完整 `mvn verify` 已通过（core 33、server 109、client 8、CLI 4）；下一步进入 `codex/release-0.4-t-07-knowledge-ui`。Release 0.3 的 MySQL/PostgreSQL、Helm、容器镜像，以及 Release 0.4 当前增量仍需推送后由远端 CI 形成最终验证证据。
+1. OAuth2/OIDC/JWT 与 RBAC 基线，保留现有 API Key 兼容路径；
+2. API Key 生命周期与统一审计日志；
+3. 多租户配额、限流、并发和请求大小治理；
+4. Dataset 样本编辑、版本与导入报告；
+5. 评测样本结果、重跑与断点恢复；
+6. Pipeline DAG、节点重试/超时和持久化 trace；
+7. Secret、备份恢复、对象存储和供应链发布能力。

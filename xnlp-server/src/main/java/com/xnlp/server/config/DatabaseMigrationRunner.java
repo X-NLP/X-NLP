@@ -103,7 +103,7 @@ public class DatabaseMigrationRunner {
                         1,
                         "baseline",
                         checksum(1, "baseline", readResource(BASELINE_RESOURCE)),
-                        () -> new ResourceDatabasePopulator(new ClassPathResource(BASELINE_RESOURCE)).execute(dataSource)),
+                        this::createBaseline),
                 new MigrationDefinition(
                         2,
                         "evaluation-progress-columns",
@@ -202,6 +202,20 @@ public class DatabaseMigrationRunner {
         }
     }
 
+    private void createBaseline() {
+        String script = readResource(BASELINE_RESOURCE);
+        script = renderBaselineSql(script, databaseProductName());
+        new ResourceDatabasePopulator(new ByteArrayResource(script.getBytes(StandardCharsets.UTF_8)))
+                .execute(dataSource);
+    }
+
+    static String renderBaselineSql(String script, String databaseProductName) {
+        if (databaseProductName.contains("postgresql")) {
+            return script.replaceAll("\\bDOUBLE\\b(?!\\s+PRECISION)", "DOUBLE PRECISION");
+        }
+        return script;
+    }
+
     private void createRagStorage() {
         String script = readResource(RAG_STORAGE_RESOURCE)
                 .replace("__LARGE_TEXT__", largeTextType());
@@ -254,12 +268,15 @@ public class DatabaseMigrationRunner {
     }
 
     private String largeTextType() {
+        return databaseProductName().contains("mysql") ? "LONGTEXT" : "TEXT";
+    }
+
+    private String databaseProductName() {
         try (Connection connection = dataSource.getConnection()) {
             String product = connection.getMetaData().getDatabaseProductName();
-            return product != null && product.toLowerCase(java.util.Locale.ROOT).contains("mysql")
-                    ? "LONGTEXT" : "TEXT";
+            return product == null ? "" : product.toLowerCase(java.util.Locale.ROOT);
         } catch (SQLException ex) {
-            throw new IllegalStateException("Failed to detect database text capabilities", ex);
+            throw new IllegalStateException("Failed to detect database capabilities", ex);
         }
     }
 
