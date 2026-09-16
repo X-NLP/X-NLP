@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DataAccessException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -87,6 +88,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(WasteWorkflowException.class)
     public ResponseEntity<ApiErrorResponse> handle(WasteWorkflowException e, HttpServletRequest request) {
         return simpleError(HttpStatus.CONFLICT, "workflow_conflict", e.getMessage(), request);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handle(AccessDeniedException e, HttpServletRequest request) {
+        return simpleError(HttpStatus.FORBIDDEN, "forbidden",
+                "The authenticated principal is not permitted to perform this operation", request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

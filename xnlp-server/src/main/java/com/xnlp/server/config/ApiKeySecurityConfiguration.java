@@ -1,5 +1,13 @@
 package com.xnlp.server.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.xnlp.server.dto.ApiErrorResponse;
+import com.xnlp.server.security.AuthenticationMode;
+import com.xnlp.server.security.TenantMembershipRepository;
+import com.xnlp.server.security.TenantRole;
+import com.xnlp.server.security.XnlpPrincipal;
+import com.xnlp.server.tenant.TenantContext;
+import com.xnlp.server.tenant.TenantContextFilter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,29 +22,34 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtAudienceValidator;
+import org.springframework.security.oauth2.jwt.JwtClaimValidator;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtDecoders;
+import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
-import com.xnlp.server.tenant.TenantContextFilter;
-import com.xnlp.server.dto.ApiErrorResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.UUID;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
-/**
- * Optional stateless API-key security for the HTTP control plane.
- *
- * <p>Health probes, OpenAPI resources and CORS preflight remain public so the
- * service can be operated by a load balancer and inspected by operators. All
- * application APIs require a valid key when the feature is enabled.</p>
- */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(SecurityProperties.class)
 public class ApiKeySecurityConfiguration {
@@ -49,25 +62,25 @@ public class ApiKeySecurityConfiguration {
 
     private final SecurityProperties properties;
     private final ObjectMapper objectMapper;
+    private final TenantMembershipRepository memberships;
 
-    public ApiKeySecurityConfiguration(SecurityProperties properties, ObjectMapper objectMapper) {
+    public ApiKeySecurityConfiguration(
+            SecurityProperties properties,
+            ObjectMapper objectMapper,
+            TenantMembershipRepository memberships) {
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.memberships = memberships;
         properties.validate();
     }
 
-    /**
-     * Prevents Spring Boot from creating a random form-login user/password.
-     * X-NLP authenticates at the API boundary with the filter above, so a
-     * servlet user store would be both unused and misleading in production.
-     */
     @Bean
     AuthenticationProvider apiKeyAuthenticationProvider() {
         return new AuthenticationProvider() {
             @Override
             public org.springframework.security.core.Authentication authenticate(
                     org.springframework.security.core.Authentication authentication) {
-                throw new BadCredentialsException("X-NLP uses API-key authentication");
+                throw new BadCredentialsException("X-NLP authenticates at the HTTP boundary");
             }
 
             @Override
@@ -79,6 +92,7 @@ public class ApiKeySecurityConfiguration {
 
     @Bean
     SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
+        AuthenticationMode mode = properties.effectiveMode();
         http.csrf(csrf -> csrf.disable())
                 .cors(cors -> {})
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -86,7 +100,7 @@ public class ApiKeySecurityConfiguration {
                 .securityContext(securityContext -> securityContext.requireExplicitSave(false))
                 .addFilterAfter(new TenantContextFilter(properties), AnonymousAuthenticationFilter.class);
 
-        if (!properties.isEnabled()) {
+        if (mode == AuthenticationMode.DISABLED) {
             http.authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll());
             return http.build();
         }
@@ -94,23 +108,71 @@ public class ApiKeySecurityConfiguration {
         http.authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(PUBLIC_PATHS.toArray(String[]::new)).permitAll()
+                        .requestMatchers("/api/v1/tenants/**").hasRole(TenantRole.ADMIN.name())
                         .anyRequest().authenticated())
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedEntryPoint()))
-                .addFilterBefore(new ApiKeyAuthenticationFilter(properties, objectMapper), UsernamePasswordAuthenticationFilter.class);
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(unauthorizedEntryPoint())
+                        .accessDeniedHandler(accessDeniedHandler()));
+
+        if (mode.acceptsJwt()) {
+            http.oauth2ResourceServer(resourceServer -> resourceServer
+                    .jwt(jwt -> jwt
+                            .decoder(jwtDecoder())
+                            .jwtAuthenticationConverter(this::jwtAuthenticationToken))
+                    .authenticationEntryPoint(unauthorizedEntryPoint()));
+        }
+        if (mode.acceptsApiKey()) {
+            http.addFilterBefore(
+                    new ApiKeyAuthenticationFilter(properties, objectMapper),
+                    UsernamePasswordAuthenticationFilter.class);
+        }
         return http.build();
     }
 
+    private JwtDecoder jwtDecoder() {
+        SecurityProperties.Jwt jwt = properties.getJwt();
+        NimbusJwtDecoder decoder = jwt.getJwkSetUri() == null
+                ? (NimbusJwtDecoder) JwtDecoders.fromIssuerLocation(jwt.getIssuerUri())
+                : NimbusJwtDecoder.withJwkSetUri(jwt.getJwkSetUri()).build();
+        List<OAuth2TokenValidator<Jwt>> validators = new ArrayList<>();
+        JwtTimestampValidator timestampValidator = new JwtTimestampValidator(jwt.getClockSkew());
+        validators.add(timestampValidator);
+        validators.add(new JwtIssuerValidator(jwt.getIssuerUri()));
+        validators.add(new JwtAudienceValidator(jwt.getAudience()));
+        validators.add(new JwtClaimValidator<>(jwt.getTenantClaim(), value -> value instanceof String text && !text.isBlank()));
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(validators));
+        return decoder;
+    }
+
+    private JwtAuthenticationToken jwtAuthenticationToken(Jwt token) {
+        SecurityProperties.Jwt jwt = properties.getJwt();
+        String subject = token.getSubject();
+        String tenantId = TenantContext.normalize(token.getClaimAsString(jwt.getTenantClaim()));
+        Set<TenantRole> tokenRoles = jwt.parseRoles(token.getClaim(jwt.getRolesClaim()));
+        Set<TenantRole> roles = memberships.find(tenantId, subject)
+                .map(membership -> membership.roles())
+                .orElse(tokenRoles);
+        List<GrantedAuthority> authorities = roles.stream()
+                .map(role -> (GrantedAuthority) new SimpleGrantedAuthority(role.authority()))
+                .toList();
+        XnlpPrincipal principal = new XnlpPrincipal(subject, tenantId, roles, "jwt");
+        return new JwtAuthenticationToken(token, principal, authorities);
+    }
+
     private AuthenticationEntryPoint unauthorizedEntryPoint() {
-        return (request, response, authenticationException) -> writeError(
-                request, response, HttpStatusCode.UNAUTHORIZED, "unauthorized", "A valid API key is required");
+        return (request, response, ignored) -> writeError(
+                request, response, 401, "authentication_required", "A valid credential is required");
+    }
+
+    private AccessDeniedHandler accessDeniedHandler() {
+        return (request, response, ignored) -> writeError(
+                request, response, 403, "forbidden", "The authenticated principal is not permitted to perform this operation");
     }
 
     private void writeError(HttpServletRequest request, HttpServletResponse response, int status,
                             String error, String message) throws IOException {
         String requestId = request.getHeader("X-Request-ID");
-        if (requestId == null || requestId.isBlank()) {
-            requestId = UUID.randomUUID().toString();
-        }
+        if (requestId == null || requestId.isBlank()) requestId = UUID.randomUUID().toString();
         response.setStatus(status);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
@@ -119,7 +181,6 @@ public class ApiKeySecurityConfiguration {
     }
 
     private static final class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
-
         private final SecurityProperties properties;
         private final ObjectMapper objectMapper;
 
@@ -131,7 +192,10 @@ public class ApiKeySecurityConfiguration {
         @Override
         protected boolean shouldNotFilter(HttpServletRequest request) {
             String path = request.getRequestURI().substring(request.getContextPath().length());
-            return !properties.isEnabled()
+            String authorization = request.getHeader("Authorization");
+            return !properties.effectiveMode().acceptsApiKey()
+                    || (authorization != null && authorization.regionMatches(true, 0, "Bearer ", 0, 7)
+                    && properties.effectiveMode().acceptsJwt())
                     || "OPTIONS".equalsIgnoreCase(request.getMethod())
                     || PUBLIC_PATHS.stream().anyMatch(publicPath -> matchesPath(path, publicPath));
         }
@@ -140,21 +204,22 @@ public class ApiKeySecurityConfiguration {
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                         FilterChain filterChain) throws ServletException, IOException {
             String candidate = request.getHeader(properties.getHeaderName());
-            if (candidate == null || candidate.isBlank()) {
+            if ((candidate == null || candidate.isBlank()) && !properties.effectiveMode().acceptsJwt()) {
                 String authorization = request.getHeader("Authorization");
                 if (authorization != null && authorization.regionMatches(true, 0, "Bearer ", 0, 7)) {
                     candidate = authorization.substring(7).trim();
                 }
             }
-
-            if (!properties.matches(candidate)) {
-                writeError(request, response, HttpStatusCode.UNAUTHORIZED, "unauthorized", "A valid API key is required");
+            SecurityProperties.ApiKeyIdentity identity = properties.identityFor(candidate);
+            if (identity == null) {
+                writeError(request, response, "A valid API key is required");
                 return;
             }
-
-            String tenantId = properties.tenantFor(candidate);
-            var authentication = UsernamePasswordAuthenticationToken.authenticated(
-                    tenantId, null, List.of(new SimpleGrantedAuthority("ROLE_API")));
+            XnlpPrincipal principal = new XnlpPrincipal(
+                    identity.subject(), identity.tenantId(), identity.roles(), "api-key");
+            var authorities = principal.roles().stream()
+                    .map(role -> new SimpleGrantedAuthority(role.authority())).toList();
+            var authentication = UsernamePasswordAuthenticationToken.authenticated(principal, null, authorities);
             var context = SecurityContextHolder.createEmptyContext();
             context.setAuthentication(authentication);
             SecurityContextHolder.setContext(context);
@@ -165,30 +230,20 @@ public class ApiKeySecurityConfiguration {
             }
         }
 
-        private void writeError(HttpServletRequest request, HttpServletResponse response, int status,
-                                String error, String message) throws IOException {
+        private void writeError(HttpServletRequest request, HttpServletResponse response, String message) throws IOException {
             String requestId = request.getHeader("X-Request-ID");
-            if (requestId == null || requestId.isBlank()) {
-                requestId = UUID.randomUUID().toString();
-            }
-            response.setStatus(status);
+            if (requestId == null || requestId.isBlank()) requestId = UUID.randomUUID().toString();
+            response.setStatus(401);
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setCharacterEncoding("UTF-8");
             objectMapper.writeValue(response.getWriter(), new ApiErrorResponse(
-                    Instant.now(), status, error, message, null, null, requestId, null));
+                    Instant.now(), 401, "authentication_required", message, null, null, requestId, null));
         }
 
         private static boolean matchesPath(String path, String configuredPath) {
             return path.equals(configuredPath)
                     || (configuredPath.endsWith("/**")
                     && path.startsWith(configuredPath.substring(0, configuredPath.length() - 3)));
-        }
-    }
-
-    private static final class HttpStatusCode {
-        private static final int UNAUTHORIZED = 401;
-
-        private HttpStatusCode() {
         }
     }
 }

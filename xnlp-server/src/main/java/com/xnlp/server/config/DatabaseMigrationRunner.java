@@ -46,6 +46,7 @@ public class DatabaseMigrationRunner {
     private static final String BASELINE_RESOURCE = "db/migration/V1__baseline.sql";
     private static final String RAG_STORAGE_RESOURCE = "db/migration/V5__rag-storage.sql";
     private static final String RETRIEVAL_EVALUATION_RESOURCE = "db/migration/V7__retrieval-evaluation.sql";
+    private static final String IDENTITY_RBAC_RESOURCE = "db/migration/V8__identity-rbac.sql";
 
     private final JdbcTemplate jdbc;
     private final DataSource dataSource;
@@ -141,7 +142,13 @@ public class DatabaseMigrationRunner {
                         checksum(7, "retrieval-evaluation", readResource(RETRIEVAL_EVALUATION_RESOURCE)
                                 + "|retrieval_evaluation_runs_kb:tenant_id,knowledge_base_id,created_at"
                                 + "|retrieval_evaluation_samples_run:tenant_id,knowledge_base_id,run_id,seq"),
-                        this::createRetrievalEvaluationStorage)
+                        this::createRetrievalEvaluationStorage),
+                new MigrationDefinition(
+                        8,
+                        "identity-rbac",
+                        checksum(8, "identity-rbac", readResource(IDENTITY_RBAC_RESOURCE)
+                                + "|tenant_memberships_subject:subject,tenant_id"),
+                        this::createIdentityRbacStorage)
         );
     }
 
@@ -252,6 +259,22 @@ public class DatabaseMigrationRunner {
                 CREATE INDEX retrieval_evaluation_samples_run
                 ON retrieval_evaluation_samples (tenant_id, knowledge_base_id, run_id, seq)
                 """);
+    }
+
+    private void createIdentityRbacStorage() {
+        new ResourceDatabasePopulator(new ClassPathResource(IDENTITY_RBAC_RESOURCE)).execute(dataSource);
+        ensureIndex("tenant_memberships", "tenant_memberships_subject", """
+                CREATE INDEX tenant_memberships_subject
+                ON tenant_memberships (subject, tenant_id)
+                """);
+        Instant now = Instant.now();
+        try {
+            jdbc.update("INSERT INTO tenants (id, display_name, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                    com.xnlp.server.tenant.TenantContext.DEFAULT_TENANT_ID,
+                    "Default tenant", Timestamp.from(now), Timestamp.from(now));
+        } catch (org.springframework.dao.DuplicateKeyException ignored) {
+            // Existing installation already has the default tenant.
+        }
     }
 
     private void upgradeIngestionControl() {

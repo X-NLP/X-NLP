@@ -1,6 +1,7 @@
 package com.xnlp.server.tenant;
 
 import com.xnlp.server.config.SecurityProperties;
+import com.xnlp.server.security.XnlpPrincipal;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,9 +43,8 @@ public final class TenantContextFilter extends OncePerRequestFilter {
         if (properties.isEnabled()) {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication != null && authentication.isAuthenticated()
-                    && authentication.getPrincipal() != null
-                    && !"anonymousUser".equals(authentication.getPrincipal())) {
-                return TenantContext.normalize(authentication.getName());
+                    && authentication.getPrincipal() instanceof XnlpPrincipal principal) {
+                return principal.tenantId();
             }
             return properties.getDefaultTenantId();
         }
