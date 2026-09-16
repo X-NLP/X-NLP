@@ -24,3 +24,20 @@ store, enable ingress/TLS, set resource requests and limits, and use an external
 MySQL/PostgreSQL database. The server migration runner applies versioned schema
 changes on startup and the server PVC stores H2 data and waste evidence when the
 H2 profile is selected.
+
+## Authentication
+
+Set `server.security.mode` to `API_KEY`, `JWT`, or `HYBRID`. API keys stay in
+the generated Kubernetes Secret. JWT metadata is non-secret deployment
+configuration and should include at least an issuer and audience:
+
+```bash
+helm upgrade --install xnlp deploy/helm/xnlp \
+  --set server.security.mode=JWT \
+  --set server.security.jwt.issuerUri='https://id.example.com/realms/xnlp' \
+  --set server.security.jwt.jwkSetUri='https://id.example.com/realms/xnlp/protocol/openid-connect/certs' \
+  --set server.security.jwt.audience='xnlp-api'
+```
+
+`server.security.enabled=true` remains a compatibility shortcut for API Key
+mode when `server.security.mode` is empty.

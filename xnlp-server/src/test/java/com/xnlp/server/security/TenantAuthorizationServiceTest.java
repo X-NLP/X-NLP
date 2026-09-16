@@ -48,8 +48,20 @@ class TenantAuthorizationServiceTest {
         authenticate(new XnlpPrincipal("alice", "tenant-a", Set.of(TenantRole.ADMIN), "jwt"));
 
         assertThatThrownBy(() -> service.deleteMembership("tenant-a", "alice"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOfSatisfying(TenantMembershipException.class,
+                        error -> assertThat(error.reason())
+                                .isEqualTo(TenantMembershipException.Reason.LAST_ADMIN_REQUIRED))
                 .hasMessageContaining("administrator");
+    }
+
+    @Test
+    void deleteMembership_MissingMember_UsesStableReason() {
+        authenticate(new XnlpPrincipal("alice", "tenant-a", Set.of(TenantRole.ADMIN), "jwt"));
+
+        assertThatThrownBy(() -> service.deleteMembership("tenant-a", "missing"))
+                .isInstanceOfSatisfying(TenantMembershipException.class,
+                        error -> assertThat(error.reason())
+                                .isEqualTo(TenantMembershipException.Reason.MEMBERSHIP_NOT_FOUND));
     }
 
     private void authenticate(XnlpPrincipal principal) {

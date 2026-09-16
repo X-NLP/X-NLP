@@ -30,7 +30,9 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
@@ -95,10 +97,44 @@ class JwtRbacIntegrationTest {
                         """));
         mockMvc.perform(get("/api/v1/models").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/models/missing/predict")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType("application/json")
+                        .content("{\"text\":\"viewer must not execute inference\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(content().json("{\"error\":\"forbidden\",\"status\":403}"));
         mockMvc.perform(get("/api/v1/tenants/tenant-a/members")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isForbidden())
                 .andExpect(content().json("{\"error\":\"forbidden\",\"status\":403}"));
+    }
+
+    @Test
+    void developer_CanExecuteButCannotDeleteResources() throws Exception {
+        MockMvc mockMvc = webAppContextSetup(context).addFilters(filterChain).build();
+        String token = token("developer-user", "tenant-a", List.of("DEVELOPER"), "xnlp-api",
+                Instant.now().plusSeconds(300));
+
+        mockMvc.perform(post("/api/v1/models/missing/predict")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType("application/json")
+                        .content("{\"text\":\"developer may execute inference\"}"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(delete("/api/v1/models/missing")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isForbidden())
+                .andExpect(content().json("{\"error\":\"forbidden\",\"status\":403}"));
+    }
+
+    @Test
+    void admin_CanReachResourceDeletion() throws Exception {
+        MockMvc mockMvc = webAppContextSetup(context).addFilters(filterChain).build();
+        String token = token("admin-user", "tenant-a", List.of("ADMIN"), "xnlp-api",
+                Instant.now().plusSeconds(300));
+
+        mockMvc.perform(delete("/api/v1/models/missing")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isNoContent());
     }
 
     @Test

@@ -29,8 +29,19 @@ server:
     password: ""
   security:
     enabled: false
+    mode: ""
     headerName: X-API-Key
+    tenantHeaderName: X-Tenant-ID
+    defaultTenant: default
     apiKeys: ""
+    jwt:
+      issuerUri: ""
+      jwkSetUri: ""
+      audience: ""
+      tenantClaim: tenant_id
+      rolesClaim: roles
+      clockSkew: 60s
+      defaultRoles: VIEWER
   openai:
     apiKey: ""
     baseUrl: https://api.openai.com

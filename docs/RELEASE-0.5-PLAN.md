@@ -149,9 +149,11 @@ Release 0.5 将 X-NLP 从“具备工程能力的单体工作台”升级为可�
 - JWT 强制 issuer、audience、timestamp 和 tenant claim 校验，clock skew 限制在五分钟内；角色从 token claim 读取，并允许 JDBC membership 覆盖；
 - 新增 `XnlpPrincipal`、`TenantRole`、租户授权 service 和 `/api/v1/auth/me`、租户成员管理 API；租户上下文只从已验证 principal 绑定，不信任 JWT/API Key 模式下的客户端租户 Header；
 - V8 追加 `tenants`、`tenant_memberships` 表及 subject 索引，提供 JDBC/memory repository，保持 H2/MySQL/PostgreSQL repository 合同；
-- API Key 兼容身份默认映射 ADMIN/DEVELOPER/VIEWER；JWT 测试覆盖 viewer 读权限、admin 管理边界、跨租户拒绝、错误 audience 和过期 token；
+- API Key 兼容身份默认映射 ADMIN/DEVELOPER/VIEWER；HTTP 权限矩阵落实 VIEWER 只读、DEVELOPER 可执行/写入但不可删除、ADMIN 可管理成员和删除资源；
+- JWT 测试覆盖三角色允许/拒绝路径、跨租户拒绝、错误 audience 和过期 token；membership 错误提供 `membership_not_found`、`last_admin_required`、`role_invalid` 稳定合同；
+- `.env.example`、README 和 Helm values/deployment 已暴露 JWT/HYBRID 配置；issuer、audience 等元数据保留在 Deployment，API Key 继续存放于 Secret；
 - T-01 当前交付 Resource Server 与 RBAC API 基线；浏览器 OIDC Authorization Code + PKCE 登录属于后续前端身份接入，不在本任务内伪造 IdP 流程；
-- 定向 15 条安全/迁移测试和完整 `mvn verify` 均通过。
+- 定向安全、迁移和 JDBC repository 测试及完整 `mvn verify` 均通过。
 
 ## 7. 跨任务 Quality Gate
 

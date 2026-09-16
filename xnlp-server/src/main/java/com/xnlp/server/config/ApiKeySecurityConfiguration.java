@@ -105,10 +105,17 @@ public class ApiKeySecurityConfiguration {
             return http.build();
         }
 
+        String admin = TenantRole.ADMIN.name();
+        String developer = TenantRole.DEVELOPER.name();
+        String viewer = TenantRole.VIEWER.name();
         http.authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(PUBLIC_PATHS.toArray(String[]::new)).permitAll()
-                        .requestMatchers("/api/v1/tenants/**").hasRole(TenantRole.ADMIN.name())
+                        .requestMatchers("/api/v1/tenants/**", "/api/v1/api-keys/**",
+                                "/api/v1/audit-events/**").hasRole(admin)
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/**").hasRole(admin)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/**").hasAnyRole(admin, developer, viewer)
+                        .requestMatchers("/api/v1/**").hasAnyRole(admin, developer)
                         .anyRequest().authenticated())
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(unauthorizedEntryPoint())

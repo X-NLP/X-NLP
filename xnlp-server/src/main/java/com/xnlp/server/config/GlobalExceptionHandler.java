@@ -6,6 +6,7 @@ import com.xnlp.core.rag.RagErrorCode;
 import com.xnlp.core.runtime.NlpRuntimeErrorCode;
 import com.xnlp.core.runtime.NlpRuntimeException;
 import com.xnlp.server.dto.ApiErrorResponse;
+import com.xnlp.server.security.TenantMembershipException;
 import com.xnlp.server.waste.WasteWorkflowException;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
@@ -94,6 +95,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handle(AccessDeniedException e, HttpServletRequest request) {
         return simpleError(HttpStatus.FORBIDDEN, "forbidden",
                 "The authenticated principal is not permitted to perform this operation", request);
+    }
+
+    @ExceptionHandler(TenantMembershipException.class)
+    public ResponseEntity<ApiErrorResponse> handle(TenantMembershipException e, HttpServletRequest request) {
+        return switch (e.reason()) {
+            case MEMBERSHIP_NOT_FOUND -> simpleError(
+                    HttpStatus.NOT_FOUND, "membership_not_found", e.getMessage(), request);
+            case LAST_ADMIN_REQUIRED -> simpleError(
+                    HttpStatus.CONFLICT, "last_admin_required", e.getMessage(), request);
+            case ROLE_INVALID -> simpleError(
+                    HttpStatus.BAD_REQUEST, "role_invalid", e.getMessage(), request);
+        };
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

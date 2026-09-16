@@ -45,16 +45,19 @@ public class TenantAuthorizationService {
 
     public TenantMembership saveMembership(String tenantId, String subject, Set<TenantRole> roles) {
         require(tenantId, TenantRole.ADMIN);
+        if (roles == null || roles.isEmpty()) {
+            throw TenantMembershipException.roleInvalid();
+        }
         return memberships.save(tenantId, subject, roles);
     }
 
     public void deleteMembership(String tenantId, String subject) {
         require(tenantId, TenantRole.ADMIN);
         TenantMembership membership = memberships.find(tenantId, subject)
-                .orElseThrow(() -> new IllegalArgumentException("Tenant membership not found"));
+                .orElseThrow(TenantMembershipException::notFound);
         if (membership.roles().contains(TenantRole.ADMIN)
                 && memberships.countByRole(tenantId, TenantRole.ADMIN) <= 1) {
-            throw new IllegalStateException("At least one tenant administrator is required");
+            throw TenantMembershipException.lastAdminRequired();
         }
         memberships.delete(tenantId, subject);
     }

@@ -84,11 +84,12 @@ public class JdbcTenantMembershipRepository implements TenantMembershipRepositor
 
     @Override
     public long countByRole(String tenantId, TenantRole role) {
-        String rolePattern = "%" + role.name() + "%";
+        String name = role.name();
         Long count = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM tenant_memberships
-                WHERE tenant_id = ? AND roles LIKE ?
-                """, Long.class, TenantContext.normalize(tenantId), rolePattern);
+                WHERE tenant_id = ? AND (roles = ? OR roles LIKE ? OR roles LIKE ? OR roles LIKE ?)
+                """, Long.class, TenantContext.normalize(tenantId), name,
+                name + ",%", "%," + name, "%," + name + ",%");
         return count == null ? 0L : count;
     }
 

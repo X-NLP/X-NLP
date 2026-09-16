@@ -335,18 +335,29 @@ SPRING_AI_MODEL_CHAT=openai OPENAI_API_KEY=*** \
   SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.4.0.jar
 ```
 
-### 可选 API Key 保护
+### API Key / JWT 身份保护
 
-服务默认保持本地开发兼容，`XNLP_SECURITY_ENABLED=false` 时不要求鉴权。部署到共享环境时建议开启 Spring Security API Key 模式：
+服务默认保持本地开发兼容，`XNLP_SECURITY_MODE` 为空且 `XNLP_SECURITY_ENABLED=false` 时不要求鉴权。共享环境可选择 `API_KEY`、`JWT` 或迁移期 `HYBRID`；旧 `XNLP_SECURITY_ENABLED=true` 继续等价于 API Key 模式：
 
 ```bash
-XNLP_SECURITY_ENABLED=true \
+XNLP_SECURITY_MODE=API_KEY \
 XNLP_SECURITY_API_KEYS='replace-with-a-long-random-key,another-key' \
 SPRING_PROFILES_ACTIVE=h2 \
 java -jar xnlp-server/target/xnlp-server-0.4.0.jar
 ```
 
-开启后，以下运维入口仍可供探针和文档访问：`/health`、`/livez`、`/readyz`、`/startupz`、`/ok`、`/actuator/health`、Swagger/OpenAPI 资源；其余接口需要携带 `X-API-Key`，也兼容 `Authorization: Bearer <key>`。前端构建时可设置 `VITE_XNLP_API_KEY` 与 `VITE_XNLP_TENANT_ID`，工作台会自动为普通 API、SSE 和废弃物上传请求附加认证及租户 Header。
+JWT 模式使用 Spring Security OAuth2 Resource Server，必须配置 issuer 与 audience，可选显式 JWK Set 地址；服务会校验签名、issuer、audience、有效期和租户 claim：
+
+```bash
+XNLP_SECURITY_MODE=JWT \
+XNLP_SECURITY_JWT_ISSUER_URI='https://id.example.com/realms/xnlp' \
+XNLP_SECURITY_JWT_JWK_SET_URI='https://id.example.com/realms/xnlp/protocol/openid-connect/certs' \
+XNLP_SECURITY_JWT_AUDIENCE='xnlp-api' \
+SPRING_PROFILES_ACTIVE=postgres \
+java -jar xnlp-server/target/xnlp-server-0.4.0.jar
+```
+
+默认 claim 为 `tenant_id` 和 `roles`，角色支持 `ADMIN`、`DEVELOPER`、`VIEWER`。VIEWER 只读；DEVELOPER 可创建、修改和运行资源但不能删除；ADMIN 还可删除资源和管理租户成员。持久化 membership 可覆盖 JWT 角色并用于降权。开启认证后，探针和 Swagger/OpenAPI 资源仍公开；其他接口需要 API Key 或 Bearer JWT。前端静态 API Key 模式可设置 `VITE_XNLP_API_KEY` 与 `VITE_XNLP_TENANT_ID`。
 
 ### 多租户数据隔离
 
