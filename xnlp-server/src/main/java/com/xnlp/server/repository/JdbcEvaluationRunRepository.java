@@ -36,7 +36,8 @@ public class JdbcEvaluationRunRepository implements EvaluationRunRepository {
         return jdbc.query("""
                 SELECT id, model_name, dataset_id, dataset_name, task_type, status, error_message,
                     metrics_json, created_at, completed_at, elapsed_seconds,
-                    total_entries, processed_entries, progress_percent, cancel_requested
+                    total_entries, processed_entries, progress_percent, cancel_requested,
+                    dataset_version, parent_run_id, root_run_id, attempt_no, retry_failed_only
                 FROM evaluation_runs WHERE tenant_id = ? ORDER BY created_at DESC
                 """, this::mapRow, TenantContext.currentTenantId());
     }
@@ -46,7 +47,8 @@ public class JdbcEvaluationRunRepository implements EvaluationRunRepository {
         return jdbc.query("""
                 SELECT id, model_name, dataset_id, dataset_name, task_type, status, error_message,
                     metrics_json, created_at, completed_at, elapsed_seconds,
-                    total_entries, processed_entries, progress_percent, cancel_requested
+                    total_entries, processed_entries, progress_percent, cancel_requested,
+                    dataset_version, parent_run_id, root_run_id, attempt_no, retry_failed_only
                 FROM evaluation_runs WHERE id = ? AND tenant_id = ?
                 """, this::mapRow, id, TenantContext.currentTenantId()).stream().findFirst();
     }
@@ -57,24 +59,28 @@ public class JdbcEvaluationRunRepository implements EvaluationRunRepository {
                 UPDATE evaluation_runs SET model_name = ?, dataset_id = ?, dataset_name = ?, task_type = ?,
                     status = ?, error_message = ?, metrics_json = ?, created_at = ?, completed_at = ?,
                     elapsed_seconds = ?, total_entries = ?, processed_entries = ?, progress_percent = ?,
-                    cancel_requested = ? WHERE id = ? AND tenant_id = ?
+                    cancel_requested = ?, dataset_version = ?, parent_run_id = ?, root_run_id = ?,
+                    attempt_no = ?, retry_failed_only = ? WHERE id = ? AND tenant_id = ?
                 """, run.getModelName(), run.getDatasetId(), run.getDatasetName(),
                 run.getTaskType() == null ? null : run.getTaskType().name(), run.getStatus(),
                 run.getErrorMessage(), toJson(run.getMetrics()), timestamp(run.getCreatedAt()),
                 timestamp(run.getCompletedAt()), run.getElapsedSeconds(), run.getTotalEntries(),
-                run.getProcessedEntries(), run.getProgressPercent(), run.isCancelRequested(), run.getId(),
+                run.getProcessedEntries(), run.getProgressPercent(), run.isCancelRequested(), run.getDatasetVersion(),
+                run.getParentRunId(), run.getRootRunId(), run.getAttempt(), run.isRetryFailedOnly(), run.getId(),
                 TenantContext.currentTenantId());
         if (updated == 0) {
             jdbc.update("""
                     INSERT INTO evaluation_runs (id, tenant_id, model_name, dataset_id, dataset_name, task_type, status,
                         error_message, metrics_json, created_at, completed_at, elapsed_seconds,
-                        total_entries, processed_entries, progress_percent, cancel_requested)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        total_entries, processed_entries, progress_percent, cancel_requested,
+                        dataset_version, parent_run_id, root_run_id, attempt_no, retry_failed_only)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, run.getId(), TenantContext.currentTenantId(), run.getModelName(), run.getDatasetId(), run.getDatasetName(),
                     run.getTaskType() == null ? null : run.getTaskType().name(), run.getStatus(),
                     run.getErrorMessage(), toJson(run.getMetrics()), timestamp(run.getCreatedAt()),
                     timestamp(run.getCompletedAt()), run.getElapsedSeconds(), run.getTotalEntries(),
-                    run.getProcessedEntries(), run.getProgressPercent(), run.isCancelRequested());
+                    run.getProcessedEntries(), run.getProgressPercent(), run.isCancelRequested(), run.getDatasetVersion(),
+                    run.getParentRunId(), run.getRootRunId(), run.getAttempt(), run.isRetryFailedOnly());
         }
         return run;
     }
@@ -101,6 +107,13 @@ public class JdbcEvaluationRunRepository implements EvaluationRunRepository {
         run.setProcessedEntries(processed == null ? 0 : processed);
         run.setProgressPercent(progress == null ? 0 : progress);
         run.setCancelRequested(rs.getBoolean("cancel_requested"));
+        Long datasetVersion = rs.getObject("dataset_version", Long.class);
+        run.setDatasetVersion(datasetVersion);
+        run.setParentRunId(rs.getString("parent_run_id"));
+        run.setRootRunId(rs.getString("root_run_id"));
+        Integer attempt = rs.getObject("attempt_no", Integer.class);
+        run.setAttempt(attempt == null ? 0 : attempt);
+        run.setRetryFailedOnly(rs.getBoolean("retry_failed_only"));
         return run;
     }
 

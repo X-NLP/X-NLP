@@ -7,6 +7,7 @@ import com.xnlp.core.rag.RagErrorCode;
 import com.xnlp.core.runtime.NlpRuntimeErrorCode;
 import com.xnlp.core.runtime.NlpRuntimeException;
 import com.xnlp.server.dto.ApiErrorResponse;
+import com.xnlp.server.evaluation.recovery.EvaluationRecoveryException;
 import com.xnlp.server.security.SecurityResourceException;
 import com.xnlp.server.security.TenantMembershipException;
 import com.xnlp.server.security.TenantRole;
@@ -87,6 +88,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(XNLPException.class)
     public ResponseEntity<ApiErrorResponse> handle(XNLPException e, HttpServletRequest request) {
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "xnlp_error", e, request);
+    }
+
+    @ExceptionHandler(EvaluationRecoveryException.class)
+    public ResponseEntity<ApiErrorResponse> handle(EvaluationRecoveryException e, HttpServletRequest request) {
+        return switch (e.reason()) {
+            case EVALUATION_NOT_FOUND -> simpleError(
+                    HttpStatus.NOT_FOUND, "evaluation_not_found", e.getMessage(), request);
+            case EVALUATION_NOT_RETRYABLE -> simpleError(
+                    HttpStatus.CONFLICT, "evaluation_not_retryable", e.getMessage(), request);
+            case EVALUATION_QUEUE_UNAVAILABLE -> simpleError(
+                    HttpStatus.SERVICE_UNAVAILABLE, "evaluation_queue_unavailable", e.getMessage(), request);
+        };
     }
 
     @ExceptionHandler(WasteWorkflowException.class)

@@ -24,6 +24,11 @@ public class EvaluationRun {
     private double progressPercent;
     private boolean cancelRequested;
     private String errorMessage;
+    private Long datasetVersion;
+    private String parentRunId;
+    private String rootRunId;
+    private int attempt;
+    private boolean retryFailedOnly;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -57,4 +62,17 @@ public class EvaluationRun {
     public void setCancelRequested(boolean cancelRequested) { this.cancelRequested = cancelRequested; }
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public Long getDatasetVersion() { return datasetVersion; }
+    public void setDatasetVersion(Long datasetVersion) {
+        if (datasetVersion != null && datasetVersion < 0) throw new IllegalArgumentException("datasetVersion must not be negative");
+        this.datasetVersion = datasetVersion;
+    }
+    public String getParentRunId() { return parentRunId; }
+    public void setParentRunId(String parentRunId) { this.parentRunId = parentRunId; }
+    public String getRootRunId() { return rootRunId; }
+    public void setRootRunId(String rootRunId) { this.rootRunId = rootRunId; }
+    public int getAttempt() { return attempt; }
+    public void setAttempt(int attempt) { this.attempt = Math.max(0, attempt); }
+    public boolean isRetryFailedOnly() { return retryFailedOnly; }
+    public void setRetryFailedOnly(boolean retryFailedOnly) { this.retryFailedOnly = retryFailedOnly; }
 }
