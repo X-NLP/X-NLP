@@ -51,6 +51,7 @@ public class DatabaseMigrationRunner {
     private static final String TENANT_QUOTA_RESOURCE = "db/migration/V10__tenant-quota.sql";
     private static final String DATASET_VERSIONING_RESOURCE = "db/migration/V11__dataset-versioning.sql";
     private static final String RESUMABLE_EVALUATION_RESOURCE = "db/migration/V12__resumable-evaluation.sql";
+    private static final String PIPELINE_DAG_RESOURCE = "db/migration/V13__pipeline-dag.sql";
 
     private final JdbcTemplate jdbc;
     private final DataSource dataSource;
@@ -176,7 +177,12 @@ public class DatabaseMigrationRunner {
                         12,
                         "resumable-evaluation",
                         checksum(12, "resumable-evaluation", readResource(RESUMABLE_EVALUATION_RESOURCE)),
-                        this::createResumableEvaluationStorage)
+                        this::createResumableEvaluationStorage),
+                new MigrationDefinition(
+                        13,
+                        "pipeline-dag",
+                        checksum(13, "pipeline-dag", readResource(PIPELINE_DAG_RESOURCE)),
+                        this::createPipelineDagStorage)
         );
     }
 
@@ -338,6 +344,13 @@ public class DatabaseMigrationRunner {
     private void createResumableEvaluationStorage() {
         ensureEvaluationRecoveryColumns();
         String script = readResource(RESUMABLE_EVALUATION_RESOURCE)
+                .replace("__LARGE_TEXT__", largeTextType());
+        new ResourceDatabasePopulator(new ByteArrayResource(script.getBytes(StandardCharsets.UTF_8)))
+                .execute(dataSource);
+    }
+
+    private void createPipelineDagStorage() {
+        String script = readResource(PIPELINE_DAG_RESOURCE)
                 .replace("__LARGE_TEXT__", largeTextType());
         new ResourceDatabasePopulator(new ByteArrayResource(script.getBytes(StandardCharsets.UTF_8)))
                 .execute(dataSource);

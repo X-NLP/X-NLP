@@ -143,6 +143,15 @@ Release 0.5 将 X-NLP 从“具备工程能力的单体工作台”升级为可�
 | T-08 Secret/备份/对象存储 | `codex/release-0.5-t-08-platform-adapters` | audit、quota | secret reference SPI、backup job、object store SPI | T-02～T-03 | 默认 fixture 无云依赖；恢复演练；禁止路径穿越和 secret 泄漏 |
 | T-09 供应链与发布门禁 | `codex/release-0.5-t-09-supply-chain` | 全部实现 | 0.5 版本、SBOM、签名、升级/回滚/DoD | T-01～T-08 | Maven/前端/三 DB/Playwright/Helm/images/Trivy/SBOM 全绿 |
 
+### T-06 实施记录（2026-09-16）
+
+- 新增 V13 Pipeline DAG 持久化：definition/version、nodes/edges、run、node attempt 和可重放 event，统一提供 `JdbcTemplate`/内存 repository 合同并按 tenant 隔离。
+- 新增 DAG 结构校验、稳定拓扑批次和确定性 fan-in 合并，拒绝缺失端点、重复边和直接/间接 cycle。
+- 新增 pipeline 创建/乐观更新、异步 run、状态查询、取消、SSE event replay 与 JSON trace 下载接口；保留原有 `/pipelines/execute` 兼容接口。
+- 节点执行支持 timeout、retry/backoff、attempt 级输入/输出/错误和时间持久化；运行显式携带 tenant/actor/version，并在启动时发现可恢复运行。
+- repository CAS 与 cancel guard 阻止迟到 worker 覆盖终态；HTTP 合同覆盖跨租户不可见、版本冲突、cycle、运行/取消、event 与 trace。
+- `mvn -B -ntp clean verify` 全模块通过；server 238 项测试全绿。
+
 ### T-01 实施记录（2026-09-16）
 
 - 新增 Spring Security OAuth2 Resource Server，支持 `DISABLED`、`API_KEY`、`JWT`、`HYBRID` 四种模式；旧 `enabled=true` 配置继续映射到 API Key 模式；

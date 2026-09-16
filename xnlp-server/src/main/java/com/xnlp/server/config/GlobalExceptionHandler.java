@@ -8,6 +8,8 @@ import com.xnlp.core.runtime.NlpRuntimeErrorCode;
 import com.xnlp.core.runtime.NlpRuntimeException;
 import com.xnlp.server.dto.ApiErrorResponse;
 import com.xnlp.server.evaluation.recovery.EvaluationRecoveryException;
+import com.xnlp.server.pipeline.PipelineDagException;
+
 import com.xnlp.server.security.SecurityResourceException;
 import com.xnlp.server.security.TenantMembershipException;
 import com.xnlp.server.security.TenantRole;
@@ -88,6 +90,36 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(XNLPException.class)
     public ResponseEntity<ApiErrorResponse> handle(XNLPException e, HttpServletRequest request) {
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "xnlp_error", e, request);
+    }
+
+    @ExceptionHandler(com.xnlp.server.pipeline.dag.PipelineDagException.class)
+    public ResponseEntity<ApiErrorResponse> handle(
+            com.xnlp.server.pipeline.dag.PipelineDagException e, HttpServletRequest request) {
+        Map<String, Object> detail = e.code().equals("pipeline_cycle")
+                ? Map.of("nodes", List.of()) : null;
+        return simpleError(HttpStatus.BAD_REQUEST, e.code(), safeMessage(e), detail, request);
+    }
+
+    @ExceptionHandler(PipelineDagException.class)
+    public ResponseEntity<ApiErrorResponse> handle(PipelineDagException e, HttpServletRequest request) {
+        HttpStatus status = switch (e.reason()) {
+            case PIPELINE_NOT_FOUND, PIPELINE_RUN_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case PIPELINE_VERSION_CONFLICT, PIPELINE_RUN_TERMINAL -> HttpStatus.CONFLICT;
+            case PIPELINE_QUOTA_EXCEEDED -> HttpStatus.TOO_MANY_REQUESTS;
+            case TRACE_NOT_READY -> HttpStatus.CONFLICT;
+            case PIPELINE_EXECUTION_FAILED -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
+        String code = switch (e.reason()) {
+            case PIPELINE_NOT_FOUND -> "pipeline_not_found";
+            case PIPELINE_VERSION_CONFLICT -> "pipeline_version_conflict";
+            case PIPELINE_RUN_NOT_FOUND -> "pipeline_run_not_found";
+            case PIPELINE_RUN_TERMINAL -> "pipeline_run_terminal";
+            case PIPELINE_QUOTA_EXCEEDED -> "pipeline_quota_exceeded";
+            case TRACE_NOT_READY -> "trace_not_ready";
+            case PIPELINE_EXECUTION_FAILED -> "pipeline_execution_failed";
+        };
+        return simpleError(status, code, safeMessage(e),
+                e.detail().isEmpty() ? null : e.detail(), request);
     }
 
     @ExceptionHandler(EvaluationRecoveryException.class)
@@ -209,7 +241,7 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ApiErrorResponse> simpleError(HttpStatus status, String code, String message,
                                                           HttpServletRequest request) {
-        return simpleError(status, code, message, null, request);
+        return simpleError(status, code, message, (List<ApiErrorResponse.FieldViolation>) null, request);
     }
 
     private ResponseEntity<ApiErrorResponse> simpleError(HttpStatus status, String code, String message,
@@ -217,6 +249,14 @@ public class GlobalExceptionHandler {
                                                           HttpServletRequest request) {
         return ResponseEntity.status(status).body(new ApiErrorResponse(
                 Instant.now(), status.value(), code, message, null, violations,
+                requestId(request), traceId()));
+    }
+
+    private ResponseEntity<ApiErrorResponse> simpleError(HttpStatus status, String code, String message,
+                                                          Map<String, Object> detail,
+                                                          HttpServletRequest request) {
+        return ResponseEntity.status(status).body(new ApiErrorResponse(
+                Instant.now(), status.value(), code, message, detail, null,
                 requestId(request), traceId()));
     }
 
