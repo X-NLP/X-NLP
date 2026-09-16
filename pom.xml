@@ -40,6 +40,10 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <spring-ai.version>2.0.1</spring-ai.version>
         <onnxruntime.version>1.29.0</onnxruntime.version>
+        <!-- Security patch overrides until the Spring Boot BOM advances past these fixed releases. -->
+        <netty.version>4.2.17.Final</netty.version>
+        <postgresql.version>42.7.12</postgresql.version>
+        <tomcat.version>11.0.25</tomcat.version>
     </properties>
 
     <dependencyManagement>
