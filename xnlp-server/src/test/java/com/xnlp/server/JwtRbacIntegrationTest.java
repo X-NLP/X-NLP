@@ -33,6 +33,7 @@ import java.util.List;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
@@ -135,6 +136,26 @@ class JwtRbacIntegrationTest {
         mockMvc.perform(delete("/api/v1/models/missing")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void admin_InvalidMembershipRolesUseStableContract() throws Exception {
+        MockMvc mockMvc = webAppContextSetup(context).addFilters(filterChain).build();
+        String token = token("admin-user", "tenant-a", List.of("ADMIN"), "xnlp-api",
+                Instant.now().plusSeconds(300));
+
+        mockMvc.perform(put("/api/v1/tenants/tenant-a/members/new-user")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType("application/json")
+                        .content("{\"roles\":[]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error\":\"role_invalid\",\"status\":400}"));
+        mockMvc.perform(put("/api/v1/tenants/tenant-a/members/new-user")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType("application/json")
+                        .content("{\"roles\":[\"OWNER\"]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"error\":\"role_invalid\",\"status\":400}"));
     }
 
     @Test

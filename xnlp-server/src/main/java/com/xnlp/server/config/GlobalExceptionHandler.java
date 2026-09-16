@@ -1,5 +1,6 @@
 package com.xnlp.server.config;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.xnlp.core.errors.*;
 import com.xnlp.core.rag.RagContractException;
 import com.xnlp.core.rag.RagErrorCode;
@@ -7,6 +8,7 @@ import com.xnlp.core.runtime.NlpRuntimeErrorCode;
 import com.xnlp.core.runtime.NlpRuntimeException;
 import com.xnlp.server.dto.ApiErrorResponse;
 import com.xnlp.server.security.TenantMembershipException;
+import com.xnlp.server.security.TenantRole;
 import com.xnlp.server.waste.WasteWorkflowException;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
@@ -141,6 +143,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiErrorResponse> handle(HttpMessageNotReadableException e, HttpServletRequest request) {
+        if (hasInvalidTenantRole(e)) {
+            return simpleError(HttpStatus.BAD_REQUEST, "role_invalid",
+                    "Tenant membership contains an unsupported role", request);
+        }
         return simpleError(HttpStatus.BAD_REQUEST, "malformed_request", "Request body is malformed", request);
     }
 
@@ -244,6 +250,24 @@ public class GlobalExceptionHandler {
             case CONFIGURATION, MODEL_NOT_FOUND, CHECKSUM_MISMATCH, MODEL_INVALID,
                     NOT_READY, CLOSED, SATURATED -> HttpStatus.SERVICE_UNAVAILABLE;
         };
+    }
+
+    private static boolean hasInvalidTenantRole(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof InvalidFormatException invalidFormat
+                    && (invalidFormat.getTargetType() == TenantRole.class
+                    || invalidFormat.getPath().stream().anyMatch(
+                    reference -> "roles".equals(reference.getFieldName())))) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null && message.contains(TenantRole.class.getName())) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private static String safeMessage(Exception e) {
