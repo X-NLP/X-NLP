@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xnlp.core.eval.EvaluationDataset;
 import com.xnlp.core.eval.EvaluationEntry;
 import com.xnlp.core.repository.DatasetRepository;
+import com.xnlp.server.dataset.versioning.DatasetVersionBootstrap;
+import com.xnlp.server.tenant.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,9 +27,11 @@ public class DatasetService {
     private final ObjectMapper mapper = new ObjectMapper()
             .findAndRegisterModules();
     private final DatasetRepository repository;
+    private final DatasetVersionBootstrap versionBootstrap;
 
-    public DatasetService(DatasetRepository repository) {
+    public DatasetService(DatasetRepository repository, DatasetVersionBootstrap versionBootstrap) {
         this.repository = repository;
+        this.versionBootstrap = versionBootstrap;
     }
 
     public List<EvaluationDataset> list() {
@@ -44,6 +48,8 @@ public class DatasetService {
         dataset.setUpdatedAt(Instant.now());
         dataset.setEntryCount(dataset.getEntries() != null ? dataset.getEntries().size() : 0);
         repository.save(dataset);
+        versionBootstrap.bootstrap(
+                TenantContext.currentTenantId(), dataset, currentActor(), dataset.getUpdatedAt());
         log.info("Created dataset: {} ({} entries)", dataset.getName(), dataset.getEntryCount());
         return dataset;
     }
@@ -88,4 +94,8 @@ public class DatasetService {
     }
 
     public int count() { return repository.count(); }
+
+    private static String currentActor() {
+        return "system";
+    }
 }

@@ -171,6 +171,14 @@ Release 0.5 将 X-NLP 从“具备工程能力的单体工作台”升级为可�
 - 请求 guard 已接入安全过滤链：按 UTC 分钟限制请求、用 TTL lease 限制并发，拒绝响应使用 HTTP 429、`Retry-After` 及稳定错误码；未配置配额的既有租户保持兼容不受限；
 - 定向 repository/guard/HTTP/迁移测试覆盖原子竞争、租户隔离、lease 释放/过期、跨租户拒绝和非法配置。
 
+### T-04 实施记录（2026-09-16）
+
+- V11 新增租户级 Dataset 元数据、样本、不可变版本快照、导入任务和逐行错误表，继续使用 `DataSource` + `JdbcTemplate`，并提供 memory/JDBC 同合同实现；
+- 新增样本创建、替换、删除、版本分页、JSON 导入和导入报告 API；所有写操作使用 `expectedVersion` CAS，冲突返回 `dataset_version_conflict` 与当前版本；
+- 现有 Dataset 创建流程会原子引导版本 0 及全量初始样本，重复引导幂等，不覆盖已有版本数据；
+- 导入任务记录 actor、状态、计数、结果版本和错误行，非法记录返回 `dataset_import_invalid` 定位信息；
+- repository、迁移和 HTTP 测试覆盖 CAS 回滚、快照不可变、导入终态、分页、租户隔离及跨租户存在性隐藏。
+
 
 ## 7. 跨任务 Quality Gate
 

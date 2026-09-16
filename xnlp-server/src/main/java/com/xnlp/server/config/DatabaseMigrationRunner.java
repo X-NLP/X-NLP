@@ -49,6 +49,7 @@ public class DatabaseMigrationRunner {
     private static final String IDENTITY_RBAC_RESOURCE = "db/migration/V8__identity-rbac.sql";
     private static final String API_KEY_AUDIT_RESOURCE = "db/migration/V9__api-key-audit.sql";
     private static final String TENANT_QUOTA_RESOURCE = "db/migration/V10__tenant-quota.sql";
+    private static final String DATASET_VERSIONING_RESOURCE = "db/migration/V11__dataset-versioning.sql";
 
     private final JdbcTemplate jdbc;
     private final DataSource dataSource;
@@ -164,7 +165,12 @@ public class DatabaseMigrationRunner {
                         10,
                         "tenant-quota",
                         checksum(10, "tenant-quota", readResource(TENANT_QUOTA_RESOURCE)),
-                        this::createTenantQuotaStorage)
+                        this::createTenantQuotaStorage),
+                new MigrationDefinition(
+                        11,
+                        "dataset-versioning",
+                        checksum(11, "dataset-versioning", readResource(DATASET_VERSIONING_RESOURCE)),
+                        this::createDatasetVersioningStorage)
         );
     }
 
@@ -314,6 +320,13 @@ public class DatabaseMigrationRunner {
 
     private void createTenantQuotaStorage() {
         new ResourceDatabasePopulator(new ClassPathResource(TENANT_QUOTA_RESOURCE)).execute(dataSource);
+    }
+
+    private void createDatasetVersioningStorage() {
+        String script = readResource(DATASET_VERSIONING_RESOURCE)
+                .replace("__LARGE_TEXT__", largeTextType());
+        new ResourceDatabasePopulator(new ByteArrayResource(script.getBytes(StandardCharsets.UTF_8)))
+                .execute(dataSource);
     }
 
     private void upgradeIngestionControl() {
