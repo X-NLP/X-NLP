@@ -3,6 +3,8 @@ package com.xnlp.server.startup;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xnlp.core.eval.EvaluationDataset;
 import com.xnlp.core.repository.DatasetRepository;
+import com.xnlp.server.dataset.versioning.DatasetVersionBootstrap;
+import com.xnlp.server.tenant.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -37,12 +39,17 @@ public class DatasetTemplateInitializer implements ApplicationListener<Applicati
     private final DatasetRepository repository;
     private final ObjectMapper mapper;
     private final ResourceLoader resourceLoader;
+    private final DatasetVersionBootstrap versionBootstrap;
 
-    public DatasetTemplateInitializer(DatasetRepository repository, ObjectMapper mapper,
-                                      ResourceLoader resourceLoader) {
+    public DatasetTemplateInitializer(
+            DatasetRepository repository,
+            ObjectMapper mapper,
+            ResourceLoader resourceLoader,
+            DatasetVersionBootstrap versionBootstrap) {
         this.repository = repository;
         this.mapper = mapper;
         this.resourceLoader = resourceLoader;
+        this.versionBootstrap = versionBootstrap;
     }
 
     @Override
@@ -57,17 +64,19 @@ public class DatasetTemplateInitializer implements ApplicationListener<Applicati
         try (InputStream input = resource.getInputStream()) {
             EvaluationDataset template = mapper.readValue(input, EvaluationDataset.class);
             validate(template, location);
-            if (repository.findById(template.getId()).isPresent()) {
-                log.debug("Built-in dataset template already exists: {}", template.getName());
-                return;
-            }
+            EvaluationDataset dataset = repository.findById(template.getId()).orElse(null);
             Instant now = Instant.now();
-            template.setCreatedAt(now);
-            template.setUpdatedAt(now);
-            template.setEntryCount(template.getEntries().size());
-            repository.save(template);
-            log.info("Imported built-in dataset template: {} ({} entries)",
-                    template.getName(), template.getEntryCount());
+            if (dataset == null) {
+                template.setCreatedAt(now);
+                template.setUpdatedAt(now);
+                template.setEntryCount(template.getEntries().size());
+                dataset = repository.save(template);
+                log.info("Imported built-in dataset template: {} ({} entries)",
+                        template.getName(), template.getEntryCount());
+            } else {
+                log.debug("Built-in dataset template already exists: {}", template.getName());
+            }
+            versionBootstrap.bootstrap(TenantContext.currentTenantId(), dataset, "system", now);
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to import dataset template: " + location, ex);
         }
