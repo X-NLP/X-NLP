@@ -155,6 +155,15 @@ Release 0.5 将 X-NLP 从“具备工程能力的单体工作台”升级为可�
 - T-01 当前交付 Resource Server 与 RBAC API 基线；浏览器 OIDC Authorization Code + PKCE 登录属于后续前端身份接入，不在本任务内伪造 IdP 流程；
 - 定向安全、迁移和 JDBC repository 测试及完整 `mvn verify` 均通过。
 
+### T-02 实施记录（2026-09-16）
+
+- V9 新增 `api_keys` 与 `audit_events`，API Key 只保存 SHA-256 哈希和短前缀，提供租户/时间/action 索引与 retention 字段；
+- 新增 JDBC/memory repository 和 lifecycle service，支持一次性明文创建、过期、撤销、带 grace period 轮换、最后使用时间与认证审计；
+- 新增 `/api/v1/api-keys` 创建/列表/轮换/撤销 API，以及租户隔离的审计分页查询和 NDJSON 导出；列表与审计不返回 hash 或 secret；
+- 动态 API Key 已接入 Spring Security 认证过滤器，旧环境变量 API Key 保持兼容；
+- repository/service/HTTP/迁移测试覆盖明文不落库、过期/撤销、轮换 grace、租户隔离、脱敏和审计过滤；完整 `mvn clean verify` 通过。
+
+
 ## 7. 跨任务 Quality Gate
 
 - `mvn -B -ntp verify`，新增 core/server/client/CLI 合同测试；

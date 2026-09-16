@@ -35,12 +35,12 @@ class DatabaseMigrationIntegrationTest {
         List<Map<String, Object>> history = jdbc.queryForList(
                 "SELECT version, description, checksum FROM xnlp_schema_history ORDER BY version");
 
-        assertThat(history).hasSize(8);
-        assertThat(history).extracting(row -> row.get("VERSION")).containsExactly(1, 2, 3, 4, 5, 6, 7, 8);
+        assertThat(history).hasSize(9);
+        assertThat(history).extracting(row -> row.get("VERSION")).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9);
         assertThat(history).extracting(row -> row.get("DESCRIPTION"))
                 .containsExactly("baseline", "evaluation-progress-columns", "waste-weighing-trip-number",
                         "multi-tenant-isolation", "rag-storage", "ingestion-control-and-rag-constraints",
-                        "retrieval-evaluation", "identity-rbac");
+                        "retrieval-evaluation", "identity-rbac", "api-key-audit");
         assertThat(history).allSatisfy(row -> assertThat(row.get("CHECKSUM")).isNotNull());
 
         assertThat(jdbc.queryForObject(
@@ -67,6 +67,12 @@ class DatabaseMigrationIntegrationTest {
                 "SELECT COUNT(*) FROM tenants WHERE id = 'default'", Integer.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM tenant_memberships WHERE tenant_id = 'default'", Integer.class))
+                .isGreaterThanOrEqualTo(0);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM api_keys WHERE tenant_id = 'default'", Integer.class))
+                .isGreaterThanOrEqualTo(0);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM audit_events WHERE tenant_id = 'default'", Integer.class))
                 .isGreaterThanOrEqualTo(0);
     }
 }

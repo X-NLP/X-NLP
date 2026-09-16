@@ -7,6 +7,7 @@ import com.xnlp.core.rag.RagErrorCode;
 import com.xnlp.core.runtime.NlpRuntimeErrorCode;
 import com.xnlp.core.runtime.NlpRuntimeException;
 import com.xnlp.server.dto.ApiErrorResponse;
+import com.xnlp.server.security.SecurityResourceException;
 import com.xnlp.server.security.TenantMembershipException;
 import com.xnlp.server.security.TenantRole;
 import com.xnlp.server.waste.WasteWorkflowException;
@@ -97,6 +98,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handle(AccessDeniedException e, HttpServletRequest request) {
         return simpleError(HttpStatus.FORBIDDEN, "forbidden",
                 "The authenticated principal is not permitted to perform this operation", request);
+    }
+
+    @ExceptionHandler(SecurityResourceException.class)
+    public ResponseEntity<ApiErrorResponse> handle(SecurityResourceException e, HttpServletRequest request) {
+        return switch (e.reason()) {
+            case API_KEY_NOT_FOUND -> simpleError(
+                    HttpStatus.NOT_FOUND, "api_key_not_found", e.getMessage(), request);
+            case API_KEY_LIMIT_EXCEEDED -> simpleError(
+                    HttpStatus.CONFLICT, "api_key_limit_exceeded", e.getMessage(), request);
+            case API_KEY_INVALID -> simpleError(
+                    HttpStatus.BAD_REQUEST, "api_key_invalid", e.getMessage(), request);
+        };
     }
 
     @ExceptionHandler(TenantMembershipException.class)

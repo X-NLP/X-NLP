@@ -2,6 +2,7 @@ package com.xnlp.server.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xnlp.server.dto.ApiErrorResponse;
+import com.xnlp.server.security.ApiKeyService;
 import com.xnlp.server.security.AuthenticationMode;
 import com.xnlp.server.security.TenantMembershipRepository;
 import com.xnlp.server.security.TenantRole;
@@ -63,14 +64,17 @@ public class ApiKeySecurityConfiguration {
     private final SecurityProperties properties;
     private final ObjectMapper objectMapper;
     private final TenantMembershipRepository memberships;
+    private final ApiKeyService apiKeys;
 
     public ApiKeySecurityConfiguration(
             SecurityProperties properties,
             ObjectMapper objectMapper,
-            TenantMembershipRepository memberships) {
+            TenantMembershipRepository memberships,
+            ApiKeyService apiKeys) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.memberships = memberships;
+        this.apiKeys = apiKeys;
         properties.validate();
     }
 
@@ -130,7 +134,7 @@ public class ApiKeySecurityConfiguration {
         }
         if (mode.acceptsApiKey()) {
             http.addFilterBefore(
-                    new ApiKeyAuthenticationFilter(properties, objectMapper),
+                    new ApiKeyAuthenticationFilter(properties, apiKeys, objectMapper),
                     UsernamePasswordAuthenticationFilter.class);
         }
         return http.build();
@@ -189,10 +193,13 @@ public class ApiKeySecurityConfiguration {
 
     private static final class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         private final SecurityProperties properties;
+        private final ApiKeyService apiKeys;
         private final ObjectMapper objectMapper;
 
-        private ApiKeyAuthenticationFilter(SecurityProperties properties, ObjectMapper objectMapper) {
+        private ApiKeyAuthenticationFilter(
+                SecurityProperties properties, ApiKeyService apiKeys, ObjectMapper objectMapper) {
             this.properties = properties;
+            this.apiKeys = apiKeys;
             this.objectMapper = objectMapper;
         }
 
@@ -217,13 +224,18 @@ public class ApiKeySecurityConfiguration {
                     candidate = authorization.substring(7).trim();
                 }
             }
-            SecurityProperties.ApiKeyIdentity identity = properties.identityFor(candidate);
-            if (identity == null) {
+            SecurityProperties.ApiKeyIdentity legacyIdentity = properties.identityFor(candidate);
+            ApiKeyService.AuthenticatedApiKey managedIdentity = legacyIdentity == null
+                    ? apiKeys.authenticate(candidate) : null;
+            if (legacyIdentity == null && managedIdentity == null) {
                 writeError(request, response, "A valid API key is required");
                 return;
             }
-            XnlpPrincipal principal = new XnlpPrincipal(
-                    identity.subject(), identity.tenantId(), identity.roles(), "api-key");
+            XnlpPrincipal principal = legacyIdentity != null
+                    ? new XnlpPrincipal(legacyIdentity.subject(), legacyIdentity.tenantId(),
+                    legacyIdentity.roles(), "api-key")
+                    : new XnlpPrincipal("api-key:" + managedIdentity.id(), managedIdentity.tenantId(),
+                    managedIdentity.roles(), "api-key");
             var authorities = principal.roles().stream()
                     .map(role -> new SimpleGrantedAuthority(role.authority())).toList();
             var authentication = UsernamePasswordAuthenticationToken.authenticated(principal, null, authorities);
