@@ -33,8 +33,24 @@ jobs:
       - name: Verify backend
         run: mvn -B -ntp verify
 
+      - name: Run H2 external E2E
+        env:
+          XNLP_E2E_SKIP_BUILD: 'true'
+        run: tests/e2e/run-h2.sh
+
+      - name: Run database profile E2E matrix
+        env:
+          XNLP_E2E_SKIP_BUILD: 'true'
+        run: tests/e2e/run-db-matrix.sh all
+
       - name: Build frontend
         run: npm ci --prefix xnlp-frontend && npm run build --prefix xnlp-frontend
+
+      - name: Install Playwright Chromium
+        run: npm exec --prefix xnlp-frontend playwright -- install --with-deps chromium
+
+      - name: Run frontend browser E2E
+        run: npm run test:e2e --prefix xnlp-frontend
 
       - name: Set up Helm
         uses: azure/setup-helm@v4

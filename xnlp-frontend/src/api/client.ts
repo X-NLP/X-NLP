@@ -85,22 +85,28 @@ function subscribeToJsonEvents<T>(
 // ---- Models ----
 export const modelsApi = {
   list: () => request<any[]>('/models'),
+  runtime: () => request<any[]>('/models/runtime'),
   get: (name: string) => request<any>(`/models/${segment(name)}`),
   create: (model: any) => request<any>('/models', { method: 'POST', body: JSON.stringify(model) }),
   delete: (name: string) => request<void>(`/models/${segment(name)}`, { method: 'DELETE' }),
   activate: (name: string) => request<any>(`/models/${segment(name)}/activate`, { method: 'POST' }),
   unload: (name: string) => request<void>(`/models/${segment(name)}/unload`, { method: 'POST' }),
   capabilities: () => request<any>('/models/capabilities'),
+  diagnostics: () => request<any>('/models/diagnostics'),
+  probeDiagnostics: () => request<any>('/models/diagnostics/probe', { method: 'POST' }),
   test: (name: string, payload: any) =>
     request<any>(`/models/${segment(name)}/test`, { method: 'POST', body: JSON.stringify(payload) }),
-  predict: (name: string, text: string) =>
-    request<any>(`/models/${segment(name)}/predict`, { method: 'POST', body: JSON.stringify({ text }) }),
+  predict: (name: string, text: string, maxLength?: number, parameters?: Record<string, any>) =>
+    request<any>(`/models/${segment(name)}/predict`, {
+      method: 'POST',
+      body: JSON.stringify({ text, max_length: maxLength, parameters: parameters || {} }),
+    }),
   batchPredict: (name: string, requests: Array<{ text: string; modelName?: string }>) =>
     request<any>(`/models/${segment(name)}/batch-predict`, {
       method: 'POST',
       body: JSON.stringify({ requests }),
     }),
-  benchmark: (modelName: string, params?: Record<string, any>) =>
+  benchmark: (modelName: string, params?: { requests?: number; concurrency?: number; text?: string }) =>
     request<any>(`/benchmark/${segment(modelName)}`, { method: 'POST', body: JSON.stringify(params || {}) }),
 };
 

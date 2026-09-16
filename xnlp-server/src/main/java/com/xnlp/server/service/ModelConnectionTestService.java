@@ -27,7 +27,7 @@ public class ModelConnectionTestService {
 
     private final ObjectMapper mapper = new ObjectMapper();
     private final HttpClient http = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
+            .connectTimeout(Duration.ofSeconds(5))
             .build();
 
     public Map<String, Object> test(ModelConfig config, ModelTestRequest request) {
@@ -46,7 +46,7 @@ public class ModelConnectionTestService {
             }
             return success(config, extractResult(config, body), response.statusCode(), t0);
         } catch (Exception e) {
-            return failed(config, e.getMessage(), null, t0);
+            return failed(config, sanitize(config, e.getMessage()), null, t0);
         }
     }
 
@@ -105,7 +105,7 @@ public class ModelConnectionTestService {
     private HttpResponse<String> postJson(String url, Map<String, String> headers, Object body)
             throws IOException, InterruptedException {
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
-                .timeout(Duration.ofSeconds(60))
+                .timeout(Duration.ofSeconds(15))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)));
         headers.forEach(builder::header);
@@ -240,6 +240,13 @@ public class ModelConnectionTestService {
 
     private int listSize(Object value) {
         return value instanceof List<?> list ? list.size() : 0;
+    }
+
+    private String sanitize(ModelConfig config, String value) {
+        if (value == null) return null;
+        String sanitized = value.replaceAll("(?i)(key=)[^&\\s]+", "$1***");
+        if (!isBlank(config.getApiKey())) sanitized = sanitized.replace(config.getApiKey(), "***");
+        return sanitized;
     }
 
     private boolean requiresApiKey(ModelConfig config) {

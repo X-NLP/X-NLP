@@ -5,9 +5,11 @@ import com.xnlp.core.model.ModelInfo;
 import com.xnlp.core.model.PredictRequest;
 import com.xnlp.core.model.PredictResponse;
 import com.xnlp.server.dto.ModelTestRequest;
+import com.xnlp.server.dto.ProviderDiagnosticResponse;
 import com.xnlp.server.dto.BatchPredictRequest;
 import com.xnlp.server.service.InferenceService;
 import com.xnlp.server.service.ModelService;
+import com.xnlp.server.service.ProviderDiagnosticsService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -21,10 +23,13 @@ public class ModelController {
 
     private final ModelService modelService;
     private final InferenceService inferenceService;
+    private final ProviderDiagnosticsService diagnosticsService;
 
-    public ModelController(ModelService modelService, InferenceService inferenceService) {
+    public ModelController(ModelService modelService, InferenceService inferenceService,
+                           ProviderDiagnosticsService diagnosticsService) {
         this.modelService = modelService;
         this.inferenceService = inferenceService;
+        this.diagnosticsService = diagnosticsService;
     }
 
     @GetMapping
@@ -40,6 +45,16 @@ public class ModelController {
     @GetMapping("/capabilities")
     public Map<String, Object> capabilities() {
         return modelService.capabilities();
+    }
+
+    @GetMapping("/diagnostics")
+    public ProviderDiagnosticResponse diagnostics() {
+        return diagnosticsService.diagnose(false);
+    }
+
+    @PostMapping("/diagnostics/probe")
+    public ProviderDiagnosticResponse probeDiagnostics() {
+        return diagnosticsService.diagnose(true);
     }
 
     @GetMapping("/{name}")

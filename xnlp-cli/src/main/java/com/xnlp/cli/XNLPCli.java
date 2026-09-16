@@ -3,6 +3,7 @@ package com.xnlp.cli;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.xnlp.client.XNLPClient;
+import com.xnlp.client.BenchmarkRequest;
 import com.xnlp.client.XNLPClientException;
 import com.xnlp.core.model.ModelInfo;
 import com.xnlp.core.model.PredictResponse;
@@ -11,6 +12,7 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
+import java.io.PrintWriter;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,6 +26,8 @@ import java.util.concurrent.Callable;
                 XNLPCli.HealthCommand.class,
                 XNLPCli.ListModelsCommand.class,
                 XNLPCli.CapabilitiesCommand.class,
+                XNLPCli.ProviderCommand.class,
+                XNLPCli.BenchmarkCommand.class,
                 XNLPCli.LoadCommand.class,
                 XNLPCli.ActivateCommand.class,
                 XNLPCli.UnloadCommand.class,
@@ -109,6 +113,57 @@ public class XNLPCli implements Callable<Integer> {
         @Override
         public Integer call() {
             print(root.client().modelCapabilities());
+            return 0;
+        }
+    }
+
+
+    @Command(name = "provider", description = "Inspect configured AI provider readiness",
+            mixinStandardHelpOptions = true,
+            subcommands = {ProviderStatusCommand.class, ProviderProbeCommand.class})
+    static class ProviderCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand XNLPCli root;
+
+        @Override
+        public Integer call() {
+            System.out.println("Use 'xnlp provider status' or 'xnlp provider probe'.");
+            return 0;
+        }
+    }
+
+    @Command(name = "status", description = "Show passive provider diagnostics", mixinStandardHelpOptions = true)
+    static class ProviderStatusCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand ProviderCommand provider;
+
+        @Override
+        public Integer call() {
+            print(provider.root.client().providerDiagnostics());
+            return 0;
+        }
+    }
+
+    @Command(name = "probe", description = "Actively probe configured providers", mixinStandardHelpOptions = true)
+    static class ProviderProbeCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand ProviderCommand provider;
+
+        @Override
+        public Integer call() {
+            print(provider.root.client().probeProviderDiagnostics());
+            return 0;
+        }
+    }
+
+    @Command(name = "benchmark", description = "Benchmark a loaded model", mixinStandardHelpOptions = true)
+    static class BenchmarkCommand implements Callable<Integer> {
+        @CommandLine.ParentCommand XNLPCli root;
+        @Option(names = "--model", required = true, description = "Model profile name") String model;
+        @Option(names = "--requests", defaultValue = "100", description = "Number of requests (1-10000)") int requests;
+        @Option(names = "--concurrency", defaultValue = "4", description = "Concurrent workers (1-256)") int concurrency;
+        @Option(names = "--text", defaultValue = "The future of natural language processing is bright.") String text;
+
+        @Override
+        public Integer call() {
+            print(root.client().benchmark(model, new BenchmarkRequest(requests, concurrency, text)));
             return 0;
         }
     }
@@ -255,15 +310,33 @@ public class XNLPCli implements Callable<Integer> {
         }
     }
 
+    static CommandLine createCommandLine() {
+        return new CommandLine(new XNLPCli())
+                .setExecutionExceptionHandler((exception, commandLine, parseResult) -> {
+                    PrintWriter error = commandLine.getErr();
+                    if (exception instanceof XNLPClientException clientException) {
+                        error.println("xnlp: " + clientException.getMessage());
+                        if (clientException.getErrorCode() != null) {
+                            error.println("error=" + clientException.getErrorCode());
+                        }
+                        if (clientException.getRequestId() != null) {
+                            error.println("requestId=" + clientException.getRequestId());
+                        }
+                        if (clientException.getTraceId() != null) {
+                            error.println("traceId=" + clientException.getTraceId());
+                        }
+                        return 2;
+                    }
+                    if (exception instanceof IllegalArgumentException) {
+                        error.println("xnlp: " + exception.getMessage());
+                        return 2;
+                    }
+                    error.println("xnlp: command failed");
+                    return 1;
+                });
+    }
+
     public static void main(String[] args) {
-        CommandLine command = new CommandLine(new XNLPCli());
-        int exitCode;
-        try {
-            exitCode = command.execute(args);
-        } catch (XNLPClientException | IllegalArgumentException e) {
-            System.err.println("xnlp: " + e.getMessage());
-            exitCode = 2;
-        }
-        System.exit(exitCode);
+        System.exit(createCommandLine().execute(args));
     }
 }

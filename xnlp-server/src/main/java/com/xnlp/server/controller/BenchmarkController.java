@@ -2,12 +2,15 @@ package com.xnlp.server.controller;
 
 import com.xnlp.core.model.BenchmarkResult;
 import com.xnlp.server.service.BenchmarkService;
+import com.xnlp.server.dto.BenchmarkRequest;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/benchmark")
+@Validated
 public class BenchmarkController {
 
     private final BenchmarkService benchmarkService;
@@ -17,16 +20,8 @@ public class BenchmarkController {
     }
 
     @PostMapping("/{modelName}")
-    public BenchmarkResult run(@PathVariable String modelName,
-                               @RequestBody Map<String, Object> params) {
-        int requests = params.containsKey("requests")
-                ? ((Number) params.get("requests")).intValue()
-                : 100;
-        int concurrency = params.containsKey("concurrency")
-                ? ((Number) params.get("concurrency")).intValue()
-                : 4;
-        String text = (String) params.getOrDefault("text",
-                "The future of natural language processing is bright.");
-        return benchmarkService.benchmark(modelName, requests, concurrency, text);
+    public BenchmarkResult run(@PathVariable @NotBlank String modelName,
+                               @Valid @RequestBody BenchmarkRequest request) {
+        return benchmarkService.benchmark(modelName, request.requests(), request.concurrency(), request.text());
     }
 }

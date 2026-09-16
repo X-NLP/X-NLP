@@ -115,6 +115,14 @@ public class XNLPClient implements AutoCloseable {
         return get("/api/v1/models/capabilities", MAP);
     }
 
+    public ProviderDiagnosticResponse providerDiagnostics() {
+        return get("/api/v1/models/diagnostics", new TypeReference<>() {});
+    }
+
+    public ProviderDiagnosticResponse probeProviderDiagnostics() {
+        return post("/api/v1/models/diagnostics/probe", null, new TypeReference<>() {});
+    }
+
     public ModelInfo getModel(String name) {
         return get(path("/api/v1/models", name), new TypeReference<>() {});
     }
@@ -163,10 +171,15 @@ public class XNLPClient implements AutoCloseable {
                 Map.of("requests", requests == null ? List.of() : requests), MAP);
     }
 
+    public BenchmarkResult benchmark(String model, BenchmarkRequest request) {
+        requireText(model, "model");
+        Objects.requireNonNull(request, "request");
+        return post(path("/api/v1/benchmark", model), request, new TypeReference<>() {});
+    }
+
+    /** Backward-compatible overload retained for existing SDK consumers. */
     public BenchmarkResult benchmark(String model, int requests, int concurrency, String text) {
-        Map<String, Object> body = Map.of("requests", requests, "concurrency", concurrency,
-                "text", text == null ? "" : text);
-        return post(path("/api/v1/benchmark", model), body, new TypeReference<>() {});
+        return benchmark(model, new BenchmarkRequest(requests, concurrency, text));
     }
 
     // ---------------------------------------------------------------------
@@ -377,7 +390,7 @@ public class XNLPClient implements AutoCloseable {
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 String responseBody = response.body() instanceof String text ? text : "";
                 throw new XNLPClientException(errorMessage(response.statusCode(), responseBody),
-                        response.statusCode(), responseBody);
+                        response.statusCode(), responseBody, parseApiError(responseBody));
             }
             return response;
         } catch (XNLPClientException e) {
@@ -388,6 +401,15 @@ public class XNLPClient implements AutoCloseable {
         } catch (IOException | IllegalArgumentException e) {
             log.debug("X-NLP request failed: {} {}", method, path, e);
             throw new XNLPClientException("X-NLP request failed: " + method + " " + path + ": " + e.getMessage(), e);
+        }
+    }
+
+    private ApiErrorResponse parseApiError(String body) {
+        if (body == null || body.isBlank()) return null;
+        try {
+            return mapper.readValue(body, ApiErrorResponse.class);
+        } catch (JsonProcessingException ignored) {
+            return null;
         }
     }
 

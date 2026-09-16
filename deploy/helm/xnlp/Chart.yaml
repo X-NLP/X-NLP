@@ -2,8 +2,8 @@ apiVersion: v2
 name: xnlp
 description: X-NLP modern NLP workbench and Spring AI serving platform
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.3.0
+appVersion: "0.3.0"
 keywords:
   - nlp
   - spring-ai
