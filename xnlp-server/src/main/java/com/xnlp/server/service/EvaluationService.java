@@ -6,6 +6,25 @@ import com.xnlp.core.model.PredictResponse;
 import com.xnlp.core.repository.EvaluationRunRepository;
 import com.xnlp.core.registry.ModelRegistry;
 import com.xnlp.server.tenant.TenantContext;
+import com.xnlp.server.dataset.versioning.DatasetSnapshot;
+import com.xnlp.server.dataset.versioning.VersionedDatasetEntry;
+import com.xnlp.server.dto.EvaluationRetryResponse;
+import com.xnlp.server.dto.EvaluationSampleResultResponse;
+import com.xnlp.server.dto.PageResponse;
+import com.xnlp.server.evaluation.recovery.EvaluationDatasetSnapshotResolver;
+import com.xnlp.server.evaluation.recovery.EvaluationRecoveryCoordinator;
+import com.xnlp.server.evaluation.recovery.EvaluationRecoveryException;
+import com.xnlp.server.evaluation.recovery.EvaluationRecoveryRepository;
+import com.xnlp.server.evaluation.recovery.EvaluationSampleCommit;
+import com.xnlp.server.evaluation.recovery.EvaluationSampleResult;
+import com.xnlp.server.evaluation.recovery.RecoveryLease;
+import com.xnlp.server.evaluation.recovery.RecoveryRun;
+import com.xnlp.server.evaluation.recovery.RecoveryRunStatus;
+import com.xnlp.server.evaluation.recovery.SampleResultStatus;
+import com.xnlp.server.security.TenantAuthorizationService;
+import com.xnlp.server.security.XnlpPrincipal;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.task.TaskExecutor;
@@ -27,6 +46,7 @@ public class EvaluationService {
 
     private static final Logger log = LoggerFactory.getLogger(EvaluationService.class);
     private static final Set<String> TERMINAL_STATUSES = Set.of("completed", "failed", "cancelled");
+    private static final long LEASE_SECONDS = 60;
 
     private final ModelRegistry registry;
     private final DatasetService datasetService;
@@ -34,18 +54,32 @@ public class EvaluationService {
     private final MetricsCalculator calculator;
     private final TaskExecutor evaluationTaskExecutor;
     private final EvaluationProgressPublisher progressPublisher;
+    private final EvaluationRecoveryRepository recoveryRepository;
+    private final EvaluationDatasetSnapshotResolver snapshots;
+    private final TenantAuthorizationService authorization;
+    private final ObjectMapper objectMapper;
 
     public EvaluationService(ModelRegistry registry, DatasetService datasetService,
                              EvaluationRunRepository runRepository,
                              MetricsCalculator calculator,
                              TaskExecutor evaluationTaskExecutor,
-                             EvaluationProgressPublisher progressPublisher) {
+                             EvaluationProgressPublisher progressPublisher,
+                             EvaluationRecoveryRepository recoveryRepository,
+                             EvaluationDatasetSnapshotResolver snapshots,
+                             EvaluationRecoveryCoordinator recoveryCoordinator,
+                             TenantAuthorizationService authorization,
+                             ObjectMapper objectMapper) {
         this.registry = registry;
         this.datasetService = datasetService;
         this.runRepository = runRepository;
         this.calculator = calculator;
         this.evaluationTaskExecutor = evaluationTaskExecutor;
         this.progressPublisher = progressPublisher;
+        this.recoveryRepository = recoveryRepository;
+        this.snapshots = snapshots;
+        this.authorization = authorization;
+        this.objectMapper = objectMapper;
+        recoveryCoordinator.register(this::dispatchRecovery);
     }
 
     public List<EvaluationRun> listRuns() {
@@ -72,40 +106,70 @@ public class EvaluationService {
         return progressPublisher.subscribe(id, () -> getRun(id));
     }
 
-    /** Creates and queues a run, returning before model inference begins. */
+    /** Creates and queues a durable run, returning before model inference begins. */
     public EvaluationRun startEvaluation(String modelName, String datasetId, NLPTaskType taskType) {
         EvaluationRequest request = prepareRequest(modelName, datasetId, taskType);
-        EvaluationRun run = request.run();
-        try {
-            String tenantId = TenantContext.currentTenantId();
-            evaluationTaskExecutor.execute(() -> TenantContext.runWithTenant(tenantId,
-                    () -> executeEvaluation(run.getId(), request.modelName(), request.datasetId(), request.taskType())));
-        } catch (RuntimeException rejected) {
-            run.setStatus("failed");
-            run.setErrorMessage("Evaluation queue is unavailable: " + rejected.getMessage());
-            run.setCompletedAt(Instant.now());
-            run.setElapsedSeconds(0);
-            saveAndPublish(run);
-            throw rejected;
-        }
-        return run;
+        dispatch(request.recovery());
+        return request.run();
     }
 
-    /**
-     * Synchronous compatibility entry point for SDK/CLI callers that need a
-     * blocking operation. New HTTP callers should use {@link #startEvaluation}.
-     */
+    /** Blocking compatibility entry point used by existing SDK/CLI integrations. */
     public EvaluationRun runEvaluation(String modelName, String datasetId, NLPTaskType taskType) {
         EvaluationRequest request = prepareRequest(modelName, datasetId, taskType);
-        executeEvaluation(request.run().getId(), request.modelName(), request.datasetId(), request.taskType());
+        executeEvaluation(request.recovery());
         return getRun(request.run().getId()).orElse(request.run());
     }
 
-    /** Requests cancellation; the worker observes it between dataset entries. */
+    public PageResponse<EvaluationSampleResultResponse> sampleResults(
+            String runId, String status, int page, int size) {
+        String tenantId = TenantContext.currentTenantId();
+        RecoveryRun recovery = recoveryRepository.findRun(tenantId, runId)
+                .orElseThrow(EvaluationRecoveryException::notFound);
+        SampleResultStatus filter = sampleStatus(status);
+        List<EvaluationSampleResultResponse> all = recoveryRepository.findSampleResults(tenantId, runId).stream()
+                .filter(result -> filter == null || result.status() == filter)
+                .map(result -> EvaluationSampleResultResponse.from(
+                        result, recovery.parentRunId(), recovery.attempt(), objectMapper))
+                .toList();
+        int offset = Math.multiplyExact(page, size);
+        List<EvaluationSampleResultResponse> items = offset >= all.size()
+                ? List.of() : all.subList(offset, Math.min(all.size(), offset + size));
+        return PageResponse.of(items, page, size, all.size());
+    }
+
+    public EvaluationRetryResponse retry(String sourceRunId, boolean failedOnly) {
+        String tenantId = TenantContext.currentTenantId();
+        RecoveryRun source = recoveryRepository.findRun(tenantId, sourceRunId)
+                .orElseThrow(EvaluationRecoveryException::notFound);
+        if (!source.status().terminal()) throw EvaluationRecoveryException.notRetryable();
+        int selected = failedOnly
+                ? recoveryRepository.findFailedSampleIds(tenantId, sourceRunId).size()
+                : source.totalSamples();
+        if (selected == 0) throw EvaluationRecoveryException.notRetryable();
+        EvaluationRun sourceRun = runRepository.findById(sourceRunId)
+                .orElseThrow(EvaluationRecoveryException::notFound);
+        String retryId = UUID.randomUUID().toString();
+        XnlpPrincipal principal = currentPrincipal();
+        Instant now = Instant.now();
+        RecoveryRun retry = recoveryRepository.createRetry(
+                tenantId, retryId, sourceRunId, failedOnly, principal.subject(), now);
+        EvaluationRun run = newRun(retryId, sourceRun.getModelName(), sourceRun.getDatasetId(),
+                sourceRun.getDatasetName(), sourceRun.getTaskType(), source.datasetVersion(), selected, now);
+        run.setParentRunId(sourceRunId);
+        run.setRootRunId(source.rootRunId());
+        run.setAttempt(retry.attempt());
+        run.setRetryFailedOnly(failedOnly);
+        saveAndPublish(run);
+        dispatch(retry);
+        return new EvaluationRetryResponse(sourceRunId, source.rootRunId(), failedOnly, selected, run);
+    }
+
+    /** Requests cancellation; a fenced worker observes it before committing another result. */
     public EvaluationRun cancel(String id) {
-        EvaluationRun run = getRun(id)
-                .orElseThrow(() -> new NoSuchElementException("Evaluation run not found: " + id));
+        EvaluationRun run = getRun(id).orElseThrow(EvaluationRecoveryException::notFound);
+        String tenantId = TenantContext.currentTenantId();
         if (!TERMINAL_STATUSES.contains(run.getStatus())) {
+            recoveryRepository.requestCancellation(tenantId, id, Instant.now());
             run.setCancelRequested(true);
             run.setStatus("cancelling");
             saveAndPublish(run);
@@ -114,109 +178,216 @@ public class EvaluationService {
     }
 
     private EvaluationRequest prepareRequest(String modelName, String datasetId, NLPTaskType taskType) {
-        if (modelName == null || modelName.isBlank()) {
-            throw new IllegalArgumentException("modelName must not be blank");
-        }
-        if (datasetId == null || datasetId.isBlank()) {
-            throw new IllegalArgumentException("datasetId must not be blank");
-        }
-        EvaluationDataset dataset = datasetService.get(datasetId)
-                .orElseThrow(() -> new NoSuchElementException("Dataset not found: " + datasetId));
-        NLPTaskType effectiveTask = taskType != null ? taskType : dataset.getTaskType();
-        if (effectiveTask == null) {
-            throw new IllegalArgumentException("Task type must be specified or present on dataset");
-        }
+        if (modelName == null || modelName.isBlank()) throw new IllegalArgumentException("modelName must not be blank");
+        if (datasetId == null || datasetId.isBlank()) throw new IllegalArgumentException("datasetId must not be blank");
+        String tenantId = TenantContext.currentTenantId();
+        XnlpPrincipal principal = currentPrincipal();
+        Instant now = Instant.now();
+        var pinned = snapshots.pin(tenantId, datasetId, principal.subject(), now);
+        NLPTaskType effectiveTask = taskType != null ? taskType : pinned.dataset().getTaskType();
+        if (effectiveTask == null) throw new IllegalArgumentException("Task type must be specified or present on dataset");
+        String runId = UUID.randomUUID().toString();
+        int total = pinned.snapshot().entries().size();
+        RecoveryRun recovery = recoveryRepository.createRun(
+                tenantId, runId, datasetId, pinned.snapshot().version(), total, principal.subject(), now);
+        EvaluationRun run = newRun(runId, modelName, datasetId, pinned.dataset().getName(),
+                effectiveTask, pinned.snapshot().version(), total, now);
+        saveAndPublish(run);
+        return new EvaluationRequest(run, recovery);
+    }
 
+    private EvaluationRun newRun(
+            String runId, String modelName, String datasetId, String datasetName, NLPTaskType taskType,
+            long datasetVersion, int totalEntries, Instant now) {
         EvaluationRun run = new EvaluationRun();
-        run.setId(UUID.randomUUID().toString());
+        run.setId(runId);
         run.setModelName(modelName);
         run.setDatasetId(datasetId);
-        run.setDatasetName(dataset.getName());
-        run.setTaskType(effectiveTask);
+        run.setDatasetName(datasetName);
+        run.setTaskType(taskType);
+        run.setDatasetVersion(datasetVersion);
+        run.setRootRunId(runId);
         run.setStatus("queued");
-        run.setCreatedAt(Instant.now());
-        run.setTotalEntries(dataset.getEntries() == null ? 0 : dataset.getEntries().size());
+        run.setCreatedAt(now);
+        run.setTotalEntries(totalEntries);
         run.setProcessedEntries(0);
-        run.setProgressPercent(run.getTotalEntries() == 0 ? 100 : 0);
+        run.setProgressPercent(totalEntries == 0 ? 100 : 0);
         run.setCancelRequested(false);
-        saveAndPublish(run);
-        return new EvaluationRequest(run, modelName, datasetId, effectiveTask);
+        return run;
     }
 
-    private void executeEvaluation(String runId, String modelName, String datasetId, NLPTaskType taskType) {
-        EvaluationRun run = runRepository.findById(runId).orElse(null);
-        if (run == null) {
-            log.warn("Evaluation run disappeared before execution: runId={}", runId);
-            return;
+    private void dispatch(RecoveryRun recovery) {
+        try {
+            evaluationTaskExecutor.execute(() -> TenantContext.runWithTenant(
+                    recovery.tenantId(), () -> executeEvaluation(recovery)));
+        } catch (RuntimeException rejected) {
+            throw EvaluationRecoveryException.queueUnavailable();
         }
+    }
+
+    private void dispatchRecovery(RecoveryRun recovery) {
+        try {
+            dispatch(recovery);
+        } catch (EvaluationRecoveryException unavailable) {
+            log.warn("Unable to requeue evaluation run {}", recovery.runId());
+        }
+    }
+
+    private void executeEvaluation(RecoveryRun recovery) {
+        String tenantId = recovery.tenantId();
+        String runId = recovery.runId();
+        String ownerId = "worker-" + UUID.randomUUID();
+        Instant claimedAt = Instant.now();
+        RecoveryLease lease = recoveryRepository.tryClaimLease(
+                tenantId, runId, ownerId, claimedAt, claimedAt.plusSeconds(LEASE_SECONDS)).orElse(null);
+        if (lease == null) return;
         long t0 = System.nanoTime();
         try {
-            EvaluationDataset dataset = datasetService.get(datasetId)
-                    .orElseThrow(() -> new NoSuchElementException("Dataset not found: " + datasetId));
-            List<EvaluationEntry> entries = dataset.getEntries() == null ? List.of() : List.copyOf(dataset.getEntries());
-            run.setTotalEntries(entries.size());
-            if (isCancellationRequested(runId)) {
-                finishCancelled(run, t0);
+            if (recovery.status() == RecoveryRunStatus.CANCELLING) {
+                finishTerminal(recovery, ownerId, lease.fencingToken(), RecoveryRunStatus.CANCELLING,
+                        RecoveryRunStatus.CANCELLED, null, t0);
                 return;
             }
+            if (!recoveryRepository.markRunning(tenantId, runId, ownerId, lease.fencingToken(), Instant.now())) return;
+            EvaluationRun run = runRepository.findById(runId).orElseThrow(EvaluationRecoveryException::notFound);
             run.setStatus("running");
             saveAndPublish(run);
+            DatasetSnapshot snapshot = snapshots.resolve(tenantId, recovery.datasetId(), recovery.datasetVersion());
+            List<VersionedDatasetEntry> work = workItems(recovery, snapshot);
+            Set<String> completed = recoveryRepository.findSampleResults(tenantId, runId).stream()
+                    .map(EvaluationSampleResult::sampleId).collect(java.util.stream.Collectors.toSet());
 
-            List<Map.Entry<String, String>> predictions = new ArrayList<>();
-            for (int i = 0; i < entries.size(); i++) {
-                if (isCancellationRequested(runId)) {
-                    finishCancelled(run, t0);
+            for (int index = 0; index < work.size(); index++) {
+                VersionedDatasetEntry entry = work.get(index);
+                if (completed.contains(entry.data().id())) continue;
+                RecoveryRun latest = recoveryRepository.findRun(tenantId, runId).orElseThrow();
+                if (latest.status() == RecoveryRunStatus.CANCELLING) {
+                    run.setCancelRequested(true);
+                    finishTerminal(latest, ownerId, lease.fencingToken(), RecoveryRunStatus.CANCELLING,
+                            RecoveryRunStatus.CANCELLED, null, t0);
                     return;
                 }
-                EvaluationEntry entry = entries.get(i);
-                PredictRequest req = new PredictRequest();
-                req.setModelName(modelName);
-                req.setText(buildPrompt(taskType, entry));
-                PredictResponse resp = registry.predict(req);
-                String actual = resp.getText() != null ? resp.getText().strip() : "";
-                predictions.add(Map.entry(Objects.toString(entry.getExpectedOutput(), ""), actual));
-                run.setProcessedEntries(i + 1);
-                run.setProgressPercent(entries.isEmpty() ? 100 : ((i + 1) * 100.0) / entries.size());
-                persistProgress(run, runId);
+                EvaluationSampleResult result = evaluateSample(recovery, run, entry, index);
+                EvaluationSampleCommit commit = recoveryRepository.commitSample(
+                        result, index + 1, ownerId, lease.fencingToken(), Instant.now());
+                completed.add(commit.result().sampleId());
+                List<EvaluationSampleResult> results = recoveryRepository.findSampleResults(tenantId, runId);
+                run.setProcessedEntries(results.size());
+                run.setProgressPercent(recovery.totalSamples() == 0 ? 100
+                        : results.size() * 100.0 / recovery.totalSamples());
+                saveAndPublish(run);
+                lease = recoveryRepository.renewLease(tenantId, runId, ownerId, lease.fencingToken(),
+                        Instant.now(), Instant.now().plusSeconds(LEASE_SECONDS)).orElseThrow();
             }
 
-            EvaluationMetrics metrics = calculator.compute(taskType, predictions);
-            run.setMetrics(metrics);
-            run.setStatus("completed");
-            run.setProcessedEntries(entries.size());
+            List<EvaluationSampleResult> results = recoveryRepository.findSampleResults(tenantId, runId);
+            List<Map.Entry<String, String>> predictions = results.stream()
+                    .filter(result -> result.status() == SampleResultStatus.SUCCEEDED)
+                    .map(result -> Map.entry(Objects.toString(result.expectedOutput(), ""),
+                            Objects.toString(result.actualOutput(), ""))).toList();
+            run.setMetrics(calculator.compute(run.getTaskType(), predictions));
+            run.setProcessedEntries(results.size());
             run.setProgressPercent(100);
-        } catch (Exception e) {
-            log.error("Evaluation failed: runId={}", runId, e);
-            run.setStatus("failed");
-            run.setErrorMessage(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+            boolean anyFailed = results.stream().anyMatch(result -> result.status() == SampleResultStatus.FAILED);
+            RecoveryRunStatus terminal = anyFailed ? RecoveryRunStatus.FAILED : RecoveryRunStatus.COMPLETED;
+            finishTerminal(recoveryRepository.findRun(tenantId, runId).orElseThrow(), ownerId,
+                    lease.fencingToken(), RecoveryRunStatus.RUNNING, terminal,
+                    anyFailed ? "One or more evaluation samples failed" : null, t0);
+        } catch (RuntimeException failure) {
+            log.error("Evaluation failed: runId={}", runId, failure);
+            RecoveryRun latest = recoveryRepository.findRun(tenantId, runId).orElse(null);
+            if (latest != null && latest.status() == RecoveryRunStatus.RUNNING) {
+                finishTerminal(latest, ownerId, lease.fencingToken(), RecoveryRunStatus.RUNNING,
+                        RecoveryRunStatus.FAILED, safeMessage(failure), t0);
+            }
+        } finally {
+            recoveryRepository.releaseLease(tenantId, runId, ownerId, lease.fencingToken());
         }
-        run.setCompletedAt(Instant.now());
-        run.setElapsedSeconds((System.nanoTime() - t0) / 1_000_000_000.0);
-        persistProgress(run, runId);
-        log.info("Evaluation {}: model={} dataset={} task={} status={} progress={}/{}",
-                runId, modelName, datasetId, taskType, run.getStatus(),
-                run.getProcessedEntries(), run.getTotalEntries());
     }
 
-    private void finishCancelled(EvaluationRun run, long t0) {
-        run.setStatus("cancelled");
-        run.setCompletedAt(Instant.now());
-        run.setElapsedSeconds((System.nanoTime() - t0) / 1_000_000_000.0);
-        saveAndPublish(run);
-        log.info("Evaluation cancelled: runId={} progress={}/{}",
-                run.getId(), run.getProcessedEntries(), run.getTotalEntries());
+    private EvaluationSampleResult evaluateSample(
+            RecoveryRun recovery, EvaluationRun run, VersionedDatasetEntry versioned, int workIndex) {
+        String expected = versioned.data().expectedOutput();
+        EvaluationSampleResult result;
+        try {
+            EvaluationEntry entry = toEvaluationEntry(versioned);
+            PredictRequest request = new PredictRequest();
+            request.setModelName(run.getModelName());
+            request.setText(buildPrompt(run.getTaskType(), entry));
+            PredictResponse response = registry.predict(request);
+            String actual = response.getText() == null ? "" : response.getText().strip();
+            String score = toJson(Map.of("completed", 1.0));
+            result = new EvaluationSampleResult(recovery.tenantId(), recovery.runId(), entry.getId(),
+                    workIndex, SampleResultStatus.SUCCEEDED, expected, actual, score, null, null,
+                    recovery.runId() + ':' + entry.getId(), Instant.now());
+        } catch (RuntimeException failure) {
+            result = new EvaluationSampleResult(recovery.tenantId(), recovery.runId(), versioned.data().id(),
+                    workIndex, SampleResultStatus.FAILED, expected, null, null, "prediction_failed",
+                    safeMessage(failure), recovery.runId() + ':' + versioned.data().id(), Instant.now());
+        }
+        return result;
     }
 
-    private boolean isCancellationRequested(String runId) {
-        return runRepository.findById(runId).map(EvaluationRun::isCancelRequested).orElse(true);
+    private List<VersionedDatasetEntry> workItems(RecoveryRun recovery, DatasetSnapshot snapshot) {
+        if (!recovery.retryFailedOnly()) return snapshot.entries();
+        Set<String> failed = Set.copyOf(
+                recoveryRepository.findFailedSampleIds(recovery.tenantId(), recovery.parentRunId()));
+        return snapshot.entries().stream().filter(entry -> failed.contains(entry.data().id())).toList();
     }
 
-    private void persistProgress(EvaluationRun run, String runId) {
-        // Preserve a concurrent cancel request made by the API thread.
-        runRepository.findById(runId).ifPresent(latest -> {
-            if (latest.isCancelRequested()) run.setCancelRequested(true);
+    private void finishTerminal(
+            RecoveryRun recovery, String ownerId, long fencingToken, RecoveryRunStatus expected,
+            RecoveryRunStatus terminal, String error, long startedNanos) {
+        Instant completedAt = Instant.now();
+        if (!recoveryRepository.transitionToTerminal(recovery.tenantId(), recovery.runId(), expected, terminal,
+                ownerId, fencingToken, error, completedAt)) return;
+        runRepository.findById(recovery.runId()).ifPresent(run -> {
+            run.setStatus(terminal.name().toLowerCase());
+            run.setErrorMessage(error);
+            run.setCompletedAt(completedAt);
+            run.setElapsedSeconds((System.nanoTime() - startedNanos) / 1_000_000_000.0);
+            if (terminal == RecoveryRunStatus.COMPLETED) run.setProgressPercent(100);
+            saveAndPublish(run);
         });
-        saveAndPublish(run);
+    }
+
+    private static EvaluationEntry toEvaluationEntry(VersionedDatasetEntry source) {
+        EvaluationEntry entry = new EvaluationEntry(source.data().id(), source.data().input(),
+                source.data().expectedOutput());
+        entry.setLabels(source.data().labels());
+        entry.setMetadata(source.data().metadata());
+        return entry;
+    }
+
+    private SampleResultStatus sampleStatus(String status) {
+        if (status == null || status.isBlank()) return null;
+        return switch (status.strip().toLowerCase(Locale.ROOT)) {
+            case "completed", "succeeded" -> SampleResultStatus.SUCCEEDED;
+            case "failed" -> SampleResultStatus.FAILED;
+            default -> throw new IllegalArgumentException("Unsupported evaluation sample status: " + status);
+        };
+    }
+
+    private XnlpPrincipal currentPrincipal() {
+        try {
+            return authorization.currentPrincipal();
+        } catch (org.springframework.security.access.AccessDeniedException unavailable) {
+            return new XnlpPrincipal("system", TenantContext.currentTenantId(),
+                    Set.of(com.xnlp.server.security.TenantRole.ADMIN), "system");
+        }
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalArgumentException("Evaluation result cannot be serialized", exception);
+        }
+    }
+
+    private static String safeMessage(Throwable failure) {
+        String message = failure.getMessage();
+        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
     private void saveAndPublish(EvaluationRun run) {
@@ -314,6 +485,6 @@ public class EvaluationService {
         };
     }
 
-    private record EvaluationRequest(EvaluationRun run, String modelName, String datasetId, NLPTaskType taskType) {
+    private record EvaluationRequest(EvaluationRun run, RecoveryRun recovery) {
     }
 }

@@ -50,6 +50,7 @@ public class DatabaseMigrationRunner {
     private static final String API_KEY_AUDIT_RESOURCE = "db/migration/V9__api-key-audit.sql";
     private static final String TENANT_QUOTA_RESOURCE = "db/migration/V10__tenant-quota.sql";
     private static final String DATASET_VERSIONING_RESOURCE = "db/migration/V11__dataset-versioning.sql";
+    private static final String RESUMABLE_EVALUATION_RESOURCE = "db/migration/V12__resumable-evaluation.sql";
 
     private final JdbcTemplate jdbc;
     private final DataSource dataSource;
@@ -170,7 +171,12 @@ public class DatabaseMigrationRunner {
                         11,
                         "dataset-versioning",
                         checksum(11, "dataset-versioning", readResource(DATASET_VERSIONING_RESOURCE)),
-                        this::createDatasetVersioningStorage)
+                        this::createDatasetVersioningStorage),
+                new MigrationDefinition(
+                        12,
+                        "resumable-evaluation",
+                        checksum(12, "resumable-evaluation", readResource(RESUMABLE_EVALUATION_RESOURCE)),
+                        this::createResumableEvaluationStorage)
         );
     }
 
@@ -327,6 +333,23 @@ public class DatabaseMigrationRunner {
                 .replace("__LARGE_TEXT__", largeTextType());
         new ResourceDatabasePopulator(new ByteArrayResource(script.getBytes(StandardCharsets.UTF_8)))
                 .execute(dataSource);
+    }
+
+    private void createResumableEvaluationStorage() {
+        ensureEvaluationRecoveryColumns();
+        String script = readResource(RESUMABLE_EVALUATION_RESOURCE)
+                .replace("__LARGE_TEXT__", largeTextType());
+        new ResourceDatabasePopulator(new ByteArrayResource(script.getBytes(StandardCharsets.UTF_8)))
+                .execute(dataSource);
+    }
+
+    private void ensureEvaluationRecoveryColumns() {
+        ensureColumns("evaluation_runs", List.of(
+                new ColumnDefinition("dataset_version", "BIGINT"),
+                new ColumnDefinition("parent_run_id", "VARCHAR(64)"),
+                new ColumnDefinition("root_run_id", "VARCHAR(64)"),
+                new ColumnDefinition("attempt_no", "INTEGER NOT NULL DEFAULT 0"),
+                new ColumnDefinition("retry_failed_only", "BOOLEAN NOT NULL DEFAULT FALSE")));
     }
 
     private void upgradeIngestionControl() {

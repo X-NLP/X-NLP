@@ -4,8 +4,14 @@ import com.xnlp.core.eval.CompareResult;
 import com.xnlp.core.eval.EvaluationRun;
 import com.xnlp.server.service.EvaluationService;
 import com.xnlp.server.dto.EvaluationCreateRequest;
+import com.xnlp.server.dto.EvaluationRetryRequest;
+import com.xnlp.server.dto.EvaluationRetryResponse;
+import com.xnlp.server.dto.EvaluationSampleResultResponse;
+import com.xnlp.server.dto.PageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.http.HttpHeaders;
@@ -59,6 +65,25 @@ public class EvaluationController {
     @PostMapping("/{id}/cancel")
     public EvaluationRun cancel(@PathVariable String id) {
         return evaluationService.cancel(id);
+    }
+
+
+    @GetMapping("/{id}/samples")
+    public PageResponse<EvaluationSampleResultResponse> samples(
+            @PathVariable String id,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
+        return evaluationService.sampleResults(id, status, page, size);
+    }
+
+    @PostMapping("/{id}/retry")
+    public ResponseEntity<EvaluationRetryResponse> retry(
+            @PathVariable String id, @Valid @RequestBody EvaluationRetryRequest request) {
+        EvaluationRetryResponse response = evaluationService.retry(id, request.failedOnly());
+        return ResponseEntity.accepted()
+                .header(HttpHeaders.LOCATION, "/api/v1/evaluations/" + response.run().getId())
+                .body(response);
     }
 
     @GetMapping("/compare")

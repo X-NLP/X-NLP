@@ -180,6 +180,15 @@ Release 0.5 将 X-NLP 从“具备工程能力的单体工作台”升级为可�
 - repository、迁移和 HTTP 测试覆盖 CAS 回滚、快照不可变、导入终态、分页、租户隔离及跨租户存在性隐藏。
 
 
+### T-05 实施记录（2026-09-16）
+
+- V12 新增可恢复评测 run、逐样本结果、checkpoint 与 recovery lease，所有记录显式携带 tenant，lease 使用单调 fencing token 阻止过期 worker 写入；
+- 评测启动时固定不可变 Dataset version/snapshot，后台任务显式传播 tenant，不再读取运行期间可能变化的 Dataset；
+- 新增逐样本结果分页/状态过滤及 terminal run 重试 API；failed-only retry 保留 root/parent lineage 与原 Dataset version；
+- worker 对每个样本持久化成功或失败结果，checkpoint 单调推进；应用启动后自动发现非终态 run 并按 lease 恢复，取消和终态转换使用 fenced CAS；
+- memory/JDBC repository 合同、H2 MySQL/PostgreSQL 兼容模式、并发 lease/fencing、迁移及 HTTP 租户隔离测试覆盖关键恢复路径。
+
+
 ## 7. 跨任务 Quality Gate
 
 - `mvn -B -ntp verify`，新增 core/server/client/CLI 合同测试；
