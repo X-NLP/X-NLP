@@ -1,8 +1,8 @@
 # X-NLP 产品路线图与实现审计
 
 > 审计日期：2026-09-15
-> 当前分支：`codex/release-0.3`
-> 审计基线：`codex/release-0.3` 本地版本主线（以本文审计日期的工作树和 Git 历史为准）
+> 当前分支：`codex/release-0.4-t-06-onnx-runtime`
+> 审计基线：Release 0.4 T-06 本地实现（以本文审计日期的工作树和 Git 历史为准）
 > 本文只记录当前工作区中可以由源码、构建结果或测试结果证明的状态；“已实现”不等于“生产环境已配置真实 provider”。
 
 ## 1. 当前产品定位
@@ -26,6 +26,7 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 | 模型资产 | 模型档案 CRUD、能力目录、激活、卸载、测试、运行时列表 | `xnlp-server/src/main/java/com/xnlp/server/controller/ModelController.java`、`ModelCatalogService.java` |
 | Chat AI | Spring AI ChatModel；OpenAI-compatible 与 Ollama 配置切换 | `xnlp-server/src/main/resources/application.yml`、`SpringAIRuntimeBridge.java` |
 | Embedding AI | 语义相似度、数据集 Top-K 语义搜索、provider 响应校验 | `SemanticSearchService.java`、`NLPTaskController.java`、`DatasetController.java` |
+| 可持久化 RAG | 知识库/文档导入、确定性切分、增量 embedding、JDBC 向量存储、过滤检索、可选 rerank、可信引用 RAG Chat | `KnowledgeIngestionService.java`、`JdbcKnowledgeVectorStore.java`、`RetrievalService.java`、`RagChatService.java` |
 | NLP 组件 | TOK、POS、NER、DEP、SDP、SRL、CON、AMR、KEYPHRASE、摘要、纠错、分类、情感、STS、TST 等能力目录与 demo runtime | `xnlp-server/src/main/java/com/xnlp/server/component/impl/`、`CapabilityRegistry.java` |
 | Pipeline | 有序节点执行、节点状态、节点结果、失败后跳过、traceId 与耗时 | `PipelineTraceService.java`、`PipelineController.java`、`xnlp-core/src/main/java/com/xnlp/core/api/` |
 | 评测 | 异步队列、进度持久化、取消、SSE、指标计算、历史过滤、评测对比 | `EvaluationService.java`、`EvaluationController.java`、`EvaluationRunEntity.java` |
@@ -122,11 +123,12 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 
 ### Release 0.4：真实 NLP 与 RAG
 
-- R0.4-1：落地首个真实 NLP runtime；
-- R0.4-2：向量存储 SPI 与第一种持久化实现；
-- R0.4-3：文档切分、批量导入、增量更新；
-- R0.4-4：Rerank 协议适配与检索链路；
-- R0.4-5：Semantic Search 页面与检索评测。
+- R0.4-1：落地首个真实 NLP runtime（已完成：ONNX Runtime Java 1.29.0）；
+- R0.4-2：向量存储 SPI 与第一种持久化实现（已完成）；
+- R0.4-3：文档切分、批量导入、增量更新（已完成）；
+- R0.4-4：Rerank 协议适配与检索链路（已完成）；
+- R0.4-5：RAG Chat 与可信引用（已完成）；
+- R0.4-6：Knowledge UI 与检索评测（待实施）。
 
 **完成标准**：数据集/文档导入后可重复检索，重启服务后向量仍可用，更新和删除能同步，检索结果可以被评测。
 
@@ -140,14 +142,14 @@ X-NLP 的主线不是简单的聊天窗口，而是一个可组合、可评测�
 
 ## 5. 本轮规划决策点
 
-Release 0.3 的候选 WBS、输入/输出/依赖和验收门禁见 [`RELEASE-0.3-PLAN.md`](RELEASE-0.3-PLAN.md)。
+Release 0.3 的执行记录见 [`RELEASE-0.3-PLAN.md`](RELEASE-0.3-PLAN.md)；Release 0.4 的接口合同、数据变更、WBS 与验收门禁见 [`RELEASE-0.4-PLAN.md`](RELEASE-0.4-PLAN.md)。
 
-当前执行 **R0.3（API 工程化 + Provider 诊断 + Playground/Benchmark）**，理由是：
+Release 0.3 的本地实现已收口；当前进入 **R0.4（真实 NLP Runtime + 可持久化 RAG）**，默认先实施 T-01～T-03，理由是：
 
-- 现有后端核心能力已较完整，前端缺口集中且可以快速形成可演示闭环；
-- 先统一接口合同，后续真实 NLP、RAG、企业安全都能复用；
-- Provider 诊断能直接解决“服务能启动但不能推理”的最大体验问题；
-- 完成后可用外部 E2E 作为后续每个版本的回归基线。
+- Release 0.3 已建立稳定 API/error contract、Provider 诊断和外部 E2E 基线；
+- 当前语义搜索仍是临时 embedding + 应用内 Top-K，服务重启后没有可复用索引；
+- 先完成项目级 Vector Store SPI 和可移植 JDBC 实现，可继续满足 H2/MySQL/PostgreSQL 切换要求；
+- 文档导入、增量索引和检索合同稳定后，Rerank、RAG Chat、Knowledge UI 与评测可以复用同一底座。
 
 可选的下一步方向：
 
@@ -159,4 +161,4 @@ Release 0.3 的候选 WBS、输入/输出/依赖和验收门禁见 [`RELEASE-0.3
 
 推荐执行顺序：**B + D → A + C → E**。
 
-当前已选择 B + D，并按 `codex/release-0.3` 主线实施；T-01～T-06、T-08 已完成，T-07 的 H2 外部 E2E 已通过，MySQL/PostgreSQL 矩阵已接入 CI，等待远端运行形成真实验证证据。
+Release 0.3 已按 B + D 完成本地实施；Release 0.4 的 T-01～T-06 已于 2026-09-15 完成本地实现，形成“导入 → 切分 → embedding → 持久化 → 过滤检索 → 可选 rerank → grounded RAG → canonical citation”以及“外置模型 → checksum 校验 → ONNX native 执行 → 有界并发/超时 → runtime 诊断”的双闭环。T-06 使用 ONNX Runtime Java 1.29.0，增量测试覆盖 31 条，完整 `mvn verify` 已通过（core 33、server 109、client 8、CLI 4）；下一步进入 `codex/release-0.4-t-07-knowledge-ui`。Release 0.3 的 MySQL/PostgreSQL、Helm、容器镜像，以及 Release 0.4 当前增量仍需推送后由远端 CI 形成最终验证证据。

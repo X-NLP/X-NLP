@@ -7,6 +7,7 @@ import com.xnlp.core.model.PredictRequest;
 import com.xnlp.core.model.PredictResponse;
 import com.xnlp.core.registry.ModelRegistry;
 import com.xnlp.server.nlp.CapabilityRegistry;
+import com.xnlp.server.nlp.NlpComponentExecution;
 import io.micrometer.observation.annotation.Observed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -96,7 +97,8 @@ public class NLPTaskService {
             return response;
         }
 
-        ComponentResult cr = capabilityRegistry.execute(resolvedId, ctx);
+        NlpComponentExecution execution = capabilityRegistry.executeWithRuntime(resolvedId, ctx);
+        ComponentResult cr = execution.result();
 
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("task", taskId);
@@ -104,8 +106,9 @@ public class NLPTaskService {
         response.put("input", text);
         if (!textPair.isBlank()) response.put("textPair", textPair);
         response.put("result", cr.getData());
-        response.put("runtime", Map.of("mode", "builtin-demo", "standard", "hanlp-demo-compatible",
-                "springAiEmbeddingAvailable", semanticSearchService.isAvailable()));
+        Map<String, Object> runtime = new LinkedHashMap<>(execution.runtime());
+        runtime.put("springAiEmbeddingAvailable", semanticSearchService.isAvailable());
+        response.put("runtime", runtime);
         return response;
     }
 

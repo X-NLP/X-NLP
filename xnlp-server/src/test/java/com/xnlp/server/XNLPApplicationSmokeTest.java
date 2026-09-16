@@ -172,6 +172,9 @@ class XNLPApplicationSmokeTest {
         assertThat(resp.getBody()).containsEntry("task", "TOK");
         assertThat(resp.getBody()).containsKeys("result", "runtime");
         assertThat((Map) resp.getBody().get("result")).containsKeys("tokens", "count");
+        assertThat((Map) resp.getBody().get("runtime"))
+                .containsEntry("mode", "builtin-demo")
+                .containsEntry("runtime", "builtin-components");
     }
 
     @Test

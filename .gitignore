@@ -23,6 +23,11 @@ models/
 *.pt
 *.pth
 
+# Keep tiny, licensed ONNX fixtures used by deterministic tests.
+!xnlp-server/src/test/resources/models/
+!xnlp-server/src/test/resources/models/NOTICE.md
+!xnlp-server/src/test/resources/models/*.onnx
+
 # Python package (separate repo)
 /xnlp/
 pyproject.toml

@@ -50,10 +50,21 @@ public class CapabilityRegistry {
      * @throws NoSuchElementException if no component matches the id
      */
     public ComponentResult execute(String componentId, NlpContext context) {
+        return executeWithRuntime(componentId, context).result();
+    }
+
+    /** Execute a component and retain per-invocation runtime diagnostics when available. */
+    public NlpComponentExecution executeWithRuntime(String componentId, NlpContext context) {
         NlpComponent component = get(componentId)
                 .orElseThrow(() -> new NoSuchElementException(
                         "Unsupported NLP capability: " + componentId));
-        return component.execute(context);
+        if (component instanceof RuntimeAwareNlpComponent runtimeAware) {
+            return runtimeAware.executeWithRuntime(context);
+        }
+        return new NlpComponentExecution(component.execute(context), Map.of(
+                "mode", "builtin-demo",
+                "runtime", "builtin-components",
+                "standard", "hanlp-demo-compatible"));
     }
 
     /**

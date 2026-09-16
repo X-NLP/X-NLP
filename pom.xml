@@ -14,7 +14,7 @@
 
     <groupId>com.xnlp</groupId>
     <artifactId>xnlp-parent</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
     <packaging>pom</packaging>
 
     <name>X-NLP</name>
@@ -39,6 +39,7 @@
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <spring-ai.version>2.0.1</spring-ai.version>
+        <onnxruntime.version>1.29.0</onnxruntime.version>
     </properties>
 
     <dependencyManagement>
@@ -59,6 +60,11 @@
                 <version>${spring-ai.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.microsoft.onnxruntime</groupId>
+                <artifactId>onnxruntime</artifactId>
+                <version>${onnxruntime.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

@@ -35,10 +35,12 @@ class DatabaseMigrationIntegrationTest {
         List<Map<String, Object>> history = jdbc.queryForList(
                 "SELECT version, description, checksum FROM xnlp_schema_history ORDER BY version");
 
-        assertThat(history).hasSize(4);
-        assertThat(history).extracting(row -> row.get("VERSION")).containsExactly(1, 2, 3, 4);
+        assertThat(history).hasSize(7);
+        assertThat(history).extracting(row -> row.get("VERSION")).containsExactly(1, 2, 3, 4, 5, 6, 7);
         assertThat(history).extracting(row -> row.get("DESCRIPTION"))
-                .containsExactly("baseline", "evaluation-progress-columns", "waste-weighing-trip-number", "multi-tenant-isolation");
+                .containsExactly("baseline", "evaluation-progress-columns", "waste-weighing-trip-number",
+                        "multi-tenant-isolation", "rag-storage", "ingestion-control-and-rag-constraints",
+                        "retrieval-evaluation");
         assertThat(history).allSatisfy(row -> assertThat(row.get("CHECKSUM")).isNotNull());
 
         assertThat(jdbc.queryForObject(
@@ -49,5 +51,17 @@ class DatabaseMigrationIntegrationTest {
                 "SELECT COUNT(*) FROM datasets WHERE tenant_id = 'default'", Integer.class)).isGreaterThanOrEqualTo(0);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM waste_vehicles WHERE tenant_id = 'default'", Integer.class)).isGreaterThanOrEqualTo(0);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM knowledge_bases WHERE tenant_id = 'default'", Integer.class)).isGreaterThanOrEqualTo(0);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM knowledge_embeddings WHERE tenant_id = 'default'", Integer.class)).isGreaterThanOrEqualTo(0);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ingestion_jobs WHERE cancel_requested = FALSE", Integer.class)).isGreaterThanOrEqualTo(0);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM retrieval_evaluation_runs WHERE tenant_id = 'default'", Integer.class))
+                .isGreaterThanOrEqualTo(0);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM retrieval_evaluation_samples WHERE tenant_id = 'default'", Integer.class))
+                .isGreaterThanOrEqualTo(0);
     }
 }

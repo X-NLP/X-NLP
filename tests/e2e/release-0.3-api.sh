@@ -10,6 +10,13 @@ TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/xnlp-api-e2e.XXXXXX")"
 MODEL_CREATED=false
 DATASET_ID=""
 AUTH_ARGS=(-H "X-Tenant-ID: ${XNLP_TENANT_ID:-default}")
+MAX_BENCHMARK_P95_MS="${XNLP_E2E_MAX_BENCHMARK_P95_MS:-5000}"
+
+if [[ ! "$MAX_BENCHMARK_P95_MS" =~ ^[0-9]+([.][0-9]+)?$ ]] \
+    || ! awk -v value="$MAX_BENCHMARK_P95_MS" 'BEGIN { exit !(value > 0) }'; then
+  echo "XNLP_E2E_MAX_BENCHMARK_P95_MS must be a positive number." >&2
+  exit 2
+fi
 
 if [[ -n "${XNLP_API_KEY:-}" ]]; then
   AUTH_ARGS+=(-H "${XNLP_SECURITY_HEADER:-X-API-Key}: ${XNLP_API_KEY}")
@@ -120,6 +127,7 @@ assert_jq --arg name "$MODEL_NAME" '.model == $name and (.text | startswith("moc
 
 request POST "/api/v1/benchmark/${MODEL_NAME}" 200 '{"requests":4,"concurrency":2,"text":"release 0.3 benchmark"}'
 assert_jq --arg name "$MODEL_NAME" '.model == $name and .totalRequests == 4 and .successfulRequests == 4 and .failedRequests == 0 and .successRate == 1 and (.latenciesMs | length == 4)' "benchmark result contract"
+assert_jq --argjson maxP95 "$MAX_BENCHMARK_P95_MS" '.latencyP95Ms >= 0 and .latencyP95Ms <= $maxP95 and .requestsPerSecond > 0' "benchmark P95 performance gate"
 
 DATASET_PAYLOAD="$(jq -nc --arg name "$DATASET_NAME" '{
   name: $name,

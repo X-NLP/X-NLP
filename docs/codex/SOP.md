@@ -22,7 +22,7 @@ harness 本地联调约定使用 8080 端口；从仓库根目录先打包 react
 
 ```bash
 mvn -pl xnlp-server -am package -DskipTests -Dmaven.repo.local=/tmp/m2
-java -jar xnlp-server/target/xnlp-server-0.3.0.jar --server.port=8080
+java -jar xnlp-server/target/xnlp-server-0.4.0.jar --server.port=8080
 ```
 
 前端默认使用 5173 端口：

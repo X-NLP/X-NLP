@@ -14,10 +14,13 @@ COPY xnlp-cli/src xnlp-cli/src
 
 RUN mvn -B -ntp -DskipTests package
 
-FROM eclipse-temurin:25-jre-alpine
-LABEL maintainer="X-NLP Team"
+FROM eclipse-temurin:25-jre-noble
+ARG XNLP_VERSION=0.4.0
+LABEL maintainer="X-NLP Team" \
+      org.opencontainers.image.title="X-NLP Server" \
+      org.opencontainers.image.version="${XNLP_VERSION}"
 
-RUN addgroup -S xnlp && adduser -S xnlp -G xnlp \
+RUN groupadd --system xnlp && useradd --system --gid xnlp --home-dir /opt/xnlp xnlp \
     && mkdir -p /opt/xnlp/models /opt/xnlp/data \
     && chown -R xnlp:xnlp /opt/xnlp
 
@@ -28,5 +31,5 @@ WORKDIR /opt/xnlp
 
 EXPOSE 8760
 
-ENV JAVA_OPTS="-Xms512m -Xmx2g"
+ENV JAVA_OPTS="-Xms512m -Xmx2g --enable-native-access=ALL-UNNAMED"
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /opt/xnlp/xnlp-server.jar"]

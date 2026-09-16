@@ -706,7 +706,7 @@ mvn -s /tmp/xnlp-central-settings.xml -Dmaven.repo.local=/tmp/m2 test -pl xnlp-c
 # 后端：先通过 reactor 打包，避免直接启动时解析到旧的本地 xnlp-core artifact
 cd /Users/haoxiaolong/data/codex/X-NLP
 mvn -s /tmp/xnlp-central-settings.xml -Dmaven.repo.local=/tmp/m2 -pl xnlp-server -am package -DskipTests
-SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.3.0.jar
+SPRING_PROFILES_ACTIVE=h2 java -jar xnlp-server/target/xnlp-server-0.4.0.jar
 
 # 前端 (需要 escalated sandbox)
 cd /Users/haoxiaolong/data/codex/X-NLP/xnlp-frontend

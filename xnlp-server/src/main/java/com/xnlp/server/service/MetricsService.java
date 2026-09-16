@@ -37,6 +37,9 @@ public class MetricsService {
     /** Benchmark latency timer, tagged by {@code model}. */
     private final ConcurrentHashMap<String, Timer> benchmarkTimers = new ConcurrentHashMap<>();
 
+    /** Retrieval phase timers, tagged by success/error status. */
+    private final ConcurrentHashMap<String, Timer> retrievalTimers = new ConcurrentHashMap<>();
+
     /** Number of models currently loaded. */
     private final AtomicInteger loadedModelCount = new AtomicInteger(0);
 
@@ -46,7 +49,7 @@ public class MetricsService {
                 .description("Number of NLP models currently loaded")
                 .register(registry);
         log.info("Custom Micrometer metrics registered: xnlp.predict.count, xnlp.predict.latency, "
-                + "xnlp.benchmark.latency, xnlp.models.loaded");
+                + "xnlp.benchmark.latency, xnlp.models.loaded, xnlp.rag.retrieval.*.duration");
     }
 
     // ---- Model lifecycle ----
@@ -87,6 +90,12 @@ public class MetricsService {
         sample.stop(benchmarkTimer(modelName));
     }
 
+    // ---- Retrieval metrics ----
+
+    public void recordRetrievalPhase(RetrievalPhase phase, boolean success, long nanos) {
+        retrievalTimer(phase, success ? "success" : "error").record(nanos, TimeUnit.NANOSECONDS);
+    }
+
     // ---- Internal helpers ----
 
     private Counter predictCounter(String model, String status) {
@@ -107,6 +116,17 @@ public class MetricsService {
                         .register(registry));
     }
 
+    private Timer retrievalTimer(RetrievalPhase phase, String status) {
+        String key = phase.metricSegment() + ":" + status;
+        return retrievalTimers.computeIfAbsent(key, ignored ->
+                Timer.builder("xnlp.rag.retrieval." + phase.metricSegment() + ".duration")
+                        .description("Knowledge retrieval phase latency")
+                        .tags("status", status)
+                        .publishPercentiles(0.5, 0.95, 0.99)
+                        .publishPercentileHistogram(true)
+                        .register(registry));
+    }
+
     private Timer benchmarkTimer(String model) {
         return benchmarkTimers.computeIfAbsent(model, k ->
                 Timer.builder("xnlp.benchmark.latency")
@@ -115,5 +135,22 @@ public class MetricsService {
                         .publishPercentiles(0.5, 0.95, 0.99)
                         .publishPercentileHistogram(true)
                         .register(registry));
+    }
+
+    public enum RetrievalPhase {
+        EMBEDDING("embedding"),
+        VECTOR_SEARCH("vector.search"),
+        RERANK("rerank"),
+        TOTAL("total");
+
+        private final String metricSegment;
+
+        RetrievalPhase(String metricSegment) {
+            this.metricSegment = metricSegment;
+        }
+
+        public String metricSegment() {
+            return metricSegment;
+        }
     }
 }

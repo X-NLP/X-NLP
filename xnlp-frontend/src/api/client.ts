@@ -110,6 +110,140 @@ export const modelsApi = {
     request<any>(`/benchmark/${segment(modelName)}`, { method: 'POST', body: JSON.stringify(params || {}) }),
 };
 
+// ---- Knowledge & RAG ----
+export type KnowledgeBaseStatus = 'ACTIVE' | 'REINDEXING' | 'ERROR';
+export type DocumentIndexStatus = 'PENDING' | 'INDEXING' | 'INDEXED' | 'FAILED';
+
+export interface PageResponse<T> {
+  items: T[];
+  entries?: T[];
+  page: number;
+  size: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+}
+
+export interface ChunkPolicy {
+  maxCharacters: number;
+  overlapCharacters: number;
+  separatorMode: 'PARAGRAPH' | 'SENTENCE' | 'FIXED';
+}
+
+export interface KnowledgeBase {
+  id: string;
+  name: string;
+  description?: string;
+  embeddingModel: string;
+  chunkPolicy: ChunkPolicy;
+  status: KnowledgeBaseStatus;
+  documentCount: number;
+  chunkCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface KnowledgeDocument {
+  id: string;
+  knowledgeBaseId: string;
+  externalId?: string;
+  title: string;
+  sourceType: 'TEXT' | 'FILE' | 'URL' | 'API';
+  sourceUri?: string;
+  content: string;
+  contentChecksum: string;
+  version: number;
+  indexStatus: DocumentIndexStatus;
+  errorMessage?: string;
+  metadata: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RetrievalMatch {
+  documentId: string;
+  chunkId: string;
+  title: string;
+  content: string;
+  sourceUri?: string;
+  score: number;
+  rerankScore?: number;
+  metadata: Record<string, unknown>;
+}
+
+export interface RetrievalResult {
+  query: string;
+  matches: RetrievalMatch[];
+  embeddingModel: string;
+  reranker?: string;
+  elapsedMs: number;
+  traceId?: string;
+}
+
+export interface Citation {
+  documentId: string;
+  chunkId: string;
+  title: string;
+  sourceUri?: string;
+  excerpt: string;
+}
+
+export interface RagAnswer {
+  answer: string;
+  citations: Citation[];
+  lowConfidence: boolean;
+  retrieval?: RetrievalResult;
+  model: string;
+  provider: string;
+  usage: Record<string, unknown>;
+  elapsedMs: number;
+  traceId?: string;
+}
+
+export const knowledgeApi = {
+  list: (query?: string) => {
+    const params = new URLSearchParams({ page: '0', size: '200' });
+    if (query?.trim()) params.set('query', query.trim());
+    return request<PageResponse<KnowledgeBase>>(`/knowledge-bases?${params}`);
+  },
+  create: (payload: { name: string; description?: string; embeddingModel?: string }) =>
+    request<KnowledgeBase>('/knowledge-bases', { method: 'POST', body: JSON.stringify(payload) }),
+  documents: (knowledgeBaseId: string) =>
+    request<PageResponse<KnowledgeDocument>>(`/knowledge-bases/${segment(knowledgeBaseId)}/documents?page=0&size=200`),
+  createDocument: (knowledgeBaseId: string, payload: {
+    title: string;
+    content: string;
+    sourceType: KnowledgeDocument['sourceType'];
+    sourceUri?: string;
+    externalId?: string;
+    metadata?: Record<string, unknown>;
+  }) => request<KnowledgeDocument>(`/knowledge-bases/${segment(knowledgeBaseId)}/documents`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
+  search: (knowledgeBaseId: string, payload: {
+    query: string;
+    topK?: number;
+    minScore?: number;
+    rerank?: boolean;
+    rerankTopN?: number;
+  }) => request<RetrievalResult>(`/knowledge-bases/${segment(knowledgeBaseId)}/search`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
+  rag: (knowledgeBaseId: string, payload: {
+    message: string;
+    topK?: number;
+    minScore?: number;
+    maxContextChunks?: number;
+    conversationId?: string;
+    insufficientContextPolicy?: 'REJECT' | 'ANSWER_WITH_LOW_CONFIDENCE';
+  }) => request<RagAnswer>(`/knowledge-bases/${segment(knowledgeBaseId)}/rag`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
+};
+
 // ---- Datasets ----
 export const datasetsApi = {
   list: () => request<any[]>('/datasets'),

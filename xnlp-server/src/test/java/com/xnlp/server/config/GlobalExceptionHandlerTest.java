@@ -1,5 +1,9 @@
 package com.xnlp.server.config;
 
+import com.xnlp.core.rag.RagContractException;
+import com.xnlp.core.rag.RagErrorCode;
+import com.xnlp.core.runtime.NlpRuntimeErrorCode;
+import com.xnlp.core.runtime.NlpRuntimeException;
 import com.xnlp.server.dto.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
@@ -8,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,6 +52,40 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().error()).isEqualTo("provider_unavailable");
         assertThat(response.getBody().requestId()).isNotBlank();
+    }
+
+    @Test
+    void ragContractFailure_mapsCoreClassificationToStableHttpResponse() {
+        when(noTracer.getIfAvailable()).thenReturn(null);
+        GlobalExceptionHandler handler = new GlobalExceptionHandler(noTracer());
+
+        ResponseEntity<ApiErrorResponse> response = handler.handle(
+                new RagContractException(RagErrorCode.KNOWLEDGE_BASE_NOT_FOUND,
+                        "Knowledge base not found: kb-1"),
+                requestWithId("req-rag"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().error()).isEqualTo("knowledge_base_not_found");
+        assertThat(response.getBody().requestId()).isEqualTo("req-rag");
+    }
+
+    @Test
+    void nlpRuntimeTimeout_mapsStableCodeStatusAndDetail() {
+        when(noTracer.getIfAvailable()).thenReturn(null);
+        GlobalExceptionHandler handler = new GlobalExceptionHandler(noTracer());
+
+        ResponseEntity<ApiErrorResponse> response = handler.handle(
+                new NlpRuntimeException(NlpRuntimeErrorCode.EXECUTION_TIMEOUT,
+                        "NLP runtime execution timed out", Map.of("runtime", "onnx-sentiment")),
+                requestWithId("req-onnx"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().error()).isEqualTo("nlp_runtime_timeout");
+        assertThat(response.getBody().detail()).containsEntry("runtimeError", "nlp_runtime_timeout")
+                .containsEntry("runtime", "onnx-sentiment");
+        assertThat(response.getBody().requestId()).isEqualTo("req-onnx");
     }
 
     @Test
