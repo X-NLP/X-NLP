@@ -74,8 +74,28 @@ spec:
                   key: OPENAI_API_KEY
             - name: XNLP_SECURITY_ENABLED
               value: {{ .Values.server.security.enabled | quote }}
+            - name: XNLP_SECURITY_MODE
+              value: {{ .Values.server.security.mode | quote }}
             - name: XNLP_SECURITY_HEADER
               value: {{ .Values.server.security.headerName | quote }}
+            - name: XNLP_SECURITY_TENANT_HEADER
+              value: {{ .Values.server.security.tenantHeaderName | quote }}
+            - name: XNLP_SECURITY_DEFAULT_TENANT
+              value: {{ .Values.server.security.defaultTenant | quote }}
+            - name: XNLP_SECURITY_JWT_ISSUER_URI
+              value: {{ .Values.server.security.jwt.issuerUri | quote }}
+            - name: XNLP_SECURITY_JWT_JWK_SET_URI
+              value: {{ .Values.server.security.jwt.jwkSetUri | quote }}
+            - name: XNLP_SECURITY_JWT_AUDIENCE
+              value: {{ .Values.server.security.jwt.audience | quote }}
+            - name: XNLP_SECURITY_JWT_TENANT_CLAIM
+              value: {{ .Values.server.security.jwt.tenantClaim | quote }}
+            - name: XNLP_SECURITY_JWT_ROLES_CLAIM
+              value: {{ .Values.server.security.jwt.rolesClaim | quote }}
+            - name: XNLP_SECURITY_JWT_CLOCK_SKEW
+              value: {{ .Values.server.security.jwt.clockSkew | quote }}
+            - name: XNLP_SECURITY_JWT_DEFAULT_ROLES
+              value: {{ .Values.server.security.jwt.defaultRoles | quote }}
             - name: XNLP_SECURITY_API_KEYS
               valueFrom:
                 secretKeyRef:

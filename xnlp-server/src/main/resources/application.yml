@@ -126,12 +126,22 @@ xnlp:
       queue-capacity: ${XNLP_RAG_QUEUE_CAPACITY:100}
   security:
     enabled: ${XNLP_SECURITY_ENABLED:false}
+    # DISABLED, API_KEY, JWT, or HYBRID. When omitted, enabled=true preserves API_KEY compatibility.
+    mode: ${XNLP_SECURITY_MODE:}
     header-name: ${XNLP_SECURITY_HEADER:X-API-Key}
     tenant-header-name: ${XNLP_SECURITY_TENANT_HEADER:X-Tenant-ID}
     default-tenant-id: ${XNLP_SECURITY_DEFAULT_TENANT:default}
     api-keys: ${XNLP_SECURITY_API_KEYS:}
     # Optional tenant -> API key map. Environment binding example:
     # XNLP_SECURITY_API_KEY_TENANTS_TENANT_A=secret-a
+    jwt:
+      issuer-uri: ${XNLP_SECURITY_JWT_ISSUER_URI:}
+      jwk-set-uri: ${XNLP_SECURITY_JWT_JWK_SET_URI:}
+      audience: ${XNLP_SECURITY_JWT_AUDIENCE:}
+      tenant-claim: ${XNLP_SECURITY_JWT_TENANT_CLAIM:tenant_id}
+      roles-claim: ${XNLP_SECURITY_JWT_ROLES_CLAIM:roles}
+      clock-skew: ${XNLP_SECURITY_JWT_CLOCK_SKEW:60s}
+      default-roles: ${XNLP_SECURITY_JWT_DEFAULT_ROLES:VIEWER}
   models:
     - name: ollama-default
       version: latest

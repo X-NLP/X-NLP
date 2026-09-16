@@ -133,7 +133,7 @@ Release 0.5 将 X-NLP 从“具备工程能力的单体工作台”升级为可�
 | 任务 | 分支 | 输入 | 输出 | 依赖 | 验收标准 |
 |---|---|---|---|---|---|
 | T-00 规划与威胁模型 | `codex/release-0.5-t-00-enterprise-plan` | 0.4 架构/CI 证据 | 本计划、权限矩阵、接口/迁移/WBS | 0.4.1 | 方案可直接拆给 Coding Agent；安全边界与错误合同明确 |
-| T-01 身份与 RBAC | `codex/release-0.5-t-01-identity-rbac` | Spring Security、tenant context | JWT/OIDC/API Key hybrid、membership、授权 service | T-00 | issuer/audience/expiry、跨租户、三角色、匿名 prod fail-closed 测试通过 |
+| T-01 身份与 RBAC | `codex/release-0.5-t-01-identity-rbac` | Spring Security、tenant context | JWT Resource Server/API Key hybrid、membership、授权 service | T-00 | issuer/audience/expiry、跨租户、三角色与配置 fail-closed 测试通过 |
 | T-02 API Key 与审计 | `codex/release-0.5-t-02-api-key-audit` | T-01 principal | 哈希 key 生命周期、audit writer/query/export | T-01 | 明文只返回一次；轮换/撤销并发安全；敏感信息不入库/日志 |
 | T-03 配额与流控 | `codex/release-0.5-t-03-quota-rate-limit` | principal、audit | tenant quota、rate/concurrency guard、429 contract | T-01～T-02 | 多实例共享用量；失败释放 lease；Retry-After 和指标正确 |
 | T-04 Dataset 版本化 | `codex/release-0.5-t-04-dataset-versioning` | 现有 Dataset API | 样本 CRUD、乐观锁、导入报告、快照 | T-02 | 并发冲突稳定；非法行可定位；三数据库一致 |
@@ -142,6 +142,27 @@ Release 0.5 将 X-NLP 从“具备工程能力的单体工作台”升级为可�
 | T-07 Pipeline 运行审计 UI | `codex/release-0.5-t-07-pipeline-observability-ui` | T-06 run/event | 运行列表、DAG 状态、SSE、trace 下载 | T-06 | Playwright 覆盖成功、失败、取消、重连和窄屏 |
 | T-08 Secret/备份/对象存储 | `codex/release-0.5-t-08-platform-adapters` | audit、quota | secret reference SPI、backup job、object store SPI | T-02～T-03 | 默认 fixture 无云依赖；恢复演练；禁止路径穿越和 secret 泄漏 |
 | T-09 供应链与发布门禁 | `codex/release-0.5-t-09-supply-chain` | 全部实现 | 0.5 版本、SBOM、签名、升级/回滚/DoD | T-01～T-08 | Maven/前端/三 DB/Playwright/Helm/images/Trivy/SBOM 全绿 |
+
+### T-01 实施记录（2026-09-16）
+
+- 新增 Spring Security OAuth2 Resource Server，支持 `DISABLED`、`API_KEY`、`JWT`、`HYBRID` 四种模式；旧 `enabled=true` 配置继续映射到 API Key 模式；
+- JWT 强制 issuer、audience、timestamp 和 tenant claim 校验，clock skew 限制在五分钟内；角色从 token claim 读取，并允许 JDBC membership 覆盖；
+- 新增 `XnlpPrincipal`、`TenantRole`、租户授权 service 和 `/api/v1/auth/me`、租户成员管理 API；租户上下文只从已验证 principal 绑定，不信任 JWT/API Key 模式下的客户端租户 Header；
+- V8 追加 `tenants`、`tenant_memberships` 表及 subject 索引，提供 JDBC/memory repository，保持 H2/MySQL/PostgreSQL repository 合同；
+- API Key 兼容身份默认映射 ADMIN/DEVELOPER/VIEWER；HTTP 权限矩阵落实 VIEWER 只读、DEVELOPER 可执行/写入但不可删除、ADMIN 可管理成员和删除资源；
+- JWT 测试覆盖三角色允许/拒绝路径、跨租户拒绝、错误 audience 和过期 token；membership 错误提供 `membership_not_found`、`last_admin_required`、`role_invalid` 稳定合同；
+- `.env.example`、README 和 Helm values/deployment 已暴露 JWT/HYBRID 配置；issuer、audience 等元数据保留在 Deployment，API Key 继续存放于 Secret；
+- T-01 当前交付 Resource Server 与 RBAC API 基线；浏览器 OIDC Authorization Code + PKCE 登录属于后续前端身份接入，不在本任务内伪造 IdP 流程；
+- 定向安全、迁移和 JDBC repository 测试及完整 `mvn verify` 均通过。
+
+### T-02 实施记录（2026-09-16）
+
+- V9 新增 `api_keys` 与 `audit_events`，API Key 只保存 SHA-256 哈希和短前缀，提供租户/时间/action 索引与 retention 字段；
+- 新增 JDBC/memory repository 和 lifecycle service，支持一次性明文创建、过期、撤销、带 grace period 轮换、最后使用时间与认证审计；
+- 新增 `/api/v1/api-keys` 创建/列表/轮换/撤销 API，以及租户隔离的审计分页查询和 NDJSON 导出；列表与审计不返回 hash 或 secret；
+- 动态 API Key 已接入 Spring Security 认证过滤器，旧环境变量 API Key 保持兼容；
+- repository/service/HTTP/迁移测试覆盖明文不落库、过期/撤销、轮换 grace、租户隔离、脱敏和审计过滤；完整 `mvn clean verify` 通过。
+
 
 ## 7. 跨任务 Quality Gate
 

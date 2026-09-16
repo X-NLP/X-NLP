@@ -46,6 +46,8 @@ public class DatabaseMigrationRunner {
     private static final String BASELINE_RESOURCE = "db/migration/V1__baseline.sql";
     private static final String RAG_STORAGE_RESOURCE = "db/migration/V5__rag-storage.sql";
     private static final String RETRIEVAL_EVALUATION_RESOURCE = "db/migration/V7__retrieval-evaluation.sql";
+    private static final String IDENTITY_RBAC_RESOURCE = "db/migration/V8__identity-rbac.sql";
+    private static final String API_KEY_AUDIT_RESOURCE = "db/migration/V9__api-key-audit.sql";
 
     private final JdbcTemplate jdbc;
     private final DataSource dataSource;
@@ -141,7 +143,22 @@ public class DatabaseMigrationRunner {
                         checksum(7, "retrieval-evaluation", readResource(RETRIEVAL_EVALUATION_RESOURCE)
                                 + "|retrieval_evaluation_runs_kb:tenant_id,knowledge_base_id,created_at"
                                 + "|retrieval_evaluation_samples_run:tenant_id,knowledge_base_id,run_id,seq"),
-                        this::createRetrievalEvaluationStorage)
+                        this::createRetrievalEvaluationStorage),
+                new MigrationDefinition(
+                        8,
+                        "identity-rbac",
+                        checksum(8, "identity-rbac", readResource(IDENTITY_RBAC_RESOURCE)
+                                + "|tenant_memberships_subject:subject,tenant_id"),
+                        this::createIdentityRbacStorage),
+                new MigrationDefinition(
+                        9,
+                        "api-key-audit",
+                        checksum(9, "api-key-audit", readResource(API_KEY_AUDIT_RESOURCE)
+                                + "|api_keys_tenant:tenant_id,created_at"
+                                + "|api_keys_hash:secret_hash"
+                                + "|audit_events_tenant_time:tenant_id,occurred_at"
+                                + "|audit_events_tenant_action:tenant_id,action,occurred_at"),
+                        this::createApiKeyAuditStorage)
         );
     }
 
@@ -251,6 +268,41 @@ public class DatabaseMigrationRunner {
         ensureIndex("retrieval_evaluation_samples", "retrieval_evaluation_samples_run", """
                 CREATE INDEX retrieval_evaluation_samples_run
                 ON retrieval_evaluation_samples (tenant_id, knowledge_base_id, run_id, seq)
+                """);
+    }
+
+    private void createIdentityRbacStorage() {
+        new ResourceDatabasePopulator(new ClassPathResource(IDENTITY_RBAC_RESOURCE)).execute(dataSource);
+        ensureIndex("tenant_memberships", "tenant_memberships_subject", """
+                CREATE INDEX tenant_memberships_subject
+                ON tenant_memberships (subject, tenant_id)
+                """);
+        Instant now = Instant.now();
+        try {
+            jdbc.update("INSERT INTO tenants (id, display_name, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                    com.xnlp.server.tenant.TenantContext.DEFAULT_TENANT_ID,
+                    "Default tenant", Timestamp.from(now), Timestamp.from(now));
+        } catch (org.springframework.dao.DuplicateKeyException ignored) {
+            // Existing installation already has the default tenant.
+        }
+    }
+
+    private void createApiKeyAuditStorage() {
+        String script = readResource(API_KEY_AUDIT_RESOURCE)
+                .replace("__LARGE_TEXT__", largeTextType());
+        new ResourceDatabasePopulator(new ByteArrayResource(script.getBytes(StandardCharsets.UTF_8)))
+                .execute(dataSource);
+        ensureIndex("api_keys", "api_keys_tenant", """
+                CREATE INDEX api_keys_tenant ON api_keys (tenant_id, created_at)
+                """);
+        ensureIndex("api_keys", "api_keys_hash", """
+                CREATE UNIQUE INDEX api_keys_hash ON api_keys (secret_hash)
+                """);
+        ensureIndex("audit_events", "audit_events_tenant_time", """
+                CREATE INDEX audit_events_tenant_time ON audit_events (tenant_id, occurred_at)
+                """);
+        ensureIndex("audit_events", "audit_events_tenant_action", """
+                CREATE INDEX audit_events_tenant_action ON audit_events (tenant_id, action, occurred_at)
                 """);
     }
 

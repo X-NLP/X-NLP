@@ -65,10 +65,21 @@ class ApiKeySecurityIntegrationTest {
         mockMvc.perform(get("/api/v1/models"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
-                .andExpect(content().json("{\"error\":\"unauthorized\",\"status\":401}"));
+                .andExpect(content().json("{\"error\":\"authentication_required\",\"status\":401}"));
 
         mockMvc.perform(get("/api/v1/models").header("X-API-Key", "integration-secret"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("authenticated API key principal exposes tenant and legacy admin roles")
+    void exposesCurrentIdentity() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/me").header("X-API-Key", "integration-secret"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("""
+                        {"activeTenant":"default","credentialType":"api-key",
+                         "roles":["ADMIN","DEVELOPER","VIEWER"]}
+                        """));
     }
 
     @Test

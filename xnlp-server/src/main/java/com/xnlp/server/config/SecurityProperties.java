@@ -1,41 +1,53 @@
 package com.xnlp.server.config;
 
+import com.xnlp.server.security.AuthenticationMode;
+import com.xnlp.server.security.TenantRole;
 import com.xnlp.server.tenant.TenantContext;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-/**
- * Runtime API security and tenant routing settings.
- *
- * <p>Authentication is deliberately opt-in so local development and existing
- * installations remain backwards compatible. Production deployments should
- * set {@code XNLP_SECURITY_ENABLED=true} and inject keys through
- * {@code XNLP_SECURITY_API_KEYS} or tenant mappings through
- * {@code XNLP_SECURITY_API_KEY_TENANTS}.</p>
- */
+/** Runtime authentication, authorization and tenant-routing settings. */
 @ConfigurationProperties(prefix = "xnlp.security")
 public class SecurityProperties {
 
     private boolean enabled;
+    private AuthenticationMode mode;
     private String headerName = "X-API-Key";
     private String tenantHeaderName = "X-Tenant-ID";
     private String defaultTenantId = TenantContext.DEFAULT_TENANT_ID;
     private List<String> apiKeys = new ArrayList<>();
     /** Map of tenant id -> API key. Values are compared in constant time. */
     private Map<String, String> apiKeyTenants = new LinkedHashMap<>();
+    private Jwt jwt = new Jwt();
 
     public boolean isEnabled() {
-        return enabled;
+        return effectiveMode() != AuthenticationMode.DISABLED;
     }
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public AuthenticationMode getMode() {
+        return mode;
+    }
+
+    public void setMode(AuthenticationMode mode) {
+        this.mode = mode;
+    }
+
+    public AuthenticationMode effectiveMode() {
+        return mode == null ? (enabled ? AuthenticationMode.API_KEY : AuthenticationMode.DISABLED) : mode;
     }
 
     public String getHeaderName() {
@@ -43,9 +55,7 @@ public class SecurityProperties {
     }
 
     public void setHeaderName(String headerName) {
-        if (headerName != null && !headerName.isBlank()) {
-            this.headerName = headerName.trim();
-        }
+        if (hasText(headerName)) this.headerName = headerName.trim();
     }
 
     public String getTenantHeaderName() {
@@ -53,9 +63,7 @@ public class SecurityProperties {
     }
 
     public void setTenantHeaderName(String tenantHeaderName) {
-        if (tenantHeaderName != null && !tenantHeaderName.isBlank()) {
-            this.tenantHeaderName = tenantHeaderName.trim();
-        }
+        if (hasText(tenantHeaderName)) this.tenantHeaderName = tenantHeaderName.trim();
     }
 
     public String getDefaultTenantId() {
@@ -79,51 +87,172 @@ public class SecurityProperties {
     }
 
     public void setApiKeyTenants(Map<String, String> apiKeyTenants) {
-        this.apiKeyTenants = apiKeyTenants == null
-                ? new LinkedHashMap<>() : new LinkedHashMap<>(apiKeyTenants);
+        this.apiKeyTenants = apiKeyTenants == null ? new LinkedHashMap<>() : new LinkedHashMap<>(apiKeyTenants);
     }
 
-    /**
-     * Fail closed at startup instead of running an apparently protected server
-     * that can never authenticate a request.
-     */
+    public Jwt getJwt() {
+        return jwt;
+    }
+
+    public void setJwt(Jwt jwt) {
+        this.jwt = jwt == null ? new Jwt() : jwt;
+    }
+
+    /** Fail closed when an enabled authentication mode is incomplete. */
     public void validate() {
         defaultTenantId = TenantContext.normalize(defaultTenantId);
-        if (enabled && apiKeys.stream().noneMatch(this::hasText)
-                && apiKeyTenants.entrySet().stream().noneMatch(entry -> hasText(entry.getKey()) && hasText(entry.getValue()))) {
-            throw new IllegalStateException(
-                    "xnlp.security.enabled=true requires at least one API key or tenant API key mapping");
+        AuthenticationMode effectiveMode = effectiveMode();
+        if (effectiveMode.acceptsApiKey() && !hasConfiguredApiKey()) {
+            throw new IllegalStateException(effectiveMode + " authentication requires at least one API key mapping");
+        }
+        if (effectiveMode.acceptsJwt()) {
+            jwt.validate();
         }
         for (String tenantId : apiKeyTenants.keySet()) {
             TenantContext.normalize(tenantId);
         }
     }
 
-    /** Return the tenant bound to a key, or {@code null} when the key is invalid. */
-    public String tenantFor(String candidate) {
-        if (!hasText(candidate)) {
-            return null;
-        }
+    public ApiKeyIdentity identityFor(String candidate) {
+        if (!effectiveMode().acceptsApiKey() || !hasText(candidate)) return null;
         byte[] actual = candidate.trim().getBytes(StandardCharsets.UTF_8);
         for (Map.Entry<String, String> entry : apiKeyTenants.entrySet()) {
             if (!hasText(entry.getKey()) || !hasText(entry.getValue())) continue;
-            byte[] expected = entry.getValue().trim().getBytes(StandardCharsets.UTF_8);
-            if (MessageDigest.isEqual(expected, actual)) {
-                return TenantContext.normalize(entry.getKey());
+            if (MessageDigest.isEqual(entry.getValue().trim().getBytes(StandardCharsets.UTF_8), actual)) {
+                String tenantId = TenantContext.normalize(entry.getKey());
+                return new ApiKeyIdentity("api-key:" + tenantId, tenantId,
+                        Set.of(TenantRole.ADMIN, TenantRole.DEVELOPER, TenantRole.VIEWER));
             }
         }
-        return apiKeys.stream()
+        boolean matchesLegacyKey = apiKeys.stream()
                 .filter(this::hasText)
                 .map(key -> key.trim().getBytes(StandardCharsets.UTF_8))
-                .anyMatch(expected -> MessageDigest.isEqual(expected, actual))
-                ? defaultTenantId : null;
+                .anyMatch(expected -> MessageDigest.isEqual(expected, actual));
+        return matchesLegacyKey
+                ? new ApiKeyIdentity("api-key:" + defaultTenantId, defaultTenantId,
+                Set.of(TenantRole.ADMIN, TenantRole.DEVELOPER, TenantRole.VIEWER))
+                : null;
+    }
+
+    public String tenantFor(String candidate) {
+        ApiKeyIdentity identity = identityFor(candidate);
+        return identity == null ? null : identity.tenantId();
     }
 
     public boolean matches(String candidate) {
-        return tenantFor(candidate) != null;
+        return identityFor(candidate) != null;
+    }
+
+    private boolean hasConfiguredApiKey() {
+        return apiKeys.stream().anyMatch(this::hasText)
+                || apiKeyTenants.entrySet().stream()
+                .anyMatch(entry -> hasText(entry.getKey()) && hasText(entry.getValue()));
     }
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    public record ApiKeyIdentity(String subject, String tenantId, Set<TenantRole> roles) {
+        public ApiKeyIdentity {
+            roles = Set.copyOf(roles);
+        }
+    }
+
+    public static class Jwt {
+        private String issuerUri;
+        private String jwkSetUri;
+        private String audience;
+        private String tenantClaim = "tenant_id";
+        private String rolesClaim = "roles";
+        private Duration clockSkew = Duration.ofSeconds(60);
+        private Set<TenantRole> defaultRoles = new LinkedHashSet<>(Set.of(TenantRole.VIEWER));
+
+        public String getIssuerUri() {
+            return issuerUri;
+        }
+
+        public void setIssuerUri(String issuerUri) {
+            this.issuerUri = trimToNull(issuerUri);
+        }
+
+        public String getJwkSetUri() {
+            return jwkSetUri;
+        }
+
+        public void setJwkSetUri(String jwkSetUri) {
+            this.jwkSetUri = trimToNull(jwkSetUri);
+        }
+
+        public String getAudience() {
+            return audience;
+        }
+
+        public void setAudience(String audience) {
+            this.audience = trimToNull(audience);
+        }
+
+        public String getTenantClaim() {
+            return tenantClaim;
+        }
+
+        public void setTenantClaim(String tenantClaim) {
+            if (hasTextStatic(tenantClaim)) this.tenantClaim = tenantClaim.trim();
+        }
+
+        public String getRolesClaim() {
+            return rolesClaim;
+        }
+
+        public void setRolesClaim(String rolesClaim) {
+            if (hasTextStatic(rolesClaim)) this.rolesClaim = rolesClaim.trim();
+        }
+
+        public Duration getClockSkew() {
+            return clockSkew;
+        }
+
+        public void setClockSkew(Duration clockSkew) {
+            this.clockSkew = clockSkew;
+        }
+
+        public Set<TenantRole> getDefaultRoles() {
+            return Set.copyOf(defaultRoles);
+        }
+
+        public void setDefaultRoles(Set<TenantRole> defaultRoles) {
+            this.defaultRoles = defaultRoles == null ? new LinkedHashSet<>() : new LinkedHashSet<>(defaultRoles);
+        }
+
+        Set<TenantRole> parseRoles(Object claim) {
+            Set<TenantRole> roles = new LinkedHashSet<>();
+            if (claim instanceof Iterable<?> values) {
+                values.forEach(value -> addRole(roles, value));
+            } else if (claim instanceof String value) {
+                Arrays.stream(value.split("[ ,]")).forEach(role -> addRole(roles, role));
+            }
+            return roles.isEmpty() ? Set.copyOf(defaultRoles) : Set.copyOf(roles);
+        }
+
+        private void validate() {
+            if (!hasTextStatic(issuerUri)) throw new IllegalStateException("JWT authentication requires issuer-uri");
+            if (!hasTextStatic(audience)) throw new IllegalStateException("JWT authentication requires audience");
+            if (clockSkew == null || clockSkew.isNegative() || clockSkew.compareTo(Duration.ofMinutes(5)) > 0) {
+                throw new IllegalStateException("JWT clock-skew must be between 0 and 5 minutes");
+            }
+            if (defaultRoles.isEmpty()) throw new IllegalStateException("JWT default-roles must not be empty");
+        }
+
+        private static void addRole(Set<TenantRole> roles, Object value) {
+            if (value != null && !value.toString().isBlank()) roles.add(TenantRole.parse(value.toString()));
+        }
+
+        private static String trimToNull(String value) {
+            return hasTextStatic(value) ? value.trim() : null;
+        }
+
+        private static boolean hasTextStatic(String value) {
+            return value != null && !value.isBlank();
+        }
     }
 }

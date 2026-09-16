@@ -1,11 +1,15 @@
 package com.xnlp.server.config;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.xnlp.core.errors.*;
 import com.xnlp.core.rag.RagContractException;
 import com.xnlp.core.rag.RagErrorCode;
 import com.xnlp.core.runtime.NlpRuntimeErrorCode;
 import com.xnlp.core.runtime.NlpRuntimeException;
 import com.xnlp.server.dto.ApiErrorResponse;
+import com.xnlp.server.security.SecurityResourceException;
+import com.xnlp.server.security.TenantMembershipException;
+import com.xnlp.server.security.TenantRole;
 import com.xnlp.server.waste.WasteWorkflowException;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
@@ -16,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DataAccessException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -89,6 +94,36 @@ public class GlobalExceptionHandler {
         return simpleError(HttpStatus.CONFLICT, "workflow_conflict", e.getMessage(), request);
     }
 
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handle(AccessDeniedException e, HttpServletRequest request) {
+        return simpleError(HttpStatus.FORBIDDEN, "forbidden",
+                "The authenticated principal is not permitted to perform this operation", request);
+    }
+
+    @ExceptionHandler(SecurityResourceException.class)
+    public ResponseEntity<ApiErrorResponse> handle(SecurityResourceException e, HttpServletRequest request) {
+        return switch (e.reason()) {
+            case API_KEY_NOT_FOUND -> simpleError(
+                    HttpStatus.NOT_FOUND, "api_key_not_found", e.getMessage(), request);
+            case API_KEY_LIMIT_EXCEEDED -> simpleError(
+                    HttpStatus.CONFLICT, "api_key_limit_exceeded", e.getMessage(), request);
+            case API_KEY_INVALID -> simpleError(
+                    HttpStatus.BAD_REQUEST, "api_key_invalid", e.getMessage(), request);
+        };
+    }
+
+    @ExceptionHandler(TenantMembershipException.class)
+    public ResponseEntity<ApiErrorResponse> handle(TenantMembershipException e, HttpServletRequest request) {
+        return switch (e.reason()) {
+            case MEMBERSHIP_NOT_FOUND -> simpleError(
+                    HttpStatus.NOT_FOUND, "membership_not_found", e.getMessage(), request);
+            case LAST_ADMIN_REQUIRED -> simpleError(
+                    HttpStatus.CONFLICT, "last_admin_required", e.getMessage(), request);
+            case ROLE_INVALID -> simpleError(
+                    HttpStatus.BAD_REQUEST, "role_invalid", e.getMessage(), request);
+        };
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handle(MethodArgumentNotValidException e, HttpServletRequest request) {
         List<ApiErrorResponse.FieldViolation> violations = e.getBindingResult().getFieldErrors().stream()
@@ -121,6 +156,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiErrorResponse> handle(HttpMessageNotReadableException e, HttpServletRequest request) {
+        if (hasInvalidTenantRole(e)) {
+            return simpleError(HttpStatus.BAD_REQUEST, "role_invalid",
+                    "Tenant membership contains an unsupported role", request);
+        }
         return simpleError(HttpStatus.BAD_REQUEST, "malformed_request", "Request body is malformed", request);
     }
 
@@ -224,6 +263,24 @@ public class GlobalExceptionHandler {
             case CONFIGURATION, MODEL_NOT_FOUND, CHECKSUM_MISMATCH, MODEL_INVALID,
                     NOT_READY, CLOSED, SATURATED -> HttpStatus.SERVICE_UNAVAILABLE;
         };
+    }
+
+    private static boolean hasInvalidTenantRole(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof InvalidFormatException invalidFormat
+                    && (invalidFormat.getTargetType() == TenantRole.class
+                    || invalidFormat.getPath().stream().anyMatch(
+                    reference -> "roles".equals(reference.getFieldName())))) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null && message.contains(TenantRole.class.getName())) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private static String safeMessage(Exception e) {

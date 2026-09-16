@@ -5,6 +5,7 @@ import com.xnlp.core.rag.RagErrorCode;
 import com.xnlp.core.runtime.NlpRuntimeErrorCode;
 import com.xnlp.core.runtime.NlpRuntimeException;
 import com.xnlp.server.dto.ApiErrorResponse;
+import com.xnlp.server.security.TenantMembershipException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
@@ -86,6 +87,20 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().detail()).containsEntry("runtimeError", "nlp_runtime_timeout")
                 .containsEntry("runtime", "onnx-sentiment");
         assertThat(response.getBody().requestId()).isEqualTo("req-onnx");
+    }
+
+    @Test
+    void membershipFailure_UsesStableConflictContract() {
+        when(noTracer.getIfAvailable()).thenReturn(null);
+        GlobalExceptionHandler handler = new GlobalExceptionHandler(noTracer());
+
+        ResponseEntity<ApiErrorResponse> response = handler.handle(
+                TenantMembershipException.lastAdminRequired(), requestWithId("req-membership"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().error()).isEqualTo("last_admin_required");
+        assertThat(response.getBody().requestId()).isEqualTo("req-membership");
     }
 
     @Test
