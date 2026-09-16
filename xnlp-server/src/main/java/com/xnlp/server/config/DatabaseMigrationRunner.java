@@ -48,6 +48,7 @@ public class DatabaseMigrationRunner {
     private static final String RETRIEVAL_EVALUATION_RESOURCE = "db/migration/V7__retrieval-evaluation.sql";
     private static final String IDENTITY_RBAC_RESOURCE = "db/migration/V8__identity-rbac.sql";
     private static final String API_KEY_AUDIT_RESOURCE = "db/migration/V9__api-key-audit.sql";
+    private static final String TENANT_QUOTA_RESOURCE = "db/migration/V10__tenant-quota.sql";
 
     private final JdbcTemplate jdbc;
     private final DataSource dataSource;
@@ -158,7 +159,12 @@ public class DatabaseMigrationRunner {
                                 + "|api_keys_hash:secret_hash"
                                 + "|audit_events_tenant_time:tenant_id,occurred_at"
                                 + "|audit_events_tenant_action:tenant_id,action,occurred_at"),
-                        this::createApiKeyAuditStorage)
+                        this::createApiKeyAuditStorage),
+                new MigrationDefinition(
+                        10,
+                        "tenant-quota",
+                        checksum(10, "tenant-quota", readResource(TENANT_QUOTA_RESOURCE)),
+                        this::createTenantQuotaStorage)
         );
     }
 
@@ -304,6 +310,10 @@ public class DatabaseMigrationRunner {
         ensureIndex("audit_events", "audit_events_tenant_action", """
                 CREATE INDEX audit_events_tenant_action ON audit_events (tenant_id, action, occurred_at)
                 """);
+    }
+
+    private void createTenantQuotaStorage() {
+        new ResourceDatabasePopulator(new ClassPathResource(TENANT_QUOTA_RESOURCE)).execute(dataSource);
     }
 
     private void upgradeIngestionControl() {

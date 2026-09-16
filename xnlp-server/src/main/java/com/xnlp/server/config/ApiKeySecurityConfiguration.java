@@ -2,6 +2,8 @@ package com.xnlp.server.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xnlp.server.dto.ApiErrorResponse;
+import com.xnlp.server.quota.QuotaEnforcementFilter;
+import com.xnlp.server.quota.QuotaGuard;
 import com.xnlp.server.security.ApiKeyService;
 import com.xnlp.server.security.AuthenticationMode;
 import com.xnlp.server.security.TenantMembershipRepository;
@@ -65,16 +67,19 @@ public class ApiKeySecurityConfiguration {
     private final ObjectMapper objectMapper;
     private final TenantMembershipRepository memberships;
     private final ApiKeyService apiKeys;
+    private final QuotaGuard quotaGuard;
 
     public ApiKeySecurityConfiguration(
             SecurityProperties properties,
             ObjectMapper objectMapper,
             TenantMembershipRepository memberships,
-            ApiKeyService apiKeys) {
+            ApiKeyService apiKeys,
+            QuotaGuard quotaGuard) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.memberships = memberships;
         this.apiKeys = apiKeys;
+        this.quotaGuard = quotaGuard;
         properties.validate();
     }
 
@@ -102,7 +107,8 @@ public class ApiKeySecurityConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .requestCache(requestCache -> requestCache.disable())
                 .securityContext(securityContext -> securityContext.requireExplicitSave(false))
-                .addFilterAfter(new TenantContextFilter(properties), AnonymousAuthenticationFilter.class);
+                .addFilterAfter(new TenantContextFilter(properties), AnonymousAuthenticationFilter.class)
+                .addFilterAfter(new QuotaEnforcementFilter(quotaGuard), TenantContextFilter.class);
 
         if (mode == AuthenticationMode.DISABLED) {
             http.authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll());

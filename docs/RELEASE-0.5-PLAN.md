@@ -164,6 +164,14 @@ Release 0.5 将 X-NLP 从“具备工程能力的单体工作台”升级为可�
 - repository/service/HTTP/迁移测试覆盖明文不落库、过期/撤销、轮换 grace、租户隔离、脱敏和审计过滤；完整 `mvn clean verify` 通过。
 
 
+### T-03 实施记录（2026-09-16）
+
+- V10 新增租户配额、固定窗口用量和并发 lease 表，提供 JDBC/memory repository；条件更新确保多实例共享窗口原子领取，lease 支持释放和过期回收；
+- 新增 `GET/PUT /api/v1/tenants/{tenantId}/quota`，只允许同租户 ADMIN 查看和更新请求、模型调用、知识导入及并发额度；
+- 请求 guard 已接入安全过滤链：按 UTC 分钟限制请求、用 TTL lease 限制并发，拒绝响应使用 HTTP 429、`Retry-After` 及稳定错误码；未配置配额的既有租户保持兼容不受限；
+- 定向 repository/guard/HTTP/迁移测试覆盖原子竞争、租户隔离、lease 释放/过期、跨租户拒绝和非法配置。
+
+
 ## 7. 跨任务 Quality Gate
 
 - `mvn -B -ntp verify`，新增 core/server/client/CLI 合同测试；
