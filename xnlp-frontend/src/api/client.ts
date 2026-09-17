@@ -82,6 +82,77 @@ function subscribeToJsonEvents<T>(
   return () => controller.abort();
 }
 
+function subscribeToPipelineEvents(
+  runId: string,
+  onEvent: (event: PipelineRunEvent) => void,
+  onError?: (error: Error) => void,
+  initialLastEventId = 0,
+): () => void {
+  const controller = new AbortController();
+  const delivered = new Set<number>();
+  let lastEventId = initialLastEventId;
+
+  const wait = (milliseconds: number) => new Promise<void>(resolve => {
+    const timer = window.setTimeout(resolve, milliseconds);
+    controller.signal.addEventListener('abort', () => {
+      window.clearTimeout(timer);
+      resolve();
+    }, { once: true });
+  });
+
+  void (async () => {
+    let reconnectDelay = 750;
+    while (!controller.signal.aborted) {
+      try {
+        const response = await fetch(`${BASE}/pipeline-runs/${segment(runId)}/events`, {
+          headers: headers({ headers: {
+            Accept: 'text/event-stream',
+            'Last-Event-ID': String(lastEventId),
+          } }),
+          signal: controller.signal,
+        });
+        if (!response.ok || !response.body) {
+          throw new Error(`${response.status}: ${await response.text()}`);
+        }
+
+        reconnectDelay = 750;
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (!controller.signal.aborted) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
+          const frames = buffer.split('\n\n');
+          buffer = frames.pop() || '';
+          for (const frame of frames) {
+            let frameId: number | undefined;
+            const data: string[] = [];
+            for (const line of frame.split('\n')) {
+              if (line.startsWith('id:')) frameId = Number(line.slice(3).trim());
+              if (line.startsWith('data:')) data.push(line.slice(5).trimStart());
+            }
+            if (!data.length) continue;
+            const event = JSON.parse(data.join('\n')) as PipelineRunEvent;
+            const eventId = Number.isFinite(frameId) ? frameId! : event.id;
+            if (!Number.isFinite(eventId) || eventId <= lastEventId || delivered.has(eventId)) continue;
+            delivered.add(eventId);
+            lastEventId = eventId;
+            onEvent({ ...event, id: eventId });
+          }
+        }
+      } catch (error) {
+        if (controller.signal.aborted) break;
+        onError?.(error instanceof Error ? error : new Error(String(error)));
+        reconnectDelay = Math.min(reconnectDelay * 2, 10000);
+      }
+      if (!controller.signal.aborted) await wait(reconnectDelay);
+    }
+  })();
+
+  return () => controller.abort();
+}
+
 // ---- Models ----
 export const modelsApi = {
   list: () => request<any[]>('/models'),
@@ -289,10 +360,140 @@ export const evaluationsApi = {
 };
 
 // ---- Pipelines ----
+export type PipelineRunStatus =
+  | 'queued'
+  | 'running'
+  | 'cancelling'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+export type PipelineNodeRunStatus =
+  | 'pending'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'timed_out'
+  | 'cancelled';
+
+export interface PipelineRunEdge {
+  sourceNodeId: string;
+  targetNodeId: string;
+  sourceOutput?: string | null;
+  targetInput?: string | null;
+}
+
+export interface PipelineNodeAttempt {
+  attempt: number;
+  status: PipelineNodeRunStatus | string;
+  input: Record<string, unknown>;
+  output: Record<string, unknown>;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  durationMs?: number | null;
+}
+
+export interface PipelineNodeRun {
+  nodeId: string;
+  capability: string;
+  status: PipelineNodeRunStatus | string;
+  attempt: number;
+  maxAttempts: number;
+  input: Record<string, unknown>;
+  output: Record<string, unknown>;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  durationMs?: number | null;
+}
+
+export interface PipelineRun {
+  id: string;
+  pipelineId: string;
+  pipelineVersion: number;
+  status: PipelineRunStatus | string;
+  input: Record<string, unknown>;
+  output: Record<string, unknown>;
+  cancelRequested: boolean;
+  nodes: PipelineNodeRun[];
+  edges?: PipelineRunEdge[];
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  createdAt: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+}
+
+export interface PipelineRunEvent {
+  id: number;
+  runId: string;
+  type: string;
+  status?: string | null;
+  nodeId?: string | null;
+  attempt?: number | null;
+  detail: Record<string, unknown>;
+  occurredAt: string;
+}
+
+export interface PipelineNodeTrace {
+  nodeId: string;
+  capability: string;
+  status: PipelineNodeRunStatus | string;
+  attempts: PipelineNodeAttempt[];
+  output: Record<string, unknown>;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+}
+
+export interface PipelineTrace {
+  traceId: string;
+  runId: string;
+  pipelineId: string;
+  pipelineVersion: number;
+  status: PipelineRunStatus | string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  durationMs?: number | null;
+  nodes: PipelineNodeTrace[];
+  events: PipelineRunEvent[];
+}
+
+export interface PipelineRunFilters {
+  status?: string;
+  pipelineId?: string;
+}
+
 export const pipelinesApi = {
   capabilities: () => request<any[]>('/pipelines/capabilities'),
   execute: (payload: any) =>
     request<any>('/pipelines/execute', { method: 'POST', body: JSON.stringify(payload) }),
+  listRuns: async (filters?: PipelineRunFilters) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.pipelineId) params.set('pipelineId', filters.pipelineId);
+    const query = params.toString();
+    const response = await request<PipelineRun[] | PageResponse<PipelineRun>>(
+      `/pipeline-runs${query ? `?${query}` : ''}`,
+    );
+    return Array.isArray(response) ? response : response.items ?? response.entries ?? [];
+  },
+  getRun: (runId: string) => request<PipelineRun>(`/pipeline-runs/${segment(runId)}`),
+  cancelRun: (runId: string) => request<PipelineRun>(`/pipeline-runs/${segment(runId)}/cancel`, {
+    method: 'POST',
+  }),
+  subscribeToRunEvents: (
+    runId: string,
+    onEvent: (event: PipelineRunEvent) => void,
+    onError?: (error: Error) => void,
+    lastEventId = 0,
+  ) => subscribeToPipelineEvents(runId, onEvent, onError, lastEventId),
+  trace: (runId: string) => request<PipelineTrace>(
+    `/pipeline-runs/${segment(runId)}/trace?format=json`,
+    { headers: { Accept: 'application/json' } },
+  ),
 };
 
 // ---- NLP Tasks ----

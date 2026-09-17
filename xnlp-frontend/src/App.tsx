@@ -14,6 +14,7 @@ const Playground = lazy(() => import('./pages/Playground'))
 const Benchmark = lazy(() => import('./pages/Benchmark'))
 const NlpWorkbench = lazy(() => import('./pages/NlpWorkbench'))
 const WasteFlow = lazy(() => import('./pages/WasteFlow'))
+const PipelineRuns = lazy(() => import('./pages/PipelineRuns'))
 
 function RouteLoading() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="/datasets" element={<Datasets />} />
           <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/evaluation" element={<Evaluation />} />
+          <Route path="/pipeline-runs" element={<PipelineRuns />} />
           <Route path="/canvas" element={<Canvas />} />
           <Route path="/compare" element={<Compare />} />
           <Route path="/waste" element={<WasteFlow />} />
