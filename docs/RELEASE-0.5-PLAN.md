@@ -143,6 +143,14 @@ Release 0.5 将 X-NLP 从“具备工程能力的单体工作台”升级为可�
 | T-08 Secret/备份/对象存储 | `codex/release-0.5-t-08-platform-adapters` | audit、quota | secret reference SPI、backup job、object store SPI | T-02～T-03 | 默认 fixture 无云依赖；恢复演练；禁止路径穿越和 secret 泄漏 |
 | T-09 供应链与发布门禁 | `codex/release-0.5-t-09-supply-chain` | 全部实现 | 0.5 版本、SBOM、签名、升级/回滚/DoD | T-01～T-08 | Maven/前端/三 DB/Playwright/Helm/images/Trivy/SBOM 全绿 |
 
+### T-07 实施记录（2026-09-17）
+
+- 新增 Pipeline 运行审计工作台与导航，提供状态过滤、刷新、空态/错误态和响应式运行详情。
+- DAG 详情展示节点状态、attempt 时间/错误、运行事件时间线；活动运行通过 SSE 使用 `Last-Event-ID` 自动重连并去重。
+- 支持取消活动运行和下载终态 JSON trace，成功、失败、取消状态使用稳定且可访问的视觉语义。
+- 后端新增 tenant-scoped `GET /pipeline-runs` 分页/状态/pipeline 过滤和 `GET /pipelines/{id}`，JDBC 与 memory repository 使用一致稳定排序。
+- Playwright 覆盖成功、失败、取消、SSE 重连去重和 390px 窄屏无横向溢出。
+
 ### T-06 实施记录（2026-09-16）
 
 - 新增 V13 Pipeline DAG 持久化：definition/version、nodes/edges、run、node attempt 和可重放 event，统一提供 `JdbcTemplate`/内存 repository 合同并按 tenant 隔离。

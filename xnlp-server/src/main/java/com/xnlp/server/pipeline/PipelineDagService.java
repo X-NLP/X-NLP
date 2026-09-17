@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xnlp.core.api.ComponentResult;
 import com.xnlp.core.api.NlpContext;
+import com.xnlp.server.dto.PageResponse;
 import com.xnlp.server.dto.pipeline.*;
 import com.xnlp.server.nlp.CapabilityRegistry;
 import com.xnlp.server.pipeline.dag.*;
@@ -104,6 +105,30 @@ public class PipelineDagService {
             execute(tenantId, runId);
         }));
         return runResponse(run, definition, List.of());
+    }
+
+    public PipelineResponse get(String pipelineId) {
+        String tenantId = tenant();
+        authorization.require(tenantId, TenantRole.ADMIN, TenantRole.DEVELOPER, TenantRole.VIEWER);
+        return response(repository.findDefinition(tenantId, pipelineId)
+                .orElseThrow(PipelineDagException::pipelineNotFound));
+    }
+
+    public PageResponse<PipelineRunResponse> listRuns(
+            String status, String pipelineId, int page, int size) {
+        String tenantId = tenant();
+        authorization.require(tenantId, TenantRole.ADMIN, TenantRole.DEVELOPER, TenantRole.VIEWER);
+        PipelineRunStatus statusFilter = parseStatus(status);
+        PipelineRunPage result = repository.findRuns(tenantId, statusFilter, pipelineId, page, size);
+        Map<String, PipelineDefinition> definitions = new HashMap<>();
+        List<PipelineRunResponse> items = result.items().stream().map(run -> {
+            String key = run.pipelineId() + '\u0000' + run.pipelineVersion();
+            PipelineDefinition definition = definitions.computeIfAbsent(key, ignored ->
+                    repository.findDefinitionVersion(tenantId, run.pipelineId(), run.pipelineVersion())
+                            .orElseThrow(PipelineDagException::pipelineNotFound));
+            return runResponse(run, definition, repository.findNodeAttempts(tenantId, run.runId()));
+        }).toList();
+        return PageResponse.of(items, page, size, result.total());
     }
 
     public PipelineRunResponse getRun(String runId) {
@@ -406,6 +431,15 @@ public class PipelineDagService {
         repository.appendEvent(new PipelineRunEvent(tenantId, runId, 0, type, nodeId, attempt, json(detail), Instant.now()));
     }
 
+
+    private static PipelineRunStatus parseStatus(String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return PipelineRunStatus.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Unknown pipeline run status: " + value);
+        }
+    }
 
     private static String resolveCapability(String capability) {
         return CAPABILITY_ALIASES.getOrDefault(capability.toUpperCase(Locale.ROOT), capability);

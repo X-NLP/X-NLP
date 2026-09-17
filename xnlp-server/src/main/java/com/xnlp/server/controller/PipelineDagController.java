@@ -1,8 +1,10 @@
 package com.xnlp.server.controller;
 
+import com.xnlp.server.dto.PageResponse;
 import com.xnlp.server.dto.pipeline.*;
 import com.xnlp.server.pipeline.PipelineDagService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.*;
 import org.springframework.validation.annotation.Validated;
@@ -12,6 +14,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RestController
 @Validated
 public class PipelineDagController {
+    private static final int MAX_PAGE = 10_000_000;
     private final PipelineDagService pipelines;
 
     public PipelineDagController(PipelineDagService pipelines) { this.pipelines = pipelines; }
@@ -20,6 +23,11 @@ public class PipelineDagController {
     public ResponseEntity<PipelineResponse> create(@Valid @RequestBody PipelineCreateRequest request) {
         PipelineResponse response = pipelines.create(request);
         return ResponseEntity.created(java.net.URI.create("/api/v1/pipelines/" + response.id())).body(response);
+    }
+
+    @GetMapping("/api/v1/pipelines/{id}")
+    public PipelineResponse get(@PathVariable String id) {
+        return pipelines.get(id);
     }
 
     @PutMapping("/api/v1/pipelines/{id}")
@@ -32,6 +40,15 @@ public class PipelineDagController {
                                                     @Valid @RequestBody PipelineRunCreateRequest request) {
         PipelineRunResponse response = pipelines.start(id, request);
         return ResponseEntity.accepted().location(java.net.URI.create("/api/v1/pipeline-runs/" + response.id())).body(response);
+    }
+
+    @GetMapping("/api/v1/pipeline-runs")
+    public PageResponse<PipelineRunResponse> runs(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String pipelineId,
+            @RequestParam(defaultValue = "0") @Min(0) @Max(MAX_PAGE) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
+        return pipelines.listRuns(status, pipelineId, page, size);
     }
 
     @GetMapping("/api/v1/pipeline-runs/{runId}")

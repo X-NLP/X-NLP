@@ -76,6 +76,34 @@ class PipelineRepositoryContractTest {
         }
 
         @Test
+        void runQuery_IsTenantScopedFilteredPagedAndDeterministicallyOrdered() {
+            PipelineRepository repository = repository();
+            repository.createDefinition(definition("tenant-a", "pipeline", "Pipeline", NOW));
+            repository.createDefinition(definition("tenant-a", "other", "Other", NOW));
+            repository.createDefinition(definition("tenant-b", "pipeline", "Other tenant", NOW));
+            repository.createRun(run("tenant-a", "run-c", "pipeline", NOW.plusSeconds(2)));
+            repository.createRun(run("tenant-a", "run-b", "pipeline", NOW.plusSeconds(2)));
+            repository.createRun(run("tenant-a", "run-a", "pipeline", NOW.plusSeconds(3)));
+            repository.createRun(run("tenant-a", "other-run", "other", NOW.plusSeconds(4)));
+            repository.createRun(run("tenant-b", "hidden", "pipeline", NOW.plusSeconds(5)));
+            repository.compareAndSetRunStatus("tenant-a", "run-a", PipelineRunStatus.QUEUED,
+                    PipelineRunStatus.RUNNING, 0, NOW.plusSeconds(4), null, null, null);
+
+            PipelineRunPage first = repository.findRuns("tenant-a", null, "pipeline", 0, 2);
+            PipelineRunPage second = repository.findRuns("tenant-a", null, "pipeline", 1, 2);
+            PipelineRunPage running = repository.findRuns("tenant-a", PipelineRunStatus.RUNNING, null, 0, 10);
+            PipelineRunPage hidden = repository.findRuns("tenant-b", null, null, 0, 10);
+
+            assertThat(first.total()).isEqualTo(3);
+            assertThat(first.items()).extracting(PipelineRun::runId).containsExactly("run-a", "run-b");
+            assertThat(second.total()).isEqualTo(3);
+            assertThat(second.items()).extracting(PipelineRun::runId).containsExactly("run-c");
+            assertThat(running.items()).extracting(PipelineRun::runId).containsExactly("run-a");
+            assertThat(hidden.items()).extracting(PipelineRun::runId).containsExactly("hidden");
+            assertThat(repository.findRuns("tenant-a", null, "missing", 0, 10).total()).isZero();
+        }
+
+        @Test
         void runCasAndCancellation_ProtectTerminalStateAndLateNodeWrites() {
             PipelineRepository repository = repository();
             repository.createDefinition(definition("tenant-a", "pipeline", "Pipeline", NOW));
@@ -224,7 +252,11 @@ class PipelineRepositoryContractTest {
     }
 
     private static PipelineRun run(String tenant, String runId, Instant now) {
-        return new PipelineRun(tenant, runId, "pipeline", 0, PipelineRunStatus.QUEUED,
+        return run(tenant, runId, "pipeline", now);
+    }
+
+    private static PipelineRun run(String tenant, String runId, String pipelineId, Instant now) {
+        return new PipelineRun(tenant, runId, pipelineId, 0, PipelineRunStatus.QUEUED,
                 "{\"text\":\"input\"}", null, null, null, false, 0,
                 "alice", now, null, now, null);
     }

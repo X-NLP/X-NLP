@@ -18,6 +18,9 @@ public interface PipelineRepository {
 
     Optional<PipelineRun> findRun(String tenantId, String runId);
 
+    PipelineRunPage findRuns(
+            String tenantId, PipelineRunStatus status, String pipelineId, int page, int size);
+
     List<PipelineRun> findRecoverableRuns();
 
     boolean compareAndSetRunStatus(

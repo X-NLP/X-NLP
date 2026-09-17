@@ -80,6 +80,26 @@ public class InMemoryPipelineRepository implements PipelineRepository {
     }
 
     @Override
+    public synchronized PipelineRunPage findRuns(
+            String tenantId, PipelineRunStatus status, String pipelineId, int page, int size) {
+        validatePage(page, size);
+        String scopedTenant = PipelinePersistenceSupport.text(tenantId, "tenantId", 64);
+        String scopedPipeline = pipelineId == null ? null
+                : PipelinePersistenceSupport.text(pipelineId, "pipelineId", 64);
+        List<PipelineRun> matches = runs.values().stream()
+                .filter(run -> run.tenantId().equals(scopedTenant))
+                .filter(run -> status == null || run.status() == status)
+                .filter(run -> scopedPipeline == null || run.pipelineId().equals(scopedPipeline))
+                .sorted(Comparator.comparing(PipelineRun::createdAt).reversed()
+                        .thenComparing(PipelineRun::runId))
+                .toList();
+        long offset = (long) page * size;
+        int from = (int) Math.min(matches.size(), offset);
+        int to = (int) Math.min(matches.size(), offset + size);
+        return new PipelineRunPage(matches.subList(from, to), matches.size());
+    }
+
+    @Override
     public synchronized List<PipelineRun> findRecoverableRuns() {
         return runs.values().stream()
                 .filter(run -> !run.status().terminal())
@@ -182,6 +202,11 @@ public class InMemoryPipelineRepository implements PipelineRepository {
                 .filter(event -> event.sequence() > afterSequence)
                 .limit(limit)
                 .toList();
+    }
+
+    private static void validatePage(int page, int size) {
+        if (page < 0) throw new IllegalArgumentException("page must not be negative");
+        if (size < 1) throw new IllegalArgumentException("size must be positive");
     }
 
     private static PipelineDefinition copyDefinition(

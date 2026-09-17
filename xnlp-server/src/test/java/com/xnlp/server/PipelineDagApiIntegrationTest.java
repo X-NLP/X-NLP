@@ -163,6 +163,52 @@ class PipelineDagApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("run audit list is tenant scoped, filtered and paged")
+    void pipelineRun_List_AppliesTenantFiltersAndStablePaging() throws Exception {
+        String firstPipeline = locationId(createPipeline(TENANT_A_KEY, linearPipeline("First"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getHeader("Location"));
+        String secondPipeline = locationId(createPipeline(TENANT_A_KEY, linearPipeline("Second"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getHeader("Location"));
+        String hiddenPipeline = locationId(createPipeline(TENANT_B_KEY, linearPipeline("Hidden"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getHeader("Location"));
+        runId(firstPipeline);
+        runId(firstPipeline);
+        runId(secondPipeline);
+        runId(hiddenPipeline, TENANT_B_KEY);
+
+        mockMvc.perform(get("/api/v1/pipeline-runs")
+                        .header(API_KEY_HEADER, TENANT_A_KEY)
+                        .queryParam("pipelineId", firstPipeline)
+                        .queryParam("page", "0")
+                        .queryParam("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].pipelineId").value(firstPipeline))
+                .andExpect(jsonPath("$.total").value(2))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.hasNext").value(true));
+
+        mockMvc.perform(get("/api/v1/pipeline-runs")
+                        .header(API_KEY_HEADER, TENANT_A_KEY)
+                        .queryParam("status", "completed")
+                        .queryParam("page", "0")
+                        .queryParam("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(3))
+                .andExpect(jsonPath("$.items[*].pipelineId",
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(hiddenPipeline))));
+
+        mockMvc.perform(get("/api/v1/pipelines/{id}", firstPipeline)
+                        .header(API_KEY_HEADER, TENANT_A_KEY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(firstPipeline))
+                .andExpect(jsonPath("$.nodes.length()").value(2));
+        mockMvc.perform(get("/api/v1/pipelines/{id}", hiddenPipeline)
+                        .header(API_KEY_HEADER, TENANT_A_KEY))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     @DisplayName("event replay and JSON trace expose ordered attempts and stable errors")
     void pipelineRun_EventsAndTrace_ExposeResumableObservabilityContracts() throws Exception {
         String pipelineId = locationId(createPipeline(TENANT_A_KEY, linearPipeline("Observable"))
@@ -243,7 +289,21 @@ class PipelineDagApiIntegrationTest {
                         .content(runRequest()))
                 .andExpect(status().isAccepted())
                 .andReturn().getResponse().getHeader("Location");
-        return locationId(location);
+        String runId = locationId(location);
+        waitForTerminal(runId, key);
+        return runId;
+    }
+
+    private void waitForTerminal(String runId, String key) throws Exception {
+        for (int attempt = 0; attempt < 200; attempt++) {
+            String body = mockMvc.perform(get("/api/v1/pipeline-runs/{runId}", runId)
+                            .header(API_KEY_HEADER, key))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            String state = com.jayway.jsonpath.JsonPath.read(body, "$.status");
+            if (java.util.Set.of("completed", "failed", "cancelled").contains(state)) return;
+            Thread.sleep(10);
+        }
+        throw new AssertionError("Pipeline run did not become terminal: " + runId);
     }
 
     private static String locationId(String location) {

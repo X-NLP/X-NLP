@@ -14,6 +14,7 @@ import {
   FlaskConical,
   Gauge,
   Workflow,
+  GitBranch,
   Truck,
   X,
 } from 'lucide-react'
@@ -30,6 +31,7 @@ const navItems = [
   { to: '/datasets', labelKey: 'nav.datasets', icon: Database },
   { to: '/knowledge', labelKey: 'nav.knowledge', icon: LibraryBig },
   { to: '/evaluation', labelKey: 'nav.evaluation', icon: FlaskConical },
+  { to: '/pipeline-runs', labelKey: 'nav.pipelineRuns', icon: GitBranch },
   { to: '/canvas', labelKey: 'nav.canvas', icon: Workflow },
   { to: '/compare', labelKey: 'nav.compare', icon: GitCompare },
   { to: '/waste', labelKey: 'nav.waste', icon: Truck },

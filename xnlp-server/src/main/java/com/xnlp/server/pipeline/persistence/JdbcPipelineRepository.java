@@ -12,6 +12,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -128,6 +129,34 @@ public class JdbcPipelineRepository implements PipelineRepository {
                 SELECT * FROM pipeline_runs WHERE tenant_id = ? AND run_id = ?
                 """, this::mapRun, tenant(tenantId), id(runId, "runId", 64));
         return rows.stream().findFirst();
+    }
+
+    @Override
+    public PipelineRunPage findRuns(
+            String tenantId, PipelineRunStatus status, String pipelineId, int page, int size) {
+        validatePage(page, size);
+        String scopedTenant = tenant(tenantId);
+        String scopedPipeline = pipelineId == null ? null : id(pipelineId, "pipelineId", 64);
+        StringBuilder where = new StringBuilder(" WHERE tenant_id = ?");
+        List<Object> parameters = new ArrayList<>();
+        parameters.add(scopedTenant);
+        if (status != null) {
+            where.append(" AND status = ?");
+            parameters.add(status.name());
+        }
+        if (scopedPipeline != null) {
+            where.append(" AND pipeline_id = ?");
+            parameters.add(scopedPipeline);
+        }
+        Long total = jdbc.queryForObject("SELECT COUNT(*) FROM pipeline_runs" + where,
+                Long.class, parameters.toArray());
+        List<Object> pageParameters = new ArrayList<>(parameters);
+        pageParameters.add(size);
+        pageParameters.add(Math.multiplyExact((long) page, size));
+        List<PipelineRun> items = jdbc.query("SELECT * FROM pipeline_runs" + where
+                        + " ORDER BY created_at DESC, run_id ASC LIMIT ? OFFSET ?",
+                this::mapRun, pageParameters.toArray());
+        return new PipelineRunPage(items, total == null ? 0 : total);
     }
 
     @Override
@@ -357,6 +386,11 @@ public class JdbcPipelineRepository implements PipelineRepository {
         } catch (DuplicateKeyException ignored) {
             // Tenant already exists.
         }
+    }
+
+    private static void validatePage(int page, int size) {
+        if (page < 0) throw new IllegalArgumentException("page must not be negative");
+        if (size < 1) throw new IllegalArgumentException("size must be positive");
     }
 
     private static String tenant(String value) {
